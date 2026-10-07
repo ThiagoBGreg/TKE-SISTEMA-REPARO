@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { QuickRepairRequestDialog } from '@/components/home/QuickRepairRequestDialog';
 
 export default function HomePage() {
   return (
@@ -11,10 +12,18 @@ export default function HomePage() {
           </div>
           <div>
             <span className="font-bold text-lg tracking-tight">TKE</span>
-            <span className="text-xs text-slate-400 block -mt-1 font-medium">Sistema de Reparo & APR</span>
+            <span className="text-xs text-slate-400 block -mt-1 font-medium">
+              Sistema de Reparo & APR
+            </span>
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard/subcontratado/historico"
+            className="hidden sm:inline-block text-xs font-semibold text-slate-400 hover:text-white px-3 py-2 rounded-lg transition hover:bg-slate-800"
+          >
+            Portal do Subcontratado
+          </Link>
           <Link
             href="/login"
             className="text-xs font-semibold text-slate-300 hover:text-white px-4 py-2 rounded-lg transition hover:bg-slate-800"
@@ -45,33 +54,57 @@ export default function HomePage() {
         </h1>
 
         <p className="text-slate-400 text-base sm:text-lg max-w-2xl mx-auto leading-relaxed">
-          Fluxo digital completo de ponta a ponta: emissão de Permissão de Trabalho (PT/APR), assinaturas com geolocalização, controle de suprimentos, frotas DLOG e aprovação técnica OSH.
+          Fluxo digital completo de ponta a ponta: emissão de Permissão de Trabalho (PT/APR), assinaturas com geolocalização, upload de evidências no Google Drive e extratos mensais.
         </p>
 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
+          {/* Modal Rápido de Abertura com RBAC */}
+          <QuickRepairRequestDialog />
+
           <Link
             href="/dashboard/reparo/pt"
-            className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold text-sm px-6 py-3.5 rounded-xl shadow-lg shadow-red-600/30 transition transform active:scale-95"
+            className="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-bold text-sm px-6 py-3.5 rounded-xl transition"
           >
             ✍️ Emitir PT / APR Digital
           </Link>
+
           <Link
-            href="/login"
-            className="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-semibold text-sm px-6 py-3.5 rounded-xl transition"
+            href="/dashboard/subcontratado/historico"
+            className="bg-slate-900/70 hover:bg-slate-800 border border-slate-700/80 text-emerald-400 font-semibold text-sm px-5 py-3.5 rounded-xl transition flex items-center gap-1.5"
           >
-            Selecionar Perfil / Login
+            <span>💼</span> Portal do Prestador
           </Link>
         </div>
 
         {/* Departamentos Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-12 text-left">
           {[
-            { tag: 'REPARO', desc: 'Ordens de Serviço e Manutenção', color: 'border-red-500/30 bg-red-950/20 text-red-300' },
-            { tag: 'SERVIÇOS', desc: 'Comercial e Engenharia', color: 'border-blue-500/30 bg-blue-950/20 text-blue-300' },
-            { tag: 'OSH', desc: 'Segurança e Laudos NR', color: 'border-amber-500/30 bg-amber-950/20 text-amber-300' },
-            { tag: 'DLOG', desc: 'Logística e Motoristas', color: 'border-emerald-500/30 bg-emerald-950/20 text-emerald-300' },
-            { tag: 'ADM', desc: 'Pagamento Subcontratados', color: 'border-purple-500/30 bg-purple-950/20 text-purple-300' },
+            {
+              tag: 'REPARO',
+              desc: 'Ordens de Serviço e Manutenção',
+              color: 'border-red-500/30 bg-red-950/20 text-red-300',
+            },
+            {
+              tag: 'SERVIÇOS',
+              desc: 'Comercial e Engenharia',
+              color: 'border-blue-500/30 bg-blue-950/20 text-blue-300',
+            },
+            {
+              tag: 'OSH',
+              desc: 'Segurança e Laudos NR',
+              color: 'border-amber-500/30 bg-amber-950/20 text-amber-300',
+            },
+            {
+              tag: 'DLOG',
+              desc: 'Logística e Motoristas',
+              color: 'border-emerald-500/30 bg-emerald-950/20 text-emerald-300',
+            },
+            {
+              tag: 'ADM',
+              desc: 'Pagamento Subcontratados',
+              color: 'border-purple-500/30 bg-purple-950/20 text-purple-300',
+            },
           ].map((item) => (
             <div
               key={item.tag}

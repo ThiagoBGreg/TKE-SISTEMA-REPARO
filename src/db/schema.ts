@@ -4,6 +4,7 @@ import {
   index,
   integer,
   jsonb,
+  numeric,
   pgEnum,
   pgTable,
   text,
@@ -158,6 +159,7 @@ export const users = pgTable(
     nome: varchar('nome', { length: 255 }).notNull(),
     email: varchar('email', { length: 255 }).notNull(),
     telefone: varchar('telefone', { length: 30 }),
+    documento: varchar('documento', { length: 30 }), // CPF ou CNPJ para extratos
     avatarUrl: text('avatar_url'),
     departamento: departmentEnum('departamento').notNull(),
     cargo: userRoleEnum('cargo').notNull(),
@@ -187,12 +189,18 @@ export const serviceOrders = pgTable(
     descricao: text('descricao').notNull(),
     status: serviceOrderStatusEnum('status').default('PENDENTE').notNull(),
     prioridade: serviceOrderPriorityEnum('prioridade').default('MEDIA').notNull(),
+    categoriaReparo: varchar('categoria_reparo', { length: 100 }), // Cabos de Aço, Motor/Tração, Troca de Óleo, etc.
 
     // Identificação do Equipamento / Cliente
     clienteNome: varchar('cliente_nome', { length: 255 }),
     clienteUnidade: varchar('cliente_unidade', { length: 255 }),
     equipamentoNumero: varchar('equipamento_numero', { length: 100 }),
     localizacao: text('localizacao'),
+    temCasaDeMaquinas: boolean('tem_casa_de_maquinas').default(true),
+
+    // Aspectos Financeiros & Medições
+    valorServico: numeric('valor_servico', { precision: 10, scale: 2 }).default('0.00'),
+    statusFinanceiro: varchar('status_financeiro', { length: 50 }).default('PENDENTE').notNull(), // PENDENTE, APROVADO, LIQUIDADO
 
     // Responsáveis e Atores da OS
     criadoPorId: uuid('criado_por_id')
@@ -231,6 +239,7 @@ export const serviceOrders = pgTable(
     index('service_orders_subcontratado_idx').on(table.subcontratadoId),
     index('service_orders_motorista_idx').on(table.motoristaId),
     index('service_orders_criado_por_idx').on(table.criadoPorId),
+    index('service_orders_financeiro_idx').on(table.statusFinanceiro),
     index('service_orders_created_at_idx').on(table.createdAt.desc()),
   ]
 );
@@ -309,6 +318,29 @@ export const serviceOrderAttachments = pgTable(
 );
 
 /**
+ * Tabela de Notificações Internas para Gestores e Equipes
+ */
+export const notifications = pgTable(
+  'notifications',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+    departamento: departmentEnum('departamento'),
+    titulo: varchar('titulo', { length: 255 }).notNull(),
+    mensagem: text('mensagem').notNull(),
+    link: text('link'),
+    lida: boolean('lida').default(false).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('notifications_user_idx').on(table.userId),
+    index('notifications_dept_idx').on(table.departamento),
+    index('notifications_lida_idx').on(table.lida),
+    index('notifications_created_at_idx').on(table.createdAt.desc()),
+  ]
+);
+
+/**
  * Tabela de Auditoria e Histórico da Ordem de Serviço
  */
 export const serviceOrderHistory = pgTable(
@@ -322,7 +354,7 @@ export const serviceOrderHistory = pgTable(
       .references(() => users.id, { onDelete: 'set null' }),
     statusAnterior: serviceOrderStatusEnum('status_anterior'),
     statusNovo: serviceOrderStatusEnum('status_novo'),
-    acao: varchar('acao', { length: 100 }).notNull(), // Ex: 'MUDANCA_STATUS', 'EMISSAO_PT', 'UPLOAD_EVIDENCIAS', 'CARTA_CONCLUSAO'
+    acao: varchar('acao', { length: 100 }).notNull(),
     descricao: text('descricao').notNull(),
     alteracoes: jsonb('alteracoes')
       .$type<Record<string, { antes: unknown; depois: unknown }>>()
@@ -347,6 +379,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   ordensComoSubcontratado: many(serviceOrders, { relationName: 'subcontratado' }),
   ordensComoMotorista: many(serviceOrders, { relationName: 'motorista' }),
   anexosEnviados: many(serviceOrderAttachments, { relationName: 'uploadedBy' }),
+  notificacoes: many(notifications),
   historicoAlteracoes: many(serviceOrderHistory, { relationName: 'alteradoPor' }),
 }));
 
@@ -391,6 +424,13 @@ export const serviceOrderAttachmentsRelations = relations(serviceOrderAttachment
   }),
 }));
 
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  usuario: one(users, {
+    fields: [notifications.userId],
+    references: [users.id],
+  }),
+}));
+
 export const workPermitsRelations = relations(workPermits, ({ one }) => ({
   ordemServico: one(serviceOrders, {
     fields: [workPermits.serviceOrderId],
@@ -429,6 +469,10 @@ export type NewWorkPermit = InferInsertModel<typeof workPermits>;
 // Attachments (Google Drive)
 export type ServiceOrderAttachment = InferSelectModel<typeof serviceOrderAttachments>;
 export type NewServiceOrderAttachment = InferInsertModel<typeof serviceOrderAttachments>;
+
+// Notifications
+export type Notification = InferSelectModel<typeof notifications>;
+export type NewNotification = InferInsertModel<typeof notifications>;
 
 // Service Order History
 export type ServiceOrderHistory = InferSelectModel<typeof serviceOrderHistory>;

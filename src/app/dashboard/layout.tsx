@@ -38,6 +38,12 @@ const NAV_ITEMS = [
     departments: ['DLOG', 'REPARO'],
   },
   {
+    href: '/dashboard/subcontratado/historico',
+    label: 'Portal do Prestador',
+    icon: '💼',
+    departments: ['REPARO', 'ADMINISTRATIVO'],
+  },
+  {
     href: '/dashboard/pagamentos',
     label: 'Pagamentos Subcontratados',
     icon: '💳',
