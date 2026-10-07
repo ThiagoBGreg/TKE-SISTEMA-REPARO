@@ -2,6 +2,7 @@ import { relations, sql, type InferInsertModel, type InferSelectModel } from 'dr
 import {
   boolean,
   index,
+  integer,
   jsonb,
   pgEnum,
   pgTable,
@@ -94,6 +95,14 @@ export const workPermitStatusEnum = pgEnum('work_permit_status', [
   'APROVADA',
   'FINALIZADA',
   'CANCELADA',
+]);
+
+/**
+ * Categorias de Anexo/Evidência de Campo
+ */
+export const attachmentCategoryEnum = pgEnum('attachment_category', [
+  'FOTO_SERVICO',
+  'CARTA_CONCLUSAO',
 ]);
 
 /* ==========================================================================
@@ -252,7 +261,7 @@ export const workPermits = pgTable(
     assinaturaInicio: jsonb('assinatura_inicio').$type<DigitalSignature>().notNull(),
     assinaturaTermino: jsonb('assinatura_termino').$type<DigitalSignature>(),
 
-    // Payload Estruturado Completo (Checklists, Riscos, Ferramentas, EPCs, EPIs, etc.)
+    // Payload Estruturado Completo
     dadosCompletos: jsonb('dados_completos').$type<PtReparoFormData>().notNull(),
 
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -271,6 +280,35 @@ export const workPermits = pgTable(
 );
 
 /**
+ * Tabela de Anexos e Evidências Fotográficas (Armazenadas no Google Drive)
+ */
+export const serviceOrderAttachments = pgTable(
+  'service_order_attachments',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    serviceOrderId: uuid('service_order_id')
+      .references(() => serviceOrders.id, { onDelete: 'cascade' })
+      .notNull(),
+    uploadedById: uuid('uploaded_by_id')
+      .references(() => users.id, { onDelete: 'set null' }),
+    category: attachmentCategoryEnum('category').notNull(),
+    driveFileId: text('drive_file_id').notNull(),
+    driveViewUrl: text('drive_view_url').notNull(),
+    driveDownloadUrl: text('drive_download_url'),
+    fileName: text('file_name').notNull(),
+    fileSize: integer('file_size'),
+    mimeType: text('mime_type'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('so_attach_order_id_idx').on(table.serviceOrderId),
+    index('so_attach_category_idx').on(table.category),
+    index('so_attach_uploaded_by_idx').on(table.uploadedById),
+    index('so_attach_created_at_idx').on(table.createdAt.desc()),
+  ]
+);
+
+/**
  * Tabela de Auditoria e Histórico da Ordem de Serviço
  */
 export const serviceOrderHistory = pgTable(
@@ -284,7 +322,7 @@ export const serviceOrderHistory = pgTable(
       .references(() => users.id, { onDelete: 'set null' }),
     statusAnterior: serviceOrderStatusEnum('status_anterior'),
     statusNovo: serviceOrderStatusEnum('status_novo'),
-    acao: varchar('acao', { length: 100 }).notNull(), // Ex: 'MUDANCA_STATUS', 'EMISSAO_PT', 'FINALIZACAO_PT', 'APROVACAO_OSH'
+    acao: varchar('acao', { length: 100 }).notNull(), // Ex: 'MUDANCA_STATUS', 'EMISSAO_PT', 'UPLOAD_EVIDENCIAS', 'CARTA_CONCLUSAO'
     descricao: text('descricao').notNull(),
     alteracoes: jsonb('alteracoes')
       .$type<Record<string, { antes: unknown; depois: unknown }>>()
@@ -308,6 +346,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   ordensComoTecnico: many(serviceOrders, { relationName: 'responsavelTecnico' }),
   ordensComoSubcontratado: many(serviceOrders, { relationName: 'subcontratado' }),
   ordensComoMotorista: many(serviceOrders, { relationName: 'motorista' }),
+  anexosEnviados: many(serviceOrderAttachments, { relationName: 'uploadedBy' }),
   historicoAlteracoes: many(serviceOrderHistory, { relationName: 'alteradoPor' }),
 }));
 
@@ -336,7 +375,20 @@ export const serviceOrdersRelations = relations(serviceOrders, ({ one, many }) =
     fields: [serviceOrders.id],
     references: [workPermits.serviceOrderId],
   }),
+  anexos: many(serviceOrderAttachments),
   historico: many(serviceOrderHistory),
+}));
+
+export const serviceOrderAttachmentsRelations = relations(serviceOrderAttachments, ({ one }) => ({
+  ordemServico: one(serviceOrders, {
+    fields: [serviceOrderAttachments.serviceOrderId],
+    references: [serviceOrders.id],
+  }),
+  uploadedBy: one(users, {
+    fields: [serviceOrderAttachments.uploadedById],
+    references: [users.id],
+    relationName: 'uploadedBy',
+  }),
 }));
 
 export const workPermitsRelations = relations(workPermits, ({ one }) => ({
@@ -374,6 +426,10 @@ export type NewServiceOrder = InferInsertModel<typeof serviceOrders>;
 export type WorkPermit = InferSelectModel<typeof workPermits>;
 export type NewWorkPermit = InferInsertModel<typeof workPermits>;
 
+// Attachments (Google Drive)
+export type ServiceOrderAttachment = InferSelectModel<typeof serviceOrderAttachments>;
+export type NewServiceOrderAttachment = InferInsertModel<typeof serviceOrderAttachments>;
+
 // Service Order History
 export type ServiceOrderHistory = InferSelectModel<typeof serviceOrderHistory>;
 export type NewServiceOrderHistory = InferInsertModel<typeof serviceOrderHistory>;
@@ -385,3 +441,4 @@ export type UserStatus = (typeof userStatusEnum.enumValues)[number];
 export type ServiceOrderStatus = (typeof serviceOrderStatusEnum.enumValues)[number];
 export type ServiceOrderPriority = (typeof serviceOrderPriorityEnum.enumValues)[number];
 export type WorkPermitStatus = (typeof workPermitStatusEnum.enumValues)[number];
+export type AttachmentCategory = (typeof attachmentCategoryEnum.enumValues)[number];
