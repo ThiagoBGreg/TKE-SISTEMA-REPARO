@@ -158,12 +158,16 @@ export const users = pgTable(
     id: uuid('id').defaultRandom().primaryKey(),
     nome: varchar('nome', { length: 255 }).notNull(),
     email: varchar('email', { length: 255 }).notNull(),
+    senhaHash: text('senha_hash'),
     telefone: varchar('telefone', { length: 30 }),
     documento: varchar('documento', { length: 30 }), // CPF ou CNPJ para extratos
     avatarUrl: text('avatar_url'),
     departamento: departmentEnum('departamento').notNull(),
     cargo: userRoleEnum('cargo').notNull(),
-    status: userStatusEnum('status').default('ATIVO').notNull(),
+    status: userStatusEnum('status').default('PENDENTE').notNull(),
+    isAdmin: boolean('is_admin').default(false).notNull(),
+    aprovadoPorId: uuid('aprovado_por_id'),
+    dataAprovacao: timestamp('data_aprovacao', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .defaultNow()
@@ -174,6 +178,7 @@ export const users = pgTable(
     uniqueIndex('users_email_unique_idx').on(table.email),
     index('users_dept_cargo_idx').on(table.departamento, table.cargo),
     index('users_status_idx').on(table.status),
+    index('users_is_admin_idx').on(table.isAdmin),
   ]
 );
 

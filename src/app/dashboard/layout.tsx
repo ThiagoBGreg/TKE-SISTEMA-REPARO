@@ -49,6 +49,12 @@ const NAV_ITEMS = [
     icon: '💳',
     departments: ['ADMINISTRATIVO', 'REPARO'],
   },
+  {
+    href: '/dashboard/usuarios',
+    label: 'Aprovação de Cadastros',
+    icon: '👥',
+    departments: ['ADMINISTRATIVO', 'REPARO'],
+  },
 ];
 
 export default function DashboardLayout({
