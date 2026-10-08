@@ -406,16 +406,47 @@ export async function getPtReparosAction() {
       }
     }
 
-    const permitsWithCartas = permits.map((p) => {
+    // Busca fotos de serviço anexadas às Ordens de Serviço vinculadas
+    const fotosCountMap = new Map<string, number>();
+    if (soIds.length > 0) {
+      try {
+        const fotosAtt = await db
+          .select({
+            id: serviceOrderAttachments.id,
+            serviceOrderId: serviceOrderAttachments.serviceOrderId,
+          })
+          .from(serviceOrderAttachments)
+          .where(
+            and(
+              inArray(serviceOrderAttachments.serviceOrderId, soIds),
+              eq(serviceOrderAttachments.category, 'FOTO_SERVICO')
+            )
+          );
+
+        fotosAtt.forEach((f) => {
+          fotosCountMap.set(f.serviceOrderId, (fotosCountMap.get(f.serviceOrderId) || 0) + 1);
+        });
+      } catch (err) {
+        console.warn('[getPtReparosAction] Aviso ao contar fotos de serviço:', err);
+      }
+    }
+
+    const permitsWithCartasEFotos = permits.map((p) => {
       const cartaFromAttachment = p.serviceOrderId ? cartasMap.get(p.serviceOrderId) : null;
       const cartaFromDados = (p.dadosCompletos as any)?.cartaConclusao || null;
+
+      const fotosFromDados = ((p.dadosCompletos as any)?.fotosServico as any[]) || [];
+      const fotosFromAtt = p.serviceOrderId ? (fotosCountMap.get(p.serviceOrderId) || 0) : 0;
+      const totalFotos = Math.max(fotosFromDados.length, fotosFromAtt);
+
       return {
         ...p,
         cartaConclusao: cartaFromAttachment || cartaFromDados || null,
+        totalFotos,
       };
     });
 
-    return { success: true, permits: permitsWithCartas, isAdmin, isSubcontratado, currentUser: user };
+    return { success: true, permits: permitsWithCartasEFotos, isAdmin, isSubcontratado, currentUser: user };
   } catch (error) {
     console.error('[getPtReparosAction] Erro ao buscar PTs:', error);
     return { success: false, permits: [], isAdmin: false, isSubcontratado: false };

@@ -116,20 +116,16 @@ const styles = StyleSheet.create({
   },
 });
 
-interface PtReparoPdfProps {
+export interface PtReparoPdfProps {
   data: PtReparoFormData;
   codigoPT: string;
 }
 
-export function PtReparoPdfDocument({ data, codigoPT }: PtReparoPdfProps) {
+export function PtReparoPdfPage1({ data, codigoPT }: PtReparoPdfProps) {
   return (
-    <Document title={`Permissao_Trabalho_${codigoPT}`} author="TKE Elevadores">
-      {/* ====================================================================
-          PÁGINA 1
-          ==================================================================== */}
-      <Page size="A4" style={styles.page}>
-        {/* Cabeçalho */}
-        <View style={styles.headerTable}>
+    <Page size="A4" style={styles.page}>
+      {/* Cabeçalho */}
+      <View style={styles.headerTable}>
           <View style={styles.headerRow}>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 6.5, color: '#64748b' }}>
@@ -345,10 +341,11 @@ export function PtReparoPdfDocument({ data, codigoPT }: PtReparoPdfProps) {
           </Text>
         </View>
       </Page>
+    );
+  }
 
-      {/* ====================================================================
-          PÁGINA 2
-          ==================================================================== */}
+  export function PtReparoPdfPage2({ data, codigoPT }: PtReparoPdfProps) {
+    return (
       <Page size="A4" style={styles.page}>
         <View style={styles.headerTable}>
           {/* Circuitos Elétricos */}
@@ -499,6 +496,14 @@ export function PtReparoPdfDocument({ data, codigoPT }: PtReparoPdfProps) {
           </View>
         </View>
       </Page>
-    </Document>
-  );
-}
+    );
+  }
+
+  export function PtReparoPdfDocument({ data, codigoPT }: PtReparoPdfProps) {
+    return (
+      <Document title={`Permissao_Trabalho_${codigoPT}`} author="TKE Elevadores">
+        <PtReparoPdfPage1 data={data} codigoPT={codigoPT} />
+        <PtReparoPdfPage2 data={data} codigoPT={codigoPT} />
+      </Document>
+    );
+  }

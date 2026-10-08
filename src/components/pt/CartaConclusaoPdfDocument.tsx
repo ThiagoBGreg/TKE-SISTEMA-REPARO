@@ -152,7 +152,7 @@ export interface CartaConclusaoPdfProps {
   fotoBase64: string;
 }
 
-export function CartaConclusaoPdfDocument({
+export function CartaConclusaoPdfPage({
   codigoPT,
   contratoOrcamento,
   equipamento,
@@ -166,14 +166,9 @@ export function CartaConclusaoPdfDocument({
     : new Date().toLocaleString('pt-BR');
 
   return (
-    <Document
-      title={`Carta_Conclusao_${codigoPT}`}
-      author="TKE Elevadores - Move Beyond"
-      subject="Carta de Conclusão e Aceite de Serviço de Reparo"
-    >
-      <Page size="A4" style={styles.page}>
-        {/* Topo / Cabeçalho */}
-        <View style={styles.headerContainer}>
+    <Page size="A4" style={styles.page}>
+      {/* Topo / Cabeçalho */}
+      <View style={styles.headerContainer}>
           <View>
             <Text style={styles.brandTitle}>
               TKE <Text style={styles.brandAccent}>REPAROS</Text>
@@ -249,6 +244,17 @@ export function CartaConclusaoPdfDocument({
           </Text>
         </View>
       </Page>
-    </Document>
-  );
-}
+    );
+  }
+
+  export function CartaConclusaoPdfDocument(props: CartaConclusaoPdfProps) {
+    return (
+      <Document
+        title={`Carta_Conclusao_${props.codigoPT}`}
+        author="TKE Elevadores - Move Beyond"
+        subject="Carta de Conclusão e Aceite de Serviço de Reparo"
+      >
+        <CartaConclusaoPdfPage {...props} />
+      </Document>
+    );
+  }

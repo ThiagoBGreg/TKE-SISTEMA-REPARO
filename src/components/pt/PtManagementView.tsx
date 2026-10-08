@@ -33,6 +33,7 @@ export interface WorkPermitItem {
     driveViewUrl: string;
     driveDownloadUrl: string | null;
   } | null;
+  totalFotos?: number;
 }
 
 interface PtManagementViewProps {
@@ -784,8 +785,9 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
                       <th className="py-3.5 px-4">Equipamento</th>
                       <th className="py-3.5 px-4">Mão de Obra</th>
                       <th className="py-3.5 px-4">Status</th>
-                      <th className="py-3.5 px-4 text-center">Baixar PDF PT</th>
+                      <th className="py-3.5 px-4 text-center">Fotos do Serviço</th>
                       <th className="py-3.5 px-4 text-center">Carta de Conclusão</th>
+                      <th className="py-3.5 px-4 text-center">Relatório Conclusão (PDF)</th>
                       <th className="py-3.5 px-4 text-right">Ações</th>
                     </tr>
                   </thead>
@@ -793,6 +795,7 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
                     {filteredPermits.map((permit) => {
                       const isConcluido =
                         permit.status === 'CONCLUIDO' || permit.status === 'FINALIZADA';
+                      const qtdFotos = permit.totalFotos || ((permit.dadosCompletos as any)?.fotosServico?.length || 0);
 
                       return (
                         <tr key={permit.id} className="hover:bg-slate-50/80 transition">
@@ -849,18 +852,24 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
                             </span>
                           </td>
 
-                          {/* CAMPO DE BAIXAR EM PDF DA PT */}
+                          {/* CAMPO DE FOTOS DO SERVIÇO (LEVA PARA TELA DEDICADA) */}
                           <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                            <a
-                              href={`/api/pt/${permit.id}/pdf`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-xs hover:shadow-md transition active:scale-95"
-                              title="Baixar PDF Oficial da Permissão de Trabalho"
+                            <Link
+                              href={`/dashboard/reparo/pt/${permit.id}/fotos`}
+                              className={`inline-flex items-center gap-1.5 font-bold text-xs px-3 py-1.5 rounded-lg border transition shadow-2xs hover:scale-102 active:scale-98 ${
+                                qtdFotos > 0
+                                  ? 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200'
+                                  : 'bg-amber-50/80 hover:bg-amber-100 text-amber-800 border-amber-300'
+                              }`}
+                              title={
+                                qtdFotos > 0
+                                  ? `Visualizar e adicionar fotos (${qtdFotos} já salvas)`
+                                  : 'Adicionar fotos do serviço em tela dedicada'
+                              }
                             >
-                              <span>📄</span>
-                              <span>Baixar PDF</span>
-                            </a>
+                              <span>📷</span>
+                              <span>{qtdFotos > 0 ? `Fotos (${qtdFotos})` : '+ Enviar Fotos'}</span>
+                            </Link>
                           </td>
 
                           {/* CAMPO DE CARTA DE CONCLUSÃO (VISUALIZAR, BAIXAR E COMPARTILHAR) */}
@@ -932,6 +941,31 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
                                 <span>+ Enviar Carta</span>
                               </button>
                             )}
+                          </td>
+
+                          {/* CAMPO DE RELATÓRIO DE CONCLUSÃO EM PDF (JUNTA TUDO: APR + CARTA + FOTOS) */}
+                          <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                            <div className="inline-flex flex-col items-center justify-center gap-1">
+                              <a
+                                href={`/api/pt/${permit.id}/relatorio-conclusao`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white font-black text-xs px-3 py-1.5 rounded-lg shadow-xs hover:shadow-md transition active:scale-95"
+                                title="Gerar e Baixar Relatório Unificado de Conclusão (APR + Carta de Conclusão + Fotos do Serviço em PDF)"
+                              >
+                                <span>📑</span>
+                                <span>Relatório Completo</span>
+                              </a>
+                              <a
+                                href={`/api/pt/${permit.id}/pdf`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] text-slate-500 hover:text-slate-800 underline font-medium hover:font-semibold"
+                                title="Baixar apenas a folha da Permissão de Trabalho / APR"
+                              >
+                                Baixar apenas APR
+                              </a>
+                            </div>
                           </td>
 
                           {/* Ações */}
@@ -1048,8 +1082,31 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
                 </p>
               </div>
 
-              {/* Botão de Fechar e Botões de Baixar PDF e Carta */}
+              {/* Botão de Fechar e Botões de Baixar PDF, Carta, Fotos e Relatório Completo */}
               <div className="flex items-center gap-2 flex-wrap justify-end">
+                {/* 1. Botão para Tela de Fotos do Serviço */}
+                <Link
+                  href={`/dashboard/reparo/pt/${viewingPermit.id}/fotos`}
+                  className="inline-flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-bold text-xs px-3 sm:px-4 py-2 rounded-xl shadow-2xs hover:scale-102 active:scale-98 transition"
+                  title="Acessar galeria e envio de fotos do serviço"
+                >
+                  <span>📷</span>
+                  <span>Fotos do Serviço</span>
+                </Link>
+
+                {/* 2. Botão de Relatório de Conclusão Unificado em PDF (Dossiê Completo) */}
+                <a
+                  href={`/api/pt/${viewingPermit.id}/relatorio-conclusao`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white font-black text-xs px-3 sm:px-4 py-2 rounded-xl shadow-xs transition active:scale-98"
+                  title="Gerar Dossiê Completo juntando APR, Carta de Conclusão e Fotos do Serviço em PDF"
+                >
+                  <span>📑</span>
+                  <span>Relatório Completo (PDF)</span>
+                </a>
+
+                {/* 3. Botão Baixar Apenas PDF da PT */}
                 <a
                   href={`/api/pt/${viewingPermit.id}/pdf`}
                   target="_blank"
@@ -1057,18 +1114,18 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
                   className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 sm:px-4 py-2 rounded-xl shadow-xs transition"
                 >
                   <span>📄</span>
-                  <span>Baixar PDF PT</span>
+                  <span>Baixar PT (APR)</span>
                 </a>
                 {viewingPermit.cartaConclusao && (
                   <a
                     href={viewingPermit.cartaConclusao.driveDownloadUrl || viewingPermit.cartaConclusao.driveViewUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs px-3 sm:px-4 py-2 rounded-xl shadow-xs transition"
+                    className="inline-flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold text-xs px-3 sm:px-4 py-2 rounded-xl shadow-xs transition"
                     title={`Baixar Carta de Conclusão (${viewingPermit.cartaConclusao.fileName})`}
                   >
                     <span>📥</span>
-                    <span>Baixar Carta de Conclusão</span>
+                    <span>Carta de Conclusão</span>
                   </a>
                 )}
                 <button
