@@ -316,6 +316,166 @@ export async function updateUserApprovalAction(
     return { success: true };
   } catch (error) {
     console.error('[updateUserApprovalAction] Erro:', error);
-    return { success: false, error: 'Erro ao atualizar status do usuário.' };
+    return { success: false, error: 'Erro ao atualizar aprovação.' };
+  }
+}
+
+/**
+ * Server Action para obter o usuário da sessão com suporte total a UTF-8 no servidor
+ */
+export async function getCurrentUserAction(): Promise<AuthUser | null> {
+  try {
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get('tke_session')?.value;
+    if (!sessionCookie) return null;
+
+    const decodedStr = Buffer.from(sessionCookie, 'base64').toString('utf-8');
+    const user = JSON.parse(decodedStr) as AuthUser;
+    return user;
+  } catch (err) {
+    console.error('[getCurrentUserAction] Erro ao decodificar sessão:', err);
+    return null;
+  }
+}
+
+/**
+ * Busca todos os usuários cadastrados na plataforma (Uso Exclusivo do Administrador)
+ */
+export async function getAllUsersAction() {
+  try {
+    const allUsers = await db
+      .select({
+        id: users.id,
+        nome: users.nome,
+        email: users.email,
+        telefone: users.telefone,
+        documento: users.documento,
+        departamento: users.departamento,
+        cargo: users.cargo,
+        status: users.status,
+        isAdmin: users.isAdmin,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .orderBy(desc(users.createdAt));
+
+    return { success: true, users: allUsers };
+  } catch (error) {
+    console.error('[getAllUsersAction] Erro ao buscar usuários:', error);
+    return { success: false, users: [] };
+  }
+}
+
+export interface UpdateUserData {
+  id: string;
+  nome: string;
+  email: string;
+  telefone?: string;
+  documento?: string;
+  departamento: 'REPARO' | 'SERVICOS' | 'OSH' | 'DLOG' | 'ADMINISTRATIVO';
+  cargo: string;
+  status: 'ATIVO' | 'PENDENTE' | 'BLOQUEADO';
+  novaSenha?: string;
+}
+
+/**
+ * Atualiza todos os dados de um cadastro de usuário diretamente pela plataforma (Admin)
+ */
+export async function updateUserByAdminAction(data: UpdateUserData) {
+  try {
+    const updatePayload: Record<string, any> = {
+      nome: data.nome.trim(),
+      email: data.email.trim().toLowerCase(),
+      telefone: data.telefone?.trim() || null,
+      documento: data.documento?.trim() || null,
+      departamento: data.departamento,
+      cargo: data.cargo,
+      status: data.status,
+      updatedAt: new Date(),
+    };
+
+    if (data.novaSenha && data.novaSenha.trim().length >= 6) {
+      updatePayload.senhaHash = data.novaSenha.trim();
+    }
+
+    await db.update(users).set(updatePayload).where(eq(users.id, data.id));
+
+    revalidatePath('/dashboard/usuarios');
+    return { success: true };
+  } catch (error) {
+    console.error('[updateUserByAdminAction] Erro:', error);
+    return { success: false, error: 'Erro ao salvar alterações do usuário.' };
+  }
+}
+
+/**
+ * Cria um novo usuário diretamente pela plataforma com aprovação imediata (Admin)
+ */
+export async function createUserByAdminAction(data: {
+  nome: string;
+  email: string;
+  senha: string;
+  departamento: 'REPARO' | 'SERVICOS' | 'OSH' | 'DLOG' | 'ADMINISTRATIVO';
+  cargo: string;
+  telefone?: string;
+  documento?: string;
+  status?: 'ATIVO' | 'PENDENTE' | 'BLOQUEADO';
+}) {
+  try {
+    const emailSanitized = data.email.trim().toLowerCase();
+
+    const [existing] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, emailSanitized))
+      .limit(1);
+
+    if (existing) {
+      return {
+        success: false,
+        error: 'Já existe um colaborador cadastrado com este e-mail corporativo.',
+      };
+    }
+
+    const [novoUsuario] = await db
+      .insert(users)
+      .values({
+        nome: data.nome.trim(),
+        email: emailSanitized,
+        senhaHash: data.senha.trim(),
+        departamento: data.departamento,
+        cargo: data.cargo as any,
+        telefone: data.telefone?.trim() || null,
+        documento: data.documento?.trim() || null,
+        status: data.status || 'ATIVO',
+      })
+      .returning();
+
+    revalidatePath('/dashboard/usuarios');
+    return { success: true, user: novoUsuario };
+  } catch (error) {
+    console.error('[createUserByAdminAction] Erro:', error);
+    return { success: false, error: 'Erro ao cadastrar novo usuário.' };
+  }
+}
+
+/**
+ * Exclui o cadastro de um usuário do sistema (Admin)
+ */
+export async function deleteUserByAdminAction(userId: string) {
+  try {
+    if (userId === ADMIN_ID) {
+      return {
+        success: false,
+        error: 'O Administrador mestre do sistema não pode ser excluído.',
+      };
+    }
+
+    await db.delete(users).where(eq(users.id, userId));
+    revalidatePath('/dashboard/usuarios');
+    return { success: true };
+  } catch (error) {
+    console.error('[deleteUserByAdminAction] Erro:', error);
+    return { success: false, error: 'Erro ao excluir cadastro do banco de dados.' };
   }
 }

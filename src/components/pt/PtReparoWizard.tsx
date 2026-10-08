@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { submitPtReparoAction } from '@/actions/ptReparoActions';
+import { getAprConfigAction } from '@/actions/aprConfigActions';
+import type { AprRiskCategoryConfig, AprEpiConfig } from '@/db/schema';
 import { SignaturePad } from '@/components/pt/SignaturePad';
 import type { DigitalSignature, PtReparoFormData } from '@/lib/validations/ptReparoSchema';
 
@@ -112,6 +114,32 @@ export function PtReparoWizard({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [createdPtInfo, setCreatedPtInfo] = useState<{ id: string; codigo: string } | null>(null);
+
+  // Configurações Dinâmicas da APR carregadas do banco de dados (Gerenciadas pelo Administrador)
+  const [aprCategorias, setAprCategorias] = useState<AprRiskCategoryConfig[]>([]);
+  const [aprEpis, setAprEpis] = useState<AprEpiConfig[]>([]);
+  const [aprTitulo, setAprTitulo] = useState('APR Corporativa - TKE Reparos');
+  const [aprRevisao, setAprRevisao] = useState('REV-2026.1');
+  const [aprInstrucoes, setAprInstrucoes] = useState('');
+  const [aprRegras, setAprRegras] = useState<string[]>([]);
+  const [aprRespostasExtras, setAprRespostasExtras] = useState<Record<string, 'SIM' | 'NAO' | 'NAO_APLICAVEL'>>({});
+
+  useEffect(() => {
+    getAprConfigAction().then((res) => {
+      if (res.success && res.config) {
+        if (res.config.categoriasRisco && res.config.categoriasRisco.length > 0) {
+          setAprCategorias(res.config.categoriasRisco);
+        }
+        if (res.config.episDisponiveis && res.config.episDisponiveis.length > 0) {
+          setAprEpis(res.config.episDisponiveis);
+        }
+        if (res.config.titulo) setAprTitulo(res.config.titulo);
+        if (res.config.revisao) setAprRevisao(res.config.revisao);
+        if (res.config.instrucoesGerais) setAprInstrucoes(res.config.instrucoesGerais);
+        if (res.config.regrasDeOuro) setAprRegras(res.config.regrasDeOuro);
+      }
+    });
+  }, []);
 
   // Estado unificado do formulário - Campos em branco e sem pré-preenchimento
   const [formData, setFormData] = useState<PtReparoFormData>({
@@ -307,6 +335,137 @@ export function PtReparoWizard({
       ...prev,
       equipeReparo: prev.equipeReparo.filter((_, i) => i !== index),
     }));
+  };
+
+  // Helper para alternar se o risco de uma categoria é existente ou não
+  const handleToggleRiskCategoryExistente = (catId: string, existe: boolean) => {
+    setFormData((prev) => {
+      const copy = { ...prev, analiseRiscos: { ...prev.analiseRiscos } };
+      if (catId === 'ALTURA') copy.analiseRiscos.alturaRiscoExistente = existe;
+      else if (catId === 'ICAMENTO') copy.analiseRiscos.icamentoRiscoExistente = existe;
+      else if (catId === 'ELETRICA') copy.analiseRiscos.eletricaRiscoExistente = existe;
+      else if (catId === 'QUENTE') copy.analiseRiscos.quenteRiscoExistente = existe;
+      return copy;
+    });
+  };
+
+  // Helper para responder itens da APR (suporta itens nativos e novas perguntas criadas pelo Admin)
+  const handleUpdateRiskAnswer = (
+    catId: string,
+    itemId: string,
+    resposta: 'SIM' | 'NAO' | 'NAO_APLICAVEL'
+  ) => {
+    setAprRespostasExtras((prev) => ({ ...prev, [`${catId}_${itemId}`]: resposta }));
+
+    setFormData((prev) => {
+      const copy = { ...prev, analiseRiscos: { ...prev.analiseRiscos } };
+      if (catId === 'ALTURA') {
+        const keyMap: Record<string, keyof typeof copy.analiseRiscos.alturaItens> = {
+          '7.1': 'sinalizacaoPavimentos',
+          '7.2': 'dispositivosAncoragem',
+          '7.3': 'andaimeBoasCondicoes',
+          '7.4': 'protecoesColetivasCasaMaquinas',
+          '7.5': 'entornoSeguro',
+        };
+        const target = keyMap[itemId];
+        if (target) {
+          copy.analiseRiscos.alturaItens = { ...copy.analiseRiscos.alturaItens, [target]: resposta };
+        }
+      } else if (catId === 'ICAMENTO') {
+        const keyMap: Record<string, keyof typeof copy.analiseRiscos.icamentoItens> = {
+          '7.6': 'equipamentosAdequados',
+          '7.7': 'acessoriosAdequados',
+          '7.8': 'ganchosAtestados',
+          '7.9': 'redundanciaSeguranca',
+          '7.10': 'areaProjecaoIsolada',
+          '7.11': 'comunicacaoEquipe',
+        };
+        const target = keyMap[itemId];
+        if (target) {
+          copy.analiseRiscos.icamentoItens = { ...copy.analiseRiscos.icamentoItens, [target]: resposta };
+        }
+      } else if (catId === 'ELETRICA') {
+        const keyMap: Record<string, keyof typeof copy.analiseRiscos.eletricaItens> = {
+          '7.12': 'fiacaoIsolada',
+          '7.13': 'aterramentoEDR',
+          '7.14': 'kitBloqueioEletrico',
+          '7.15': 'exigeBloqueioEletrico',
+          '7.16': 'infiltracoesPresentes',
+        };
+        const target = keyMap[itemId];
+        if (target) {
+          copy.analiseRiscos.eletricaItens = { ...copy.analiseRiscos.eletricaItens, [target]: resposta };
+        }
+      } else if (catId === 'QUENTE') {
+        const keyMap: Record<string, keyof typeof copy.analiseRiscos.quenteItens> = {
+          '7.17': 'localDevidamenteIsolado',
+          '7.18': 'livreMateriaisIncendio',
+          '7.19': 'equipamentosCombateIncendioProximos',
+          '7.20': 'capacitacaoTrabalhoQuente',
+        };
+        const target = keyMap[itemId];
+        if (target) {
+          copy.analiseRiscos.quenteItens = { ...copy.analiseRiscos.quenteItens, [target]: resposta };
+        }
+      }
+      return copy;
+    });
+  };
+
+  const getRiskItemCurrentVal = (catId: string, itemId: string): 'SIM' | 'NAO' | 'NAO_APLICAVEL' => {
+    if (aprRespostasExtras[`${catId}_${itemId}`]) {
+      return aprRespostasExtras[`${catId}_${itemId}`];
+    }
+    if (catId === 'ALTURA') {
+      const keyMap: Record<string, keyof typeof formData.analiseRiscos.alturaItens> = {
+        '7.1': 'sinalizacaoPavimentos',
+        '7.2': 'dispositivosAncoragem',
+        '7.3': 'andaimeBoasCondicoes',
+        '7.4': 'protecoesColetivasCasaMaquinas',
+        '7.5': 'entornoSeguro',
+      };
+      const key = keyMap[itemId];
+      if (key && formData.analiseRiscos.alturaItens[key]) return formData.analiseRiscos.alturaItens[key];
+    } else if (catId === 'ICAMENTO') {
+      const keyMap: Record<string, keyof typeof formData.analiseRiscos.icamentoItens> = {
+        '7.6': 'equipamentosAdequados',
+        '7.7': 'acessoriosAdequados',
+        '7.8': 'ganchosAtestados',
+        '7.9': 'redundanciaSeguranca',
+        '7.10': 'areaProjecaoIsolada',
+        '7.11': 'comunicacaoEquipe',
+      };
+      const key = keyMap[itemId];
+      if (key && formData.analiseRiscos.icamentoItens[key]) return formData.analiseRiscos.icamentoItens[key];
+    } else if (catId === 'ELETRICA') {
+      const keyMap: Record<string, keyof typeof formData.analiseRiscos.eletricaItens> = {
+        '7.12': 'fiacaoIsolada',
+        '7.13': 'aterramentoEDR',
+        '7.14': 'kitBloqueioEletrico',
+        '7.15': 'exigeBloqueioEletrico',
+        '7.16': 'infiltracoesPresentes',
+      };
+      const key = keyMap[itemId];
+      if (key && formData.analiseRiscos.eletricaItens[key]) return formData.analiseRiscos.eletricaItens[key];
+    } else if (catId === 'QUENTE') {
+      const keyMap: Record<string, keyof typeof formData.analiseRiscos.quenteItens> = {
+        '7.17': 'localDevidamenteIsolado',
+        '7.18': 'livreMateriaisIncendio',
+        '7.19': 'equipamentosCombateIncendioProximos',
+        '7.20': 'capacitacaoTrabalhoQuente',
+      };
+      const key = keyMap[itemId];
+      if (key && formData.analiseRiscos.quenteItens[key]) return formData.analiseRiscos.quenteItens[key];
+    }
+    return 'NAO_APLICAVEL';
+  };
+
+  const isRiskCategoryExistente = (catId: string): boolean => {
+    if (catId === 'ALTURA') return formData.analiseRiscos.alturaRiscoExistente;
+    if (catId === 'ICAMENTO') return formData.analiseRiscos.icamentoRiscoExistente;
+    if (catId === 'ELETRICA') return formData.analiseRiscos.eletricaRiscoExistente;
+    if (catId === 'QUENTE') return formData.analiseRiscos.quenteRiscoExistente;
+    return true;
   };
 
   const handleSubmit = async () => {
@@ -676,6 +835,140 @@ export function PtReparoWizard({
                 ))}
               </div>
 
+              {/* 7. Análise Preliminar de Risco (APR Dinâmica do Banco de Dados) */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-5 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-orange-600 uppercase tracking-wider">
+                        {aprTitulo}
+                      </span>
+                      <span className="text-[10px] font-mono bg-white border border-slate-200 text-slate-700 px-1.5 py-0.5 rounded">
+                        {aprRevisao}
+                      </span>
+                    </div>
+                    <h3 className="text-sm font-bold text-slate-900 mt-0.5">
+                      7. Análise Preliminar de Risco (APR) - Verificação em Campo
+                    </h3>
+                  </div>
+                  {aprInstrucoes && (
+                    <p className="text-[11px] text-slate-500 max-w-md italic">
+                      ℹ️ {aprInstrucoes}
+                    </p>
+                  )}
+                </div>
+
+                {/* Categorias de Risco da APR */}
+                <div className="space-y-4">
+                  {aprCategorias
+                    .filter((cat) => cat.ativo)
+                    .map((cat) => {
+                      const isExistente = isRiskCategoryExistente(cat.id);
+
+                      return (
+                        <div
+                          key={cat.id}
+                          className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-3 shadow-2xs"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                            <div>
+                              <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                                <span>⚠️</span>
+                                <span>{cat.titulo}</span>
+                              </h4>
+                              {cat.descricao && (
+                                <p className="text-[11px] text-slate-500">{cat.descricao}</p>
+                              )}
+                            </div>
+
+                            {/* Toggle de Risco Existente */}
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-[11px] text-slate-600 font-medium">
+                                Risco Aplicável:
+                              </span>
+                              <div className="flex gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleRiskCategoryExistente(cat.id, true)}
+                                  className={`px-2.5 py-1 rounded text-[11px] font-bold transition ${
+                                    isExistente
+                                      ? 'bg-amber-500 text-white'
+                                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                  }`}
+                                >
+                                  SIM
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleRiskCategoryExistente(cat.id, false)}
+                                  className={`px-2.5 py-1 rounded text-[11px] font-bold transition ${
+                                    !isExistente
+                                      ? 'bg-slate-800 text-white'
+                                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                  }`}
+                                >
+                                  NÃO
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Perguntas da Categoria */}
+                          <div className="divide-y divide-slate-100">
+                            {cat.itens
+                              .filter((item) => item.ativo)
+                              .map((item) => {
+                                const currentVal = getRiskItemCurrentVal(cat.id, item.id);
+
+                                return (
+                                  <div
+                                    key={item.id}
+                                    className="flex flex-col sm:flex-row sm:items-center justify-between py-2 text-xs gap-2"
+                                  >
+                                    <div className="flex items-start gap-2">
+                                      <span className="text-[10px] font-mono text-slate-400 font-bold shrink-0 mt-0.5">
+                                        [{item.id}]
+                                      </span>
+                                      <span className="text-slate-800">
+                                        {item.label}
+                                        {item.obrigatorio && (
+                                          <span className="text-orange-600 font-bold ml-1">*</span>
+                                        )}
+                                      </span>
+                                    </div>
+
+                                    <div className="flex gap-1 shrink-0 self-end sm:self-center">
+                                      {(['SIM', 'NAO', 'NAO_APLICAVEL'] as const).map((opt) => (
+                                        <button
+                                          key={opt}
+                                          type="button"
+                                          onClick={() =>
+                                            handleUpdateRiskAnswer(cat.id, item.id, opt)
+                                          }
+                                          className={`px-2 py-0.5 rounded text-[10px] font-semibold transition ${
+                                            currentVal === opt
+                                              ? opt === 'SIM'
+                                                ? 'bg-emerald-600 text-white'
+                                                : opt === 'NAO'
+                                                ? 'bg-rose-600 text-white'
+                                                : 'bg-slate-700 text-white'
+                                              : 'bg-white border border-slate-300 text-slate-600 hover:bg-slate-50'
+                                          }`}
+                                        >
+                                          {opt === 'NAO_APLICAVEL' ? 'N/A' : opt}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+
               {/* 8, 9, 10: Ferramentais, EPCs e EPIs */}
               <div className="space-y-4">
                 <div>
@@ -723,24 +1016,50 @@ export function PtReparoWizard({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-900 mb-1.5">
-                    10. Equipamentos de Proteção Individual (EPIs) *
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-slate-900">
+                      10. Equipamentos de Proteção Individual (EPIs) *
+                    </label>
+                    <span className="text-[10px] text-slate-500">
+                      {formData.episSelecionados.length} selecionado(s)
+                    </span>
+                  </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                    {EPIS_LIST.map((epi) => (
-                      <button
-                        key={epi}
-                        type="button"
-                        onClick={() => toggleArrayItem('episSelecionados', epi)}
-                        className={`text-left text-xs p-2 rounded-lg border transition ${
-                          formData.episSelecionados.includes(epi)
-                            ? 'bg-emerald-50 border-emerald-500 text-emerald-900 font-semibold'
-                            : 'bg-white border-slate-200 text-slate-700'
-                        }`}
-                      >
-                        {formData.episSelecionados.includes(epi) ? '🦺' : '☐'} {epi}
-                      </button>
-                    ))}
+                    {(aprEpis.length > 0
+                      ? aprEpis.filter((e) => e.ativo).map((e) => e.nome)
+                      : EPIS_LIST
+                    ).map((epi) => {
+                      const selected = formData.episSelecionados.includes(epi);
+                      const epiConfig = aprEpis.find((e) => e.nome === epi);
+
+                      return (
+                        <button
+                          key={epi}
+                          type="button"
+                          onClick={() => toggleArrayItem('episSelecionados', epi)}
+                          className={`text-left text-xs p-2.5 rounded-xl border transition flex items-start justify-between gap-2 ${
+                            selected
+                              ? 'bg-emerald-50 border-emerald-500 text-emerald-950 font-semibold shadow-2xs'
+                              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <div>
+                            <div>{selected ? '🦺' : '☐'} {epi}</div>
+                            {epiConfig?.ca && (
+                              <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                                C.A. {epiConfig.ca}
+                              </div>
+                            )}
+                          </div>
+                          {epiConfig?.obrigatorioPadrao && (
+                            <span className="text-[9px] font-bold bg-orange-100 text-orange-800 px-1 py-0.5 rounded shrink-0">
+                              Obrigatório
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>

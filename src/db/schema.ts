@@ -458,6 +458,55 @@ export const serviceOrderHistoryRelations = relations(serviceOrderHistory, ({ on
 }));
 
 /* ==========================================================================
+   CONFIGURAÇÃO DINÂMICA DA APR (ANÁLISE PRELIMINAR DE RISCO)
+   ========================================================================== */
+
+export interface AprRiskItemConfig {
+  id: string; // Ex: '7.1', '7.2', 'custom_1'
+  label: string; // Pergunta ou texto do item
+  ajuda?: string;
+  obrigatorio?: boolean;
+  ativo?: boolean;
+}
+
+export interface AprRiskCategoryConfig {
+  id: string; // Ex: 'ALTURA', 'ICAMENTO', 'ELETRICA', 'QUENTE', 'CONFINADO'
+  titulo: string; // Ex: '7.1 Trabalho em Altura (NR-35)'
+  descricao?: string;
+  ativo?: boolean;
+  itens: AprRiskItemConfig[];
+}
+
+export interface AprEpiConfig {
+  id: string; // Ex: 'capacete', 'oculos', 'cinto_paraquedista'
+  nome: string;
+  categoria?: 'BASICO' | 'ALTURA' | 'ELETRICA' | 'QUENTE' | 'ESPECIAL' | string;
+  ca?: string;
+  obrigatorio?: boolean;
+  obrigatorioPadrao?: boolean;
+  ativo?: boolean;
+}
+
+/**
+ * Tabela de Configuração e Customização Dinâmica da APR (Análise Preliminar de Risco)
+ * Permite ao Administrador criar, editar, renomear e acrescentar itens, textos e opções de segurança direto pela plataforma
+ */
+export const aprConfigs = pgTable('apr_configs', {
+  id: varchar('id', { length: 50 }).primaryKey().default('default_apr_config'),
+  titulo: varchar('titulo', { length: 255 }).default('APR Corporativa - TKE Reparos').notNull(),
+  revisao: varchar('revisao', { length: 50 }).default('REV-2026.1').notNull(),
+  instrucoesGerais: text('instrucoes_gerais'),
+  regrasDeOuro: jsonb('regras_de_ouro').$type<string[]>(),
+  categoriasRisco: jsonb('categorias_risco').$type<AprRiskCategoryConfig[]>().notNull(),
+  episDisponiveis: jsonb('epis_disponiveis').$type<AprEpiConfig[]>().notNull(),
+  atualizadoPorNome: varchar('atualizado_por_nome', { length: 255 }),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
+});
+
+/* ==========================================================================
    5. INFERÊNCIA DE TIPOS TYPESCRIPT
    ========================================================================== */
 
@@ -484,6 +533,10 @@ export type NewNotification = InferInsertModel<typeof notifications>;
 // Service Order History
 export type ServiceOrderHistory = InferSelectModel<typeof serviceOrderHistory>;
 export type NewServiceOrderHistory = InferInsertModel<typeof serviceOrderHistory>;
+
+// APR Config
+export type AprConfig = InferSelectModel<typeof aprConfigs>;
+export type NewAprConfig = InferInsertModel<typeof aprConfigs>;
 
 // Enums
 export type Department = (typeof departmentEnum.enumValues)[number];

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { AuthUser } from '@/types/auth';
 import { RBACProvider } from '@/hooks/useRBAC';
 import { isSuperAdmin } from '@/lib/permissions';
+import { getCurrentUserAction } from '@/actions/authActions';
 
 const NAV_ITEMS = [
   {
@@ -35,7 +36,7 @@ const NAV_ITEMS = [
   {
     href: '/dashboard/osh',
     label: 'Segurança (OSH)',
-    icon: '🛡️',
+    icon: '🦺',
     departments: ['OSH', 'REPARO'],
   },
   {
@@ -58,11 +59,33 @@ const NAV_ITEMS = [
   },
   {
     href: '/dashboard/usuarios',
-    label: 'Aprovação de Cadastros',
+    label: 'Gestão de Cadastros',
     icon: '👥',
     departments: ['ADMINISTRATIVO', 'REPARO'],
   },
+  {
+    href: '/dashboard/apr-config',
+    label: 'Configurações da APR',
+    icon: '⚙️',
+    departments: ['ADMINISTRATIVO', 'OSH', 'REPARO'],
+  },
 ];
+
+function decodeSessionCookieSafe(cookieValue: string): AuthUser | null {
+  try {
+    const raw = decodeURIComponent(cookieValue);
+    const binary = atob(raw);
+    const bytes = Uint8Array.from(binary, (m) => m.charCodeAt(0));
+    const decodedStr = new TextDecoder().decode(bytes);
+    return JSON.parse(decodedStr) as AuthUser;
+  } catch {
+    try {
+      return JSON.parse(decodeURIComponent(escape(atob(cookieValue)))) as AuthUser;
+    } catch {
+      return null;
+    }
+  }
+}
 
 export default function DashboardLayout({
   children,
@@ -74,30 +97,43 @@ export default function DashboardLayout({
   const [user, setUser] = useState<AuthUser | null>(null);
 
   useEffect(() => {
-    // Lê a sessão do cookie client-side
+    let isMounted = true;
+
+    // 1. Tenta decodificar o cookie localmente de forma segura com suporte a UTF-8
     const cookies = document.cookie.split(';');
     const sessionCookie = cookies
       .find((c) => c.trim().startsWith('tke_session='))
       ?.split('=')[1];
 
     if (sessionCookie) {
-      try {
-        const decoded = JSON.parse(atob(sessionCookie)) as AuthUser;
-        setUser(decoded);
-      } catch {
-        setUser(null);
+      const clientDecoded = decodeSessionCookieSafe(sessionCookie);
+      if (clientDecoded && isMounted) {
+        setUser(clientDecoded);
       }
-    } else {
-      // Fallback default para demonstração caso não tenha cookie
-      setUser({
-        id: 'a0000000-0000-0000-0000-000000000001',
-        nome: 'Carlos Gestor Reparo',
-        email: 'gestor.reparo@tke.com',
-        departamento: 'REPARO',
-        cargo: 'GESTOR',
-        status: 'ATIVO',
-      });
     }
+
+    // 2. Consulta o servidor para garantir dados atualizados e consistentes
+    getCurrentUserAction().then((serverUser) => {
+      if (!isMounted) return;
+      if (serverUser) {
+        setUser(serverUser);
+      } else if (!sessionCookie) {
+        // Fallback default de segurança para visualização
+        setUser({
+          id: '00000000-0000-0000-0000-000000000001',
+          nome: 'Thiago Gregorio',
+          email: 'thiago.gregorio@tke.com',
+          departamento: 'ADMINISTRATIVO',
+          cargo: 'ADMINISTRATIVO',
+          status: 'ATIVO',
+          isAdmin: true,
+        });
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -190,22 +226,21 @@ export default function DashboardLayout({
 
           {/* User Profile & Logout */}
           <div className="pt-4 border-t border-slate-800 space-y-3">
-            {user && (
-              <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-tke-purple to-tke-orange flex items-center justify-center text-white font-black text-xs shrink-0 shadow-xs">
-                  {user.nome.charAt(0)}
+            <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80 flex items-center gap-2.5 shadow-inner">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-tke-purple to-tke-orange flex items-center justify-center text-white font-black text-sm shrink-0 shadow-md shadow-purple-500/20">
+                {user?.nome ? user.nome.charAt(0).toUpperCase() : '👤'}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-bold text-white truncate flex items-center gap-1.5">
+                  <span className="truncate">{user?.nome || 'Usuário Conectado'}</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" title="Online" />
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-bold text-white truncate flex items-center gap-1.5">
-                    <span>{user.nome}</span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                  </div>
-                  <div className="text-[10px] text-slate-400 truncate uppercase font-mono font-medium">
-                    {user.cargo} • {user.departamento}
-                  </div>
+                <div className="text-[10px] text-orange-400 font-bold truncate uppercase tracking-tight">
+                  {user?.cargo ? `${user.cargo} • ${user.departamento}` : 'CONECTADO'}
                 </div>
               </div>
-            )}
+            </div>
+
             <button
               type="button"
               onClick={handleLogout}
@@ -249,7 +284,7 @@ export default function DashboardLayout({
             <div className="flex items-center gap-2 sm:gap-3">
               <Link
                 href="/"
-                className="hidden sm:inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-800 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 transition"
+                className="hidden md:inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-800 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 transition"
               >
                 <span>🏠</span> Início
               </Link>
@@ -260,6 +295,21 @@ export default function DashboardLayout({
               >
                 <span>✍️</span> + Nova PT
               </Link>
+
+              {/* Card de Usuário Logado no Canto Superior Direito */}
+              <div className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-slate-200">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-tke-purple to-tke-orange flex items-center justify-center text-white font-black text-xs shrink-0 shadow-xs ring-2 ring-orange-500/20">
+                  {user?.nome ? user.nome.charAt(0).toUpperCase() : 'U'}
+                </div>
+                <div className="flex flex-col text-left max-w-[120px] sm:max-w-[170px]">
+                  <span className="text-xs font-bold text-slate-900 truncate leading-tight">
+                    {user?.nome || 'Usuário Conectado'}
+                  </span>
+                  <span className="text-[10px] font-bold text-orange-600 truncate uppercase tracking-wider">
+                    {user?.cargo || user?.departamento || 'OPERACIONAL'}
+                  </span>
+                </div>
+              </div>
             </div>
           </header>
 
