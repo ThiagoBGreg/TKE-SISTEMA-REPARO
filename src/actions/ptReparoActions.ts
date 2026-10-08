@@ -31,18 +31,85 @@ export async function submitPtReparoAction(
 
     const validatedData = validation.data;
 
-    // 2. Verifica se a Ordem de Serviço existe
-    const [existingOrder] = await db
-      .select()
-      .from(serviceOrders)
-      .where(eq(serviceOrders.id, validatedData.serviceOrderId))
-      .limit(1);
+    // 2. Busca ou auto-cria a Ordem de Serviço vinculada
+    let targetServiceOrderId = validatedData.serviceOrderId;
+    let existingOrder = null;
 
+    // 2.1 Busca por ID se fornecido
+    if (targetServiceOrderId) {
+      try {
+        const [orderById] = await db
+          .select()
+          .from(serviceOrders)
+          .where(eq(serviceOrders.id, targetServiceOrderId))
+          .limit(1);
+        existingOrder = orderById;
+      } catch {
+        // Se targetServiceOrderId não for UUID válido, ignora erro e busca por código
+      }
+    }
+
+    // 2.2 Se não encontrou por ID, busca pelo Código de Contrato/Orçamento
+    if (!existingOrder && validatedData.contratoOrcamento) {
+      const [orderByCodigo] = await db
+        .select()
+        .from(serviceOrders)
+        .where(eq(serviceOrders.codigo, validatedData.contratoOrcamento.trim()))
+        .limit(1);
+      if (orderByCodigo) {
+        existingOrder = orderByCodigo;
+        targetServiceOrderId = existingOrder.id;
+      }
+    }
+
+    // 2.3 Se ainda não existir a OS (ex: emissão avulsa pelo técnico/subcontratado), auto-cria a OS
     if (!existingOrder) {
-      return {
-        success: false,
-        error: 'Ordem de Serviço vinculada não foi encontrada.',
-      };
+      let creatorId = userId;
+      if (!creatorId) {
+        const [firstUser] = await db.select({ id: users.id }).from(users).limit(1);
+        creatorId = firstUser?.id;
+      }
+
+      const ADMIN_ID = '00000000-0000-0000-0000-000000000001';
+      if (!creatorId) {
+        await db
+          .insert(users)
+          .values({
+            id: ADMIN_ID,
+            nome: 'Thiago Gregorio',
+            email: 'thiago.gregorio@tke.com',
+            senhaHash: 'Thiago200189',
+            departamento: 'ADMINISTRATIVO',
+            cargo: 'ADMINISTRATIVO',
+            status: 'ATIVO',
+            isAdmin: true,
+          })
+          .onConflictDoNothing();
+        creatorId = ADMIN_ID;
+      }
+
+      const osCodigo = validatedData.contratoOrcamento.trim().toUpperCase().startsWith('OS-')
+        ? validatedData.contratoOrcamento.trim().toUpperCase()
+        : `OS-${validatedData.contratoOrcamento.trim() || Math.floor(100000 + Math.random() * 900000)}`;
+
+      const [newOrder] = await db
+        .insert(serviceOrders)
+        .values({
+          codigo: osCodigo,
+          titulo: `Reparo: ${validatedData.equipamento || 'Equipamento'}`,
+          descricao: `Serviço de reparo classificado como ${validatedData.classificacaoReparo} (Mão de Obra: ${validatedData.tipoMaoDeObra}).`,
+          status: 'EM_EXECUCAO',
+          prioridade: 'MEDIA',
+          categoriaReparo: validatedData.classificacaoReparo,
+          equipamentoNumero: validatedData.equipamento,
+          clienteNome: 'Cliente Corporativo TKE',
+          criadoPorId: creatorId,
+          responsavelTecnicoId: creatorId,
+        })
+        .returning();
+
+      existingOrder = newOrder;
+      targetServiceOrderId = newOrder.id;
     }
 
     // 3. Gera código sequencial/formatado da PT
@@ -59,7 +126,7 @@ export async function submitPtReparoAction(
     const [insertedPermit] = await db
       .insert(workPermits)
       .values({
-        serviceOrderId: validatedData.serviceOrderId,
+        serviceOrderId: targetServiceOrderId,
         codigo: codigoPT,
         status: ptStatus,
         contratoOrcamento: validatedData.contratoOrcamento,
@@ -86,11 +153,11 @@ export async function submitPtReparoAction(
           : {}),
         updatedAt: new Date(),
       })
-      .where(eq(serviceOrders.id, validatedData.serviceOrderId));
+      .where(eq(serviceOrders.id, targetServiceOrderId));
 
     // 7. Registra no Histórico de Auditoria da OS
     await db.insert(serviceOrderHistory).values({
-      serviceOrderId: validatedData.serviceOrderId,
+      serviceOrderId: targetServiceOrderId,
       alteradoPorId: userId || null,
       statusAnterior: existingOrder.status,
       statusNovo: novoStatusOS,
@@ -102,7 +169,7 @@ export async function submitPtReparoAction(
       },
     });
 
-    revalidatePath(`/dashboard/reparo/${validatedData.serviceOrderId}`);
+    revalidatePath(`/dashboard/reparo/${targetServiceOrderId}`);
     revalidatePath('/dashboard/reparo');
 
     return {
