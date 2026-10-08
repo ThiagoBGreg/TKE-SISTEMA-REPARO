@@ -14,6 +14,7 @@ export interface UploadAttachmentsResult {
     id: string;
     fileName: string;
     driveViewUrl: string;
+    driveDownloadUrl?: string | null;
     category: 'FOTO_SERVICO' | 'CARTA_CONCLUSAO';
   }>;
 }
@@ -117,6 +118,7 @@ export async function uploadAttachmentsAction(
           id: serviceOrderAttachments.id,
           fileName: serviceOrderAttachments.fileName,
           driveViewUrl: serviceOrderAttachments.driveViewUrl,
+          driveDownloadUrl: serviceOrderAttachments.driveDownloadUrl,
           category: serviceOrderAttachments.category,
         });
 

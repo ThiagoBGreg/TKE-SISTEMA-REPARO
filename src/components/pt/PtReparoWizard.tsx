@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { submitPtReparoAction } from '@/actions/ptReparoActions';
 import { SignaturePad } from '@/components/pt/SignaturePad';
 import type { DigitalSignature, PtReparoFormData } from '@/lib/validations/ptReparoSchema';
+
+const DRAFT_KEY = 'tke_pt_wizard_draft_v2';
 
 /* ==========================================================================
    CONSTANTES DOS CHECKLISTS E LISTAS OFICIAIS (PT - REPARO TKE)
@@ -226,6 +228,56 @@ export function PtReparoWizard({
     observacoesGerais: '',
   });
 
+  const [draftRestored, setDraftRestored] = useState(false);
+
+  // Restaura o rascunho salvo do localStorage na inicialização
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return;
+      const saved = localStorage.getItem(DRAFT_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.formData) {
+          setFormData((prev) => ({
+            ...prev,
+            ...parsed.formData,
+            serviceOrderId: serviceOrderId || parsed.formData.serviceOrderId || '',
+          }));
+          if (parsed.currentStep) {
+            setCurrentStep(parsed.currentStep);
+          }
+          setDraftRestored(true);
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao restaurar rascunho:', e);
+    }
+  }, [serviceOrderId]);
+
+  // Salva automaticamente no localStorage sempre que os dados ou etapa forem alterados
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return;
+      localStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({
+          formData,
+          currentStep,
+          updatedAt: new Date().toISOString(),
+        })
+      );
+    } catch {}
+  }, [formData, currentStep]);
+
+  const handleClearDraft = () => {
+    if (confirm('Deseja realmente limpar o rascunho atual e recomeçar do zero?')) {
+      try {
+        localStorage.removeItem(DRAFT_KEY);
+        window.location.reload();
+      } catch {}
+    }
+  };
+
   // Toggle de itens em arrays (serviços, riscos, ferramentas, epcs, epis)
   const toggleArrayItem = (field: keyof PtReparoFormData, item: string) => {
     setFormData((prev) => {
@@ -285,18 +337,46 @@ export function PtReparoWizard({
       return;
     }
 
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+    } catch {}
+
     setCreatedPtInfo({ id: result.workPermitId, codigo: result.codigo });
   };
 
   return (
-    <div className="max-w-4xl mx-auto bg-slate-50 min-h-screen p-4 sm:p-6 space-y-6">
+    <div className="w-full max-w-6xl mx-auto bg-slate-50 min-h-screen p-2 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
+      {/* Indicador de Salvamento em Tempo Real / Rascunho Recuperado */}
+      {draftRestored && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs px-4 py-2.5 rounded-xl flex items-center justify-between gap-3 shadow-2xs animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <span>💾</span>
+            <span className="font-semibold">
+              Rascunho recuperado automaticamente. Seus dados estão salvos continuamente no seu navegador.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleClearDraft}
+            className="text-[11px] font-bold text-emerald-900 hover:text-red-600 underline shrink-0 transition"
+          >
+            Limpar Rascunho
+          </button>
+        </div>
+      )}
+
       {/* Header com Branding TKE */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <span className="text-xs font-bold text-red-600 tracking-wider uppercase">
-            TKE • Segurança em Reparos
-          </span>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-orange-600 tracking-wider uppercase bg-orange-50 px-2.5 py-0.5 rounded-md border border-orange-200">
+              TKE • Segurança em Reparos
+            </span>
+            <span className="text-[11px] font-medium text-slate-500 hidden sm:inline">
+              💾 Auto-save ativo
+            </span>
+          </div>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 mt-1">
             APR / Permissão de Trabalho (PT)
           </h1>
           <p className="text-xs sm:text-sm text-slate-500">
@@ -304,8 +384,8 @@ export function PtReparoWizard({
           </p>
         </div>
 
-        {/* Stepper Indicator */}
-        <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-xl text-xs font-semibold">
+        {/* Stepper Indicator Responsivo */}
+        <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1.5 rounded-xl text-xs font-semibold w-full sm:w-auto justify-between sm:justify-start">
           {[1, 2, 3, 4].map((step) => (
             <button
               key={step}

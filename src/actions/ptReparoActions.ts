@@ -1,9 +1,9 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { eq, desc, or } from 'drizzle-orm';
+import { eq, desc, or, and, inArray } from 'drizzle-orm';
 import { db } from '@/db';
-import { notifications, serviceOrderHistory, serviceOrders, users, workPermits } from '@/db/schema';
+import { notifications, serviceOrderHistory, serviceOrders, users, workPermits, serviceOrderAttachments } from '@/db/schema';
 import { ptReparoSchema, type DigitalSignature, type PtReparoFormData } from '@/lib/validations/ptReparoSchema';
 import type { AuthUser } from '@/types/auth';
 
@@ -368,7 +368,50 @@ export async function getPtReparosAction() {
         .orderBy(desc(workPermits.createdAt));
     }
 
-    return { success: true, permits, isAdmin, isSubcontratado, currentUser: user };
+    // Busca cartas de conclusão anexadas às Ordens de Serviço vinculadas
+    const soIds = permits
+      .map((p) => p.serviceOrderId)
+      .filter((id): id is string => Boolean(id));
+
+    const cartasMap = new Map<string, { id: string; fileName: string; driveViewUrl: string; driveDownloadUrl: string | null }>();
+
+    if (soIds.length > 0) {
+      try {
+        const cartas = await db
+          .select({
+            id: serviceOrderAttachments.id,
+            serviceOrderId: serviceOrderAttachments.serviceOrderId,
+            fileName: serviceOrderAttachments.fileName,
+            driveViewUrl: serviceOrderAttachments.driveViewUrl,
+            driveDownloadUrl: serviceOrderAttachments.driveDownloadUrl,
+          })
+          .from(serviceOrderAttachments)
+          .where(
+            and(
+              inArray(serviceOrderAttachments.serviceOrderId, soIds),
+              eq(serviceOrderAttachments.category, 'CARTA_CONCLUSAO')
+            )
+          );
+
+        cartas.forEach((c) => {
+          cartasMap.set(c.serviceOrderId, {
+            id: c.id,
+            fileName: c.fileName,
+            driveViewUrl: c.driveViewUrl,
+            driveDownloadUrl: c.driveDownloadUrl,
+          });
+        });
+      } catch (err) {
+        console.warn('[getPtReparosAction] Aviso ao buscar cartas de conclusão:', err);
+      }
+    }
+
+    const permitsWithCartas = permits.map((p) => ({
+      ...p,
+      cartaConclusao: p.serviceOrderId ? cartasMap.get(p.serviceOrderId) || null : null,
+    }));
+
+    return { success: true, permits: permitsWithCartas, isAdmin, isSubcontratado, currentUser: user };
   } catch (error) {
     console.error('[getPtReparosAction] Erro ao buscar PTs:', error);
     return { success: false, permits: [], isAdmin: false, isSubcontratado: false };

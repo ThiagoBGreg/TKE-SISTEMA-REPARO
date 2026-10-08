@@ -26,6 +26,12 @@ export interface WorkPermitItem {
   criadoPorId: string | null;
   dadosCompletos: PtReparoFormData;
   createdAt: Date;
+  cartaConclusao?: {
+    id: string;
+    fileName: string;
+    driveViewUrl: string;
+    driveDownloadUrl: string | null;
+  } | null;
 }
 
 interface PtManagementViewProps {
@@ -296,7 +302,24 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
             uploadFormData.append('serviceOrderId', concludingPermit.serviceOrderId);
             uploadFormData.append('category', 'CARTA_CONCLUSAO');
             uploadFormData.append('files', pdfFile);
-            await uploadAttachmentsAction(uploadFormData);
+            const uploadRes = await uploadAttachmentsAction(uploadFormData);
+            if (uploadRes.success && uploadRes.attachments && uploadRes.attachments.length > 0) {
+              const uploadedCarta = uploadRes.attachments[0];
+              const novaCarta = {
+                id: uploadedCarta.id,
+                fileName: uploadedCarta.fileName,
+                driveViewUrl: uploadedCarta.driveViewUrl,
+                driveDownloadUrl: uploadedCarta.driveDownloadUrl || null,
+              };
+              setPermits((prev) =>
+                prev.map((p) =>
+                  p.id === concludingPermit.id ? { ...p, cartaConclusao: novaCarta } : p
+                )
+              );
+              if (viewingPermit && viewingPermit.id === concludingPermit.id) {
+                setViewingPermit((prev) => (prev ? { ...prev, cartaConclusao: novaCarta } : null));
+              }
+            }
           } catch (anexoErr) {
             console.warn('[handleConcluirTermino] Aviso ao anexar carta à OS:', anexoErr);
           }
@@ -372,7 +395,7 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    <div className="w-full max-w-[1920px] mx-auto px-2 sm:px-4 md:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
       {/* Header Principal com Identidade TKE */}
       <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -521,7 +544,7 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
           ) : (
             <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
+                <table className="w-full text-left text-xs min-w-[1100px]">
                   <thead className="bg-slate-50 text-slate-600 uppercase font-semibold border-b border-slate-200">
                     <tr>
                       <th className="py-3.5 px-4">Código / PT</th>
@@ -530,7 +553,8 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
                       <th className="py-3.5 px-4">Equipamento</th>
                       <th className="py-3.5 px-4">Mão de Obra</th>
                       <th className="py-3.5 px-4">Status</th>
-                      <th className="py-3.5 px-4 text-center">Baixar PDF</th>
+                      <th className="py-3.5 px-4 text-center">Baixar PDF PT</th>
+                      <th className="py-3.5 px-4 text-center">Carta de Conclusão</th>
                       <th className="py-3.5 px-4 text-right">Ações</th>
                     </tr>
                   </thead>
@@ -585,8 +609,8 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
                             <span
                               className={`px-2.5 py-1 rounded-full text-[11px] font-bold inline-flex items-center gap-1 ${
                                 isConcluido
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    : 'bg-amber-50 text-amber-700 border border-amber-200'
                               }`}
                             >
                               <span>{isConcluido ? '✓' : '⏳'}</span>
@@ -594,18 +618,59 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
                             </span>
                           </td>
 
-                          {/* CAMPO DE BAIXAR EM PDF */}
+                          {/* CAMPO DE BAIXAR EM PDF DA PT */}
                           <td className="py-3.5 px-4 text-center whitespace-nowrap">
                             <a
                               href={`/api/pt/${permit.id}/pdf`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-xs transition"
-                              title="Baixar PDF Oficial da Permissão"
+                              className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-xs hover:shadow-md transition active:scale-95"
+                              title="Baixar PDF Oficial da Permissão de Trabalho"
                             >
                               <span>📄</span>
                               <span>Baixar PDF</span>
                             </a>
+                          </td>
+
+                          {/* CAMPO DE BAIXAR CARTA DE CONCLUSÃO */}
+                          <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                            {permit.cartaConclusao ? (
+                              <div className="inline-flex items-center gap-1.5 justify-center">
+                                <a
+                                  href={permit.cartaConclusao.driveDownloadUrl || permit.cartaConclusao.driveViewUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-xs hover:shadow-md transition active:scale-95"
+                                  title={`Baixar Carta de Conclusão (${permit.cartaConclusao.fileName})`}
+                                >
+                                  <span>📥</span>
+                                  <span>Baixar Carta</span>
+                                </a>
+                                <a
+                                  href={permit.cartaConclusao.driveViewUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-1.5 text-slate-500 hover:text-blue-600 rounded-lg hover:bg-slate-100 transition"
+                                  title="Visualizar Carta no Google Drive"
+                                >
+                                  👁️
+                                </a>
+                              </div>
+                            ) : isConcluido ? (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenTerminoModal(permit)}
+                                className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50 border border-dashed border-slate-300 hover:border-indigo-300 px-2.5 py-1.5 rounded-lg transition"
+                                title="Nenhuma carta anexada. Clique para anexar a carta agora."
+                              >
+                                <span>📎</span>
+                                <span>+ Enviar Carta</span>
+                              </button>
+                            ) : (
+                              <span className="text-[11px] font-medium text-slate-400 italic">
+                                Disponível no término
+                              </span>
+                            )}
                           </td>
 
                           {/* Ações */}
@@ -722,21 +787,33 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
                 </p>
               </div>
 
-              {/* Botão de Fechar e Botão de Baixar PDF */}
-              <div className="flex items-center gap-2">
+              {/* Botão de Fechar e Botões de Baixar PDF e Carta */}
+              <div className="flex items-center gap-2 flex-wrap justify-end">
                 <a
                   href={`/api/pt/${viewingPermit.id}/pdf`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-xs transition"
+                  className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 sm:px-4 py-2 rounded-xl shadow-xs transition"
                 >
                   <span>📄</span>
-                  <span>Baixar PDF Oficial</span>
+                  <span>Baixar PDF PT</span>
                 </a>
+                {viewingPermit.cartaConclusao && (
+                  <a
+                    href={viewingPermit.cartaConclusao.driveDownloadUrl || viewingPermit.cartaConclusao.driveViewUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs px-3 sm:px-4 py-2 rounded-xl shadow-xs transition"
+                    title={`Baixar Carta de Conclusão (${viewingPermit.cartaConclusao.fileName})`}
+                  >
+                    <span>📥</span>
+                    <span>Baixar Carta de Conclusão</span>
+                  </a>
+                )}
                 <button
                   type="button"
                   onClick={() => setViewingPermit(null)}
-                  className="text-slate-400 hover:text-slate-600 text-xl font-bold p-1"
+                  className="text-slate-400 hover:text-slate-600 text-xl font-bold p-1 ml-1"
                 >
                   ✕
                 </button>
@@ -978,6 +1055,62 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
                     </button>
                   </div>
                 )}
+
+                {/* Bloco de Carta de Conclusão / Aceite do Cliente */}
+                {viewingPermit.cartaConclusao ? (
+                  <div className="mt-3 pt-3 border-t border-emerald-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-emerald-200 shadow-2xs">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="text-2xl shrink-0">📄</span>
+                      <div className="min-w-0">
+                        <span className="font-bold text-slate-900 block text-xs">
+                          Carta de Conclusão / Aceite do Cliente Anexada
+                        </span>
+                        <span className="text-[11px] text-slate-500 block truncate max-w-xs sm:max-w-md">
+                          {viewingPermit.cartaConclusao.fileName}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <a
+                        href={viewingPermit.cartaConclusao.driveDownloadUrl || viewingPermit.cartaConclusao.driveViewUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-xs hover:shadow-md transition active:scale-95"
+                        title="Baixar Arquivo PDF da Carta de Conclusão"
+                      >
+                        <span>📥</span>
+                        <span>Baixar Carta</span>
+                      </a>
+                      <a
+                        href={viewingPermit.cartaConclusao.driveViewUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-slate-700 hover:text-blue-700 bg-slate-100 hover:bg-slate-200 font-semibold text-xs px-2.5 py-1.5 rounded-lg transition"
+                        title="Visualizar no Google Drive"
+                      >
+                        Visualizar ↗
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  (viewingPermit.status === 'CONCLUIDO' || viewingPermit.status === 'FINALIZADA') && (
+                    <div className="mt-3 pt-3 border-t border-emerald-200/60 flex items-center justify-between bg-white/70 p-3 rounded-xl border border-dashed border-slate-300">
+                      <span className="text-xs text-slate-500">
+                        Nenhuma Carta de Conclusão anexada para esta PT.
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setViewingPermit(null);
+                          handleOpenTerminoModal(viewingPermit);
+                        }}
+                        className="text-xs font-bold text-indigo-600 hover:underline"
+                      >
+                        + Anexar Carta Agora
+                      </button>
+                    </div>
+                  )
+                )}
               </div>
 
               {/* Observações Gerais */}
@@ -990,17 +1123,27 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
             </div>
 
             {/* Rodapé do Modal */}
-            <div className="flex items-center justify-between border-t border-slate-200 pt-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between border-t border-slate-200 pt-4 gap-3">
               <span className="text-xs text-slate-400">TKE Brasil • Sistema de Reparo & APR</span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap justify-end">
                 <a
                   href={`/api/pt/${viewingPermit.id}/pdf`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition shadow-xs"
                 >
-                  📄 Baixar PDF
+                  📄 Baixar PDF PT
                 </a>
+                {viewingPermit.cartaConclusao && (
+                  <a
+                    href={viewingPermit.cartaConclusao.driveDownloadUrl || viewingPermit.cartaConclusao.driveViewUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition shadow-xs"
+                  >
+                    📥 Baixar Carta
+                  </a>
+                )}
                 <button
                   type="button"
                   onClick={() => setViewingPermit(null)}

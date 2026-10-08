@@ -99,9 +99,11 @@ export async function loginUserAction(formData: FormData): Promise<AuthActionRes
 
       const cookieStore = await cookies();
       const sessionBase64 = Buffer.from(JSON.stringify(adminUser)).toString('base64');
+      const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
       cookieStore.set('tke_session', sessionBase64, {
         path: '/',
-        maxAge: 86400 * 7,
+        maxAge: ONE_YEAR_SECONDS,
+        expires: new Date(Date.now() + ONE_YEAR_SECONDS * 1000),
         sameSite: 'lax',
       });
 
@@ -168,9 +170,11 @@ export async function loginUserAction(formData: FormData): Promise<AuthActionRes
 
     const cookieStore = await cookies();
     const sessionBase64 = Buffer.from(JSON.stringify(authUser)).toString('base64');
+    const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
     cookieStore.set('tke_session', sessionBase64, {
       path: '/',
-      maxAge: 86400 * 7,
+      maxAge: ONE_YEAR_SECONDS,
+      expires: new Date(Date.now() + ONE_YEAR_SECONDS * 1000),
       sameSite: 'lax',
     });
 

@@ -89,17 +89,31 @@ export function middleware(request: NextRequest) {
     return NextResponse.rewrite(forbiddenUrl, { status: 403 });
   }
 
-  // 6. Injeta cabeçalhos úteis para Server Components
+  // 7. Injeta cabeçalhos úteis para Server Components e estende a sessão (Sliding Window de 1 ano)
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-user-id', user.id);
   requestHeaders.set('x-user-department', user.departamento);
   requestHeaders.set('x-user-role', user.cargo);
 
-  return NextResponse.next({
+  const response = NextResponse.next({
     request: {
       headers: requestHeaders,
     },
   });
+
+  // Garante que o cookie de sessão seja sempre renovado por 1 ano, nunca expirando involuntariamente
+  const sessionCookieVal = request.cookies.get('tke_session')?.value;
+  if (sessionCookieVal) {
+    const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
+    response.cookies.set('tke_session', sessionCookieVal, {
+      path: '/',
+      maxAge: ONE_YEAR_SECONDS,
+      expires: new Date(Date.now() + ONE_YEAR_SECONDS * 1000),
+      sameSite: 'lax',
+    });
+  }
+
+  return response;
 }
 
 /**
