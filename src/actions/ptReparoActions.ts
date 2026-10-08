@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { eq } from 'drizzle-orm';
 import { db } from '@/db';
-import { serviceOrderHistory, serviceOrders, workPermits } from '@/db/schema';
+import { notifications, serviceOrderHistory, serviceOrders, users, workPermits } from '@/db/schema';
 import { ptReparoSchema, type PtReparoFormData } from '@/lib/validations/ptReparoSchema';
 
 export type SubmitPtReparoResult =
