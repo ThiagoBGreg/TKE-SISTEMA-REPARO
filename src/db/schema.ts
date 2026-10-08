@@ -261,6 +261,7 @@ export const workPermits = pgTable(
       .notNull(),
     codigo: varchar('codigo', { length: 50 }).notNull(), // Ex: "PT-2026-0001"
     status: workPermitStatusEnum('status').default('EM_ANDAMENTO').notNull(),
+    criadoPorId: uuid('criado_por_id').references(() => users.id, { onDelete: 'set null' }),
 
     // Campos Chave indexáveis
     contratoOrcamento: varchar('contrato_orcamento', { length: 100 }).notNull(),
@@ -271,7 +272,7 @@ export const workPermits = pgTable(
     trabalhoEmAltura: boolean('trabalho_em_altura').default(false).notNull(),
 
     // Assinaturas Digitais em Destaque para Auditoria Rápida
-    assinaturaSupervisao: jsonb('assinatura_supervisao').$type<DigitalSignature>().notNull(),
+    assinaturaSupervisao: jsonb('assinatura_supervisao').$type<DigitalSignature>(),
     assinaturaInicio: jsonb('assinatura_inicio').$type<DigitalSignature>().notNull(),
     assinaturaTermino: jsonb('assinatura_termino').$type<DigitalSignature>(),
 

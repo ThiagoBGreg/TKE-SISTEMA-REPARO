@@ -22,9 +22,9 @@ const NAV_ITEMS = [
   },
   {
     href: '/dashboard/reparo/pt',
-    label: 'Nova PT / APR',
-    icon: '✍️',
-    departments: ['REPARO', 'SERVICOS', 'OSH'],
+    label: 'Permissões (PT / APR)',
+    icon: '🛡️',
+    departments: ['REPARO', 'SERVICOS', 'OSH', 'ADMINISTRATIVO', 'DLOG'],
   },
   {
     href: '/dashboard/osh',

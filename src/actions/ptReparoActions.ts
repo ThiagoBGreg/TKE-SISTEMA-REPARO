@@ -1,10 +1,11 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { eq } from 'drizzle-orm';
+import { eq, desc } from 'drizzle-orm';
 import { db } from '@/db';
 import { notifications, serviceOrderHistory, serviceOrders, users, workPermits } from '@/db/schema';
 import { ptReparoSchema, type PtReparoFormData } from '@/lib/validations/ptReparoSchema';
+import type { AuthUser } from '@/types/auth';
 
 export type SubmitPtReparoResult =
   | { success: true; workPermitId: string; codigo: string }
@@ -30,6 +31,14 @@ export async function submitPtReparoAction(
     }
 
     const validatedData = validation.data;
+
+    // Obtém o usuário criador
+    const sessionUser = await getSessionUser();
+    let creatorId = userId || sessionUser?.id;
+    if (!creatorId) {
+      const [firstUser] = await db.select({ id: users.id }).from(users).limit(1);
+      creatorId = firstUser?.id;
+    }
 
     // 2. Busca ou auto-cria a Ordem de Serviço vinculada
     let targetServiceOrderId = validatedData.serviceOrderId;
@@ -64,12 +73,6 @@ export async function submitPtReparoAction(
 
     // 2.3 Se ainda não existir a OS (ex: emissão avulsa pelo técnico/subcontratado), auto-cria a OS
     if (!existingOrder) {
-      let creatorId = userId;
-      if (!creatorId) {
-        const [firstUser] = await db.select({ id: users.id }).from(users).limit(1);
-        creatorId = firstUser?.id;
-      }
-
       const ADMIN_ID = '00000000-0000-0000-0000-000000000001';
       if (!creatorId) {
         await db
@@ -112,6 +115,11 @@ export async function submitPtReparoAction(
       targetServiceOrderId = newOrder.id;
     }
 
+    const finalServiceOrderId = targetServiceOrderId || existingOrder?.id;
+    if (!finalServiceOrderId) {
+      throw new Error('Não foi possível associar a Ordem de Serviço para gravação da PT.');
+    }
+
     // 3. Gera código sequencial/formatado da PT
     const anoAtual = new Date().getFullYear();
     const hash = Math.floor(1000 + Math.random() * 9000);
@@ -126,16 +134,17 @@ export async function submitPtReparoAction(
     const [insertedPermit] = await db
       .insert(workPermits)
       .values({
-        serviceOrderId: targetServiceOrderId,
+        serviceOrderId: finalServiceOrderId,
         codigo: codigoPT,
         status: ptStatus,
+        criadoPorId: creatorId,
         contratoOrcamento: validatedData.contratoOrcamento,
         equipamento: validatedData.equipamento,
         tipoMaoDeObra: validatedData.tipoMaoDeObra,
         tipoEquipamento: validatedData.tipoEquipamento,
         classificacaoReparo: validatedData.classificacaoReparo,
         trabalhoEmAltura: validatedData.trabalhoEmAltura,
-        assinaturaSupervisao: validatedData.assinaturaSupervisao,
+        assinaturaSupervisao: validatedData.assinaturaSupervisao || null,
         assinaturaInicio: validatedData.inicioServico.emitenteAssinatura,
         assinaturaTermino: validatedData.terminoServico?.emitenteAssinatura || null,
         dadosCompletos: validatedData,
@@ -153,11 +162,11 @@ export async function submitPtReparoAction(
           : {}),
         updatedAt: new Date(),
       })
-      .where(eq(serviceOrders.id, targetServiceOrderId));
+      .where(eq(serviceOrders.id, finalServiceOrderId));
 
     // 7. Registra no Histórico de Auditoria da OS
     await db.insert(serviceOrderHistory).values({
-      serviceOrderId: targetServiceOrderId,
+      serviceOrderId: finalServiceOrderId,
       alteradoPorId: userId || null,
       statusAnterior: existingOrder.status,
       statusNovo: novoStatusOS,
@@ -171,6 +180,7 @@ export async function submitPtReparoAction(
 
     revalidatePath(`/dashboard/reparo/${targetServiceOrderId}`);
     revalidatePath('/dashboard/reparo');
+    revalidatePath('/dashboard/reparo/pt');
 
     return {
       success: true,
@@ -183,5 +193,150 @@ export async function submitPtReparoAction(
       success: false,
       error: 'Erro interno ao salvar a Permissão de Trabalho no banco de dados.',
     };
+  }
+}
+
+/**
+ * Obtém a sessão do usuário logado (cookies)
+ */
+async function getSessionUser(): Promise<AuthUser | null> {
+  try {
+    const { cookies } = await import('next/headers');
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get('tke_session')?.value;
+    if (!sessionCookie) return null;
+    return JSON.parse(Buffer.from(sessionCookie, 'base64').toString('utf-8')) as AuthUser;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Busca todas as PTs/APRs emitidas (Usuários visualizam as suas ou todas se Admin)
+ */
+export async function getPtReparosAction() {
+  try {
+    const user = await getSessionUser();
+    const { isSuperAdmin } = await import('@/lib/permissions');
+    const isAdmin = isSuperAdmin(user);
+
+    const permits = await db
+      .select({
+        id: workPermits.id,
+        codigo: workPermits.codigo,
+        status: workPermits.status,
+        contratoOrcamento: workPermits.contratoOrcamento,
+        equipamento: workPermits.equipamento,
+        tipoMaoDeObra: workPermits.tipoMaoDeObra,
+        tipoEquipamento: workPermits.tipoEquipamento,
+        classificacaoReparo: workPermits.classificacaoReparo,
+        trabalhoEmAltura: workPermits.trabalhoEmAltura,
+        serviceOrderId: workPermits.serviceOrderId,
+        criadoPorId: workPermits.criadoPorId,
+        dadosCompletos: workPermits.dadosCompletos,
+        createdAt: workPermits.createdAt,
+      })
+      .from(workPermits)
+      .orderBy(desc(workPermits.createdAt));
+
+    return { success: true, permits, isAdmin };
+  } catch (error) {
+    console.error('[getPtReparosAction] Erro ao buscar PTs:', error);
+    return { success: false, permits: [], isAdmin: false };
+  }
+}
+
+/**
+ * Busca dados completos de uma PT pelo ID
+ */
+export async function getPtReparoByIdAction(id: string) {
+  try {
+    const [permit] = await db
+      .select()
+      .from(workPermits)
+      .where(eq(workPermits.id, id))
+      .limit(1);
+
+    if (!permit) {
+      return { success: false, error: 'Permissão de Trabalho não encontrada.' };
+    }
+
+    const user = await getSessionUser();
+    const { isSuperAdmin } = await import('@/lib/permissions');
+    const isAdmin = isSuperAdmin(user);
+
+    return { success: true, permit, isAdmin };
+  } catch (error) {
+    console.error('[getPtReparoByIdAction] Erro:', error);
+    return { success: false, error: 'Erro ao buscar Permissão de Trabalho.' };
+  }
+}
+
+/**
+ * Atualiza uma Permissão de Trabalho (Somente Administrador)
+ */
+export async function updatePtReparoAction(
+  id: string,
+  data: Partial<PtReparoFormData>
+) {
+  try {
+    const user = await getSessionUser();
+    const { isSuperAdmin } = await import('@/lib/permissions');
+    if (!isSuperAdmin(user)) {
+      return { success: false, error: 'Apenas administradores podem editar a Permissão de Trabalho.' };
+    }
+
+    const [existing] = await db
+      .select()
+      .from(workPermits)
+      .where(eq(workPermits.id, id))
+      .limit(1);
+
+    if (!existing) {
+      return { success: false, error: 'Permissão de Trabalho não encontrada.' };
+    }
+
+    const updatedData = {
+      ...existing.dadosCompletos,
+      ...data,
+    };
+
+    await db
+      .update(workPermits)
+      .set({
+        contratoOrcamento: data.contratoOrcamento || existing.contratoOrcamento,
+        equipamento: data.equipamento || existing.equipamento,
+        classificacaoReparo: data.classificacaoReparo || existing.classificacaoReparo,
+        dadosCompletos: updatedData,
+        updatedAt: new Date(),
+      })
+      .where(eq(workPermits.id, id));
+
+    revalidatePath('/dashboard/reparo/pt');
+    return { success: true };
+  } catch (error) {
+    console.error('[updatePtReparoAction] Erro ao atualizar PT:', error);
+    return { success: false, error: 'Erro ao atualizar a Permissão de Trabalho.' };
+  }
+}
+
+/**
+ * Exclui uma Permissão de Trabalho (Somente Administrador)
+ */
+export async function deletePtReparoAction(id: string) {
+  try {
+    const user = await getSessionUser();
+    const { isSuperAdmin } = await import('@/lib/permissions');
+    if (!isSuperAdmin(user)) {
+      return { success: false, error: 'Apenas administradores podem excluir a Permissão de Trabalho.' };
+    }
+
+    await db.delete(workPermits).where(eq(workPermits.id, id));
+
+    revalidatePath('/dashboard/reparo/pt');
+    return { success: true };
+  } catch (error) {
+    console.error('[deletePtReparoAction] Erro ao excluir PT:', error);
+    return { success: false, error: 'Erro ao excluir a Permissão de Trabalho.' };
   }
 }

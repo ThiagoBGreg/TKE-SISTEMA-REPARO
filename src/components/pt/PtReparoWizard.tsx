@@ -111,11 +111,11 @@ export function PtReparoWizard({
   const [formError, setFormError] = useState<string | null>(null);
   const [createdPtInfo, setCreatedPtInfo] = useState<{ id: string; codigo: string } | null>(null);
 
-  // Estado unificado do formulário
+  // Estado unificado do formulário - Campos em branco e sem pré-preenchimento
   const [formData, setFormData] = useState<PtReparoFormData>({
-    serviceOrderId,
-    contratoOrcamento: defaultContrato,
-    equipamento: defaultEquipamento,
+    serviceOrderId: serviceOrderId || '',
+    contratoOrcamento: defaultContrato || '',
+    equipamento: defaultEquipamento || '',
     tipoMaoDeObra: 'TKE',
     empresaContratada: '',
     tipoEquipamento: 'COM_CASA_DE_MAQUINAS',
@@ -131,53 +131,48 @@ export function PtReparoWizard({
     tipoSupervisaoAltura: 'BASICA',
 
     checklistSupervisao: {
-      instrucaoReparo: 'SIM',
-      treinamentoCapacitacao: 'SIM',
-      treinamentosNormas: 'SIM',
-      ferramentaisNecessarios: 'SIM',
-      adendoContratualAssinado: 'SIM',
-      episNecessarios: 'SIM',
+      instrucaoReparo: 'NAO_APLICAVEL',
+      treinamentoCapacitacao: 'NAO_APLICAVEL',
+      treinamentosNormas: 'NAO_APLICAVEL',
+      ferramentaisNecessarios: 'NAO_APLICAVEL',
+      adendoContratualAssinado: 'NAO_APLICAVEL',
+      episNecessarios: 'NAO_APLICAVEL',
     },
-    dataAutorizacaoSupervisao: new Date().toLocaleDateString('pt-BR'),
-    assinaturaSupervisao: {
-      nome: 'Supervisor Técnico TKE',
-      cargo: 'SUPERVISOR',
-      assinaturaBase64: '',
-      timestamp: '',
-    },
+    dataAutorizacaoSupervisao: '',
+    assinaturaSupervisao: null,
 
     analiseRiscos: {
       alturaRiscoExistente: false,
       alturaItens: {
-        sinalizacaoPavimentos: 'SIM',
-        dispositivosAncoragem: 'SIM',
-        andaimeBoasCondicoes: 'SIM',
-        protecoesColetivasCasaMaquinas: 'SIM',
-        entornoSeguro: 'SIM',
+        sinalizacaoPavimentos: 'NAO_APLICAVEL',
+        dispositivosAncoragem: 'NAO_APLICAVEL',
+        andaimeBoasCondicoes: 'NAO_APLICAVEL',
+        protecoesColetivasCasaMaquinas: 'NAO_APLICAVEL',
+        entornoSeguro: 'NAO_APLICAVEL',
       },
       icamentoRiscoExistente: false,
       icamentoItens: {
-        equipamentosAdequados: 'SIM',
-        acessoriosAdequados: 'SIM',
-        ganchosAtestados: 'SIM',
-        redundanciaSeguranca: 'SIM',
-        areaProjecaoIsolada: 'SIM',
-        comunicacaoEquipe: 'SIM',
+        equipamentosAdequados: 'NAO_APLICAVEL',
+        acessoriosAdequados: 'NAO_APLICAVEL',
+        ganchosAtestados: 'NAO_APLICAVEL',
+        redundanciaSeguranca: 'NAO_APLICAVEL',
+        areaProjecaoIsolada: 'NAO_APLICAVEL',
+        comunicacaoEquipe: 'NAO_APLICAVEL',
       },
-      eletricaRiscoExistente: true,
+      eletricaRiscoExistente: false,
       eletricaItens: {
-        fiacaoIsolada: 'SIM',
-        aterramentoEDR: 'SIM',
-        kitBloqueioEletrico: 'SIM',
-        exigeBloqueioEletrico: 'SIM',
-        infiltracoesPresentes: 'NAO',
+        fiacaoIsolada: 'NAO_APLICAVEL',
+        aterramentoEDR: 'NAO_APLICAVEL',
+        kitBloqueioEletrico: 'NAO_APLICAVEL',
+        exigeBloqueioEletrico: 'NAO_APLICAVEL',
+        infiltracoesPresentes: 'NAO_APLICAVEL',
       },
       quenteRiscoExistente: false,
       quenteItens: {
-        localDevidamenteIsolado: 'SIM',
-        livreMateriaisIncendio: 'SIM',
-        equipamentosCombateIncendioProximos: 'SIM',
-        capacitacaoTrabalhoQuente: 'SIM',
+        localDevidamenteIsolado: 'NAO_APLICAVEL',
+        livreMateriaisIncendio: 'NAO_APLICAVEL',
+        equipamentosCombateIncendioProximos: 'NAO_APLICAVEL',
+        capacitacaoTrabalhoQuente: 'NAO_APLICAVEL',
       },
     },
 
@@ -188,20 +183,15 @@ export function PtReparoWizard({
     epcsSelecionados: [],
     epcsOutros: '',
 
-    episSelecionados: [
-      'Capacete de segurança com jugular',
-      'Botina com biqueira de composite',
-      'Óculos de segurança',
-      'Luva contra risco mecânico',
-    ],
+    episSelecionados: [],
     episOutros: '',
 
-    termoCompromissoAceito: true,
+    termoCompromissoAceito: false,
 
     inicioServico: {
-      dataHoraInicio: new Date().toISOString().slice(0, 16),
+      dataHoraInicio: '',
       emitenteAssinatura: {
-        nome: 'Técnico Responsável',
+        nome: '',
         cargo: 'TECNICO',
         assinaturaBase64: '',
         timestamp: '',
@@ -230,8 +220,8 @@ export function PtReparoWizard({
       descricaoDesvio: '',
     },
     dssDialogoSeguranca: {
-      realizado: true,
-      temaAbordado: 'Procedimentos de Segurança e Uso de EPIs/EPCs no Reparo',
+      realizado: false,
+      temaAbordado: '',
     },
     observacoesGerais: '',
   });
@@ -271,7 +261,22 @@ export function PtReparoWizard({
     setFormError(null);
     setIsSubmitting(true);
 
-    const result = await submitPtReparoAction(formData);
+    // Trata data e assinatura do supervisor caso não tenha assinado
+    const hasSupervisorSig = !!formData.assinaturaSupervisao?.assinaturaBase64;
+    const dataToSubmit: PtReparoFormData = {
+      ...formData,
+      inicioServico: {
+        ...formData.inicioServico,
+        dataHoraInicio:
+          formData.inicioServico.dataHoraInicio || new Date().toISOString().slice(0, 16),
+      },
+      assinaturaSupervisao: hasSupervisorSig ? formData.assinaturaSupervisao : null,
+      dataAutorizacaoSupervisao: hasSupervisorSig
+        ? formData.dataAutorizacaoSupervisao || new Date().toLocaleDateString('pt-BR')
+        : null,
+    };
+
+    const result = await submitPtReparoAction(dataToSubmit);
 
     setIsSubmitting(false);
 
@@ -767,17 +772,68 @@ export function PtReparoWizard({
                 </p>
               </div>
 
-              {/* Assinatura Supervisão Técnica */}
-              <SignaturePad
-                label="6. Assinatura do Emitente (Supervisão Técnica TKE)"
-                signatarioNome={formData.assinaturaSupervisao.nome}
-                signatarioCargo="Supervisão Técnica"
-                value={formData.assinaturaSupervisao.assinaturaBase64 ? formData.assinaturaSupervisao : null}
-                onChange={(sig) => {
-                  if (sig) setFormData({ ...formData, assinaturaSupervisao: sig });
-                }}
-                required
-              />
+              {/* Assinatura Supervisão Técnica (Opcional) */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-slate-900 uppercase">
+                    6. Assinatura do Emitente (Supervisão Técnica) - Opcional
+                  </h3>
+                  <span className="text-[11px] bg-slate-200 text-slate-700 font-medium px-2 py-0.5 rounded-full">
+                    Não Obrigatório
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-1">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Nome do Supervisor (Opcional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Nome do supervisor técnico (opcional)"
+                      value={formData.assinaturaSupervisao?.nome || ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          assinaturaSupervisao: {
+                            nome: e.target.value,
+                            cargo: 'SUPERVISOR',
+                            assinaturaBase64: formData.assinaturaSupervisao?.assinaturaBase64 || '',
+                            timestamp: formData.assinaturaSupervisao?.timestamp || '',
+                          },
+                        })
+                      }
+                      className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Data de Autorização (Opcional)
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.dataAutorizacaoSupervisao || ''}
+                      onChange={(e) =>
+                        setFormData({ ...formData, dataAutorizacaoSupervisao: e.target.value })
+                      }
+                      className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white"
+                    />
+                  </div>
+                </div>
+                <SignaturePad
+                  label="Desenhar Assinatura da Supervisão Técnica (Opcional)"
+                  signatarioNome={formData.assinaturaSupervisao?.nome || 'Supervisor Técnico'}
+                  signatarioCargo="Supervisão Técnica"
+                  value={
+                    formData.assinaturaSupervisao?.assinaturaBase64
+                      ? formData.assinaturaSupervisao
+                      : null
+                  }
+                  onChange={(sig) => {
+                    setFormData({ ...formData, assinaturaSupervisao: sig || null });
+                  }}
+                  required={false}
+                />
+              </div>
 
               {/* Assinatura Início dos Serviços */}
               <div className="space-y-2">

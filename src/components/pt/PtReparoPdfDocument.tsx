@@ -265,30 +265,39 @@ export function PtReparoPdfDocument({ data, codigoPT }: PtReparoPdfProps) {
             </View>
           ))}
 
-          {/* Assinatura da Supervisão */}
+          {/* Assinatura da Supervisão (Opcional) */}
           <View style={[styles.row, { padding: 4, alignItems: 'center' }]}>
             <View style={{ flex: 2 }}>
               <Text>
-                <Text style={styles.bold}>Emitente (Supervisão Técnica TKE):</Text>{' '}
-                {data.assinaturaSupervisao.nome}
+                <Text style={styles.bold}>Emitente (Supervisão Técnica):</Text>{' '}
+                {data.assinaturaSupervisao?.nome || 'Assinatura dispensada / Opcional'}
               </Text>
               <Text style={{ marginTop: 2 }}>
-                <Text style={styles.bold}>Data Autorização:</Text> {data.dataAutorizacaoSupervisao}
+                <Text style={styles.bold}>Data Autorização:</Text>{' '}
+                {data.dataAutorizacaoSupervisao || '-'}
               </Text>
             </View>
             <View style={{ flex: 2, alignItems: 'center' }}>
-              <View style={styles.signatureBox}>
-                {/* eslint-disable-next-line jsx-a11y/alt-text */}
-                <Image
-                  src={data.assinaturaSupervisao.assinaturaBase64}
-                  style={styles.signatureImage}
-                />
-              </View>
-              {data.assinaturaSupervisao.geolocalizacao && (
-                <Text style={styles.geoBadge}>
-                  📍 {data.assinaturaSupervisao.geolocalizacao.latitude.toFixed(5)},{' '}
-                  {data.assinaturaSupervisao.geolocalizacao.longitude.toFixed(5)}
-                </Text>
+              {data.assinaturaSupervisao?.assinaturaBase64 ? (
+                <>
+                  <View style={styles.signatureBox}>
+                    {/* eslint-disable-next-line jsx-a11y/alt-text */}
+                    <Image
+                      src={data.assinaturaSupervisao.assinaturaBase64}
+                      style={styles.signatureImage}
+                    />
+                  </View>
+                  {data.assinaturaSupervisao.geolocalizacao && (
+                    <Text style={styles.geoBadge}>
+                      📍 {data.assinaturaSupervisao.geolocalizacao.latitude.toFixed(5)},{' '}
+                      {data.assinaturaSupervisao.geolocalizacao.longitude.toFixed(5)}
+                    </Text>
+                  )}
+                </>
+              ) : (
+                <View style={[styles.signatureBox, { justifyContent: 'center', alignItems: 'center' }]}>
+                  <Text style={{ fontSize: 7, color: '#64748b' }}>Não Exigida / Opcional</Text>
+                </View>
               )}
             </View>
           </View>

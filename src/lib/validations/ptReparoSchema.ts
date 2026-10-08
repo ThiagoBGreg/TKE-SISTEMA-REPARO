@@ -25,7 +25,7 @@ export type DigitalSignature = z.infer<typeof digitalSignatureSchema>;
    SCHEMA COMPLETO DA PT - REPARO (TKE)
    ========================================================================== */
 export const ptReparoSchema = z.object({
-  serviceOrderId: z.string().uuid('ID da Ordem de Serviço inválido'),
+  serviceOrderId: z.string().optional().nullable(),
 
   // 1 - 4: DADOS CADASTRAIS & EQUIPAMENTO
   contratoOrcamento: z.string().min(1, 'Número do Contrato/Orçamento é obrigatório'),
@@ -57,8 +57,8 @@ export const ptReparoSchema = z.object({
     adendoContratualAssinado: z.enum(['SIM', 'NAO', 'NAO_APLICAVEL']),
     episNecessarios: z.enum(['SIM', 'NAO', 'NAO_APLICAVEL']),
   }),
-  dataAutorizacaoSupervisao: z.string().min(1, 'Data de autorização da supervisão é obrigatória'),
-  assinaturaSupervisao: digitalSignatureSchema,
+  dataAutorizacaoSupervisao: z.string().optional().nullable(),
+  assinaturaSupervisao: digitalSignatureSchema.optional().nullable(),
 
   // 7: ANÁLISE DE RISCOS NO LOCAL DE TRABALHO
   analiseRiscos: z.object({
@@ -115,8 +115,8 @@ export const ptReparoSchema = z.object({
   episOutros: z.string().optional(),
 
   // 11: TERMO DE COMPROMISSO
-  termoCompromissoAceito: z.literal(true, {
-    errorMap: () => ({ message: 'É obrigatório aceitar o Termo de Compromisso de Segurança' }),
+  termoCompromissoAceito: z.boolean().refine((val) => val === true, {
+    message: 'É obrigatório aceitar o Termo de Compromisso de Segurança',
   }),
 
   // 12: INÍCIO DO SERVIÇO

@@ -1,31 +1,20 @@
 import React from 'react';
-import { PtReparoWizard } from '@/components/pt/PtReparoWizard';
+import { getPtReparosAction } from '@/actions/ptReparoActions';
+import { PtManagementView } from '@/components/pt/PtManagementView';
 
 export const metadata = {
-  title: 'Emissão de PT / APR Reparo | TKE Elevadores',
-  description: 'Módulo de Permissão de Trabalho e Análise Preliminar de Risco para serviços de reparo.',
+  title: 'Permissões de Trabalho & APR | TKE Elevadores',
+  description: 'Módulo de Gestão de Permissão de Trabalho e Análise Preliminar de Risco para serviços de reparo.',
 };
 
-interface PtReparoPageProps {
-  searchParams?: Promise<{
-    osId?: string;
-    contrato?: string;
-    equipamento?: string;
-  }>;
-}
-
-export default async function PtReparoPage(props: PtReparoPageProps) {
-  const searchParams = await props.searchParams;
-  const serviceOrderId = searchParams?.osId || 'a0000000-0000-0000-0000-000000000001';
-  const defaultContrato = searchParams?.contrato || 'CT-2026-99420';
-  const defaultEquipamento = searchParams?.equipamento || 'Elevador Social 01 (Torre Sul)';
+export default async function PtReparoPage() {
+  const result = await getPtReparosAction();
 
   return (
-    <main className="py-6">
-      <PtReparoWizard
-        serviceOrderId={serviceOrderId}
-        defaultContrato={defaultContrato}
-        defaultEquipamento={defaultEquipamento}
+    <main className="py-2">
+      <PtManagementView
+        initialPermits={(result.permits || []) as any}
+        isAdmin={!!result.isAdmin}
       />
     </main>
   );
