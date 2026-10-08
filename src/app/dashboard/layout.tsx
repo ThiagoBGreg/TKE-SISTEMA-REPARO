@@ -27,6 +27,12 @@ const NAV_ITEMS = [
     departments: ['REPARO', 'SERVICOS', 'OSH', 'ADMINISTRATIVO', 'DLOG'],
   },
   {
+    href: '/dashboard/reparo/acompanhamento',
+    label: 'Acompanhamento Serviços',
+    icon: '📍',
+    departments: ['REPARO', 'SERVICOS', 'OSH', 'ADMINISTRATIVO', 'DLOG'],
+  },
+  {
     href: '/dashboard/osh',
     label: 'Segurança (OSH)',
     icon: '🛡️',

@@ -253,7 +253,7 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
         </div>
 
         {/* Botões das Abas */}
-        <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl self-start md:self-auto">
+        <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl self-start md:self-auto flex-wrap">
           <button
             type="button"
             onClick={() => setActiveTab('LIST')}
@@ -278,6 +278,14 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
             <span>✍️</span>
             <span>Nova Emissão (Em Branco)</span>
           </button>
+          <Link
+            href="/dashboard/reparo/acompanhamento"
+            className="px-4 py-2 rounded-lg text-xs font-bold text-slate-700 hover:text-slate-950 hover:bg-white/60 transition flex items-center gap-1.5"
+            title="Acessar Acompanhamento de Serviços no Mapa"
+          >
+            <span>📍</span>
+            <span>Mapa de Serviços</span>
+          </Link>
         </div>
       </div>
 
