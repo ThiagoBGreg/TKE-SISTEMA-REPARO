@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import { google } from 'googleapis';
 import { Readable } from 'stream';
 
@@ -5,6 +7,15 @@ import { Readable } from 'stream';
  * Escopos necessários para leitura, escrita e criação de pastas/arquivos no Drive
  */
 const SCOPES = ['https://www.googleapis.com/auth/drive'];
+
+/**
+ * Verifica se as credenciais do Google Drive estão configuradas no ambiente
+ */
+export function isGoogleDriveConfigured(): boolean {
+  const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
+  const privateKey = process.env.GOOGLE_PRIVATE_KEY;
+  return Boolean(clientEmail && privateKey && clientEmail.trim().length > 0 && privateKey.trim().length > 0);
+}
 
 /**
  * Inicializa o cliente autenticado da Google Drive API via Service Account
@@ -15,7 +26,7 @@ export function getGoogleDriveClient() {
 
   if (!clientEmail || !privateKey) {
     console.warn(
-      '[GoogleDrive] Variáveis de ambiente GOOGLE_CLIENT_EMAIL ou GOOGLE_PRIVATE_KEY não configuradas.'
+      '[GoogleDrive] Variáveis de ambiente GOOGLE_CLIENT_EMAIL ou GOOGLE_PRIVATE_KEY não configuradas. Operando com armazenamento local seguro.'
     );
   }
 
@@ -35,6 +46,10 @@ export async function getOrCreateFolder(
   folderName: string,
   parentId?: string
 ): Promise<string> {
+  if (!isGoogleDriveConfigured()) {
+    return `local_${folderName.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}`;
+  }
+
   const drive = getGoogleDriveClient();
   const parent = parentId || process.env.GOOGLE_DRIVE_PARENT_FOLDER_ID || 'root';
 
@@ -65,8 +80,8 @@ export async function getOrCreateFolder(
 
     return folder.data.id!;
   } catch (error) {
-    console.error(`[GoogleDrive] Erro ao obter/criar pasta "${folderName}":`, error);
-    throw new Error(`Falha ao acessar ou criar pasta no Google Drive: ${folderName}`);
+    console.warn(`[GoogleDrive] Erro na API ao acessar pasta "${folderName}". Usando pasta local:`, error);
+    return `local_${folderName.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}`;
   }
 }
 
@@ -76,24 +91,29 @@ export async function getOrCreateFolder(
  * /OS_[CODIGO]/CARTAS_CONCLUSAO
  */
 export async function getServiceOrderFolderStructure(osCodigo: string) {
-  // Normaliza o código da OS para nome seguro de pasta (ex: "OS-2026-0841" -> "OS_2026_0841")
   const sanitizedCodigo = osCodigo.replace(/[^a-zA-Z0-9_-]/g, '_');
   const osFolderName = `OS_${sanitizedCodigo}`;
 
-  // 1. Cria ou obtém a pasta da OS na raiz configurada
-  const osFolderId = await getOrCreateFolder(osFolderName);
+  try {
+    const osFolderId = await getOrCreateFolder(osFolderName);
+    const [fotosFolderId, cartasFolderId] = await Promise.all([
+      getOrCreateFolder('FOTOS_SERVICO', osFolderId),
+      getOrCreateFolder('CARTAS_CONCLUSAO', osFolderId),
+    ]);
 
-  // 2. Cria as subpastas específicas
-  const [fotosFolderId, cartasFolderId] = await Promise.all([
-    getOrCreateFolder('FOTOS_SERVICO', osFolderId),
-    getOrCreateFolder('CARTAS_CONCLUSAO', osFolderId),
-  ]);
-
-  return {
-    osFolderId,
-    fotosFolderId,
-    cartasFolderId,
-  };
+    return {
+      osFolderId,
+      fotosFolderId,
+      cartasFolderId,
+    };
+  } catch (err) {
+    console.warn('[GoogleDrive] Falha ao criar estrutura remota da OS. Usando estrutura local:', err);
+    return {
+      osFolderId: `local_os_${sanitizedCodigo}`,
+      fotosFolderId: `local_fotos_${sanitizedCodigo}`,
+      cartasFolderId: `local_cartas_${sanitizedCodigo}`,
+    };
+  }
 }
 
 export interface UploadFileOptions {
@@ -111,7 +131,7 @@ export interface UploadFileResult {
 }
 
 /**
- * Realiza o upload de um arquivo para uma pasta de destino no Google Drive
+ * Realiza o upload de um arquivo para o Google Drive ou armazena localmente de forma resiliente
  */
 export async function uploadFileToDrive({
   buffer,
@@ -120,49 +140,79 @@ export async function uploadFileToDrive({
   targetFolderId,
   makePublic = true,
 }: UploadFileOptions): Promise<UploadFileResult> {
-  const drive = getGoogleDriveClient();
-  const stream = Readable.from(buffer);
+  // 1. Tenta upload oficial no Google Drive se houver credenciais
+  if (isGoogleDriveConfigured()) {
+    try {
+      const drive = getGoogleDriveClient();
+      const stream = Readable.from(buffer);
 
-  try {
-    // 1. Cria o arquivo na pasta destino
-    const file = await drive.files.create({
-      requestBody: {
-        name: fileName,
-        parents: [targetFolderId],
-      },
-      media: {
-        mimeType,
-        body: stream,
-      },
-      fields: 'id, name, webViewLink, webContentLink',
-    });
+      const isLocalFolder = targetFolderId.startsWith('local_');
+      const requestParents = isLocalFolder ? undefined : [targetFolderId];
 
-    const fileId = file.data.id!;
+      const file = await drive.files.create({
+        requestBody: {
+          name: fileName,
+          parents: requestParents,
+        },
+        media: {
+          mimeType,
+          body: stream,
+        },
+        fields: 'id, name, webViewLink, webContentLink',
+      });
 
-    // 2. Opcional: Define permissão de leitura para visualização direta no painel
-    if (makePublic) {
-      try {
-        await drive.permissions.create({
-          fileId,
-          requestBody: {
-            role: 'reader',
-            type: 'anyone',
-          },
-        });
-      } catch (permError) {
-        console.warn('[GoogleDrive] Permissão pública não pôde ser aplicada:', permError);
+      const fileId = file.data.id!;
+
+      if (makePublic) {
+        try {
+          await drive.permissions.create({
+            fileId,
+            requestBody: {
+              role: 'reader',
+              type: 'anyone',
+            },
+          });
+        } catch (permError) {
+          console.warn('[GoogleDrive] Permissão pública não pôde ser aplicada:', permError);
+        }
       }
+
+      return {
+        fileId,
+        webViewLink:
+          file.data.webViewLink ||
+          `https://drive.google.com/file/d/${fileId}/view?usp=drivesdk`,
+        webContentLink: file.data.webContentLink || null,
+      };
+    } catch (driveError) {
+      console.warn('[GoogleDrive] Falha no upload para API do Google Drive. Acionando Fallback Local:', driveError);
     }
+  }
+
+  // 2. FALLBACK HÍBRIDO SEGURO: Grava em public/uploads/cartas
+  try {
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'cartas');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    const timestamp = Date.now();
+    const sanitizedName = fileName.replace(/[^a-zA-Z0-9_.-]/g, '_');
+    const uniqueFileName = `${timestamp}_${sanitizedName}`;
+    const filePath = path.join(uploadDir, uniqueFileName);
+
+    fs.writeFileSync(filePath, buffer);
+
+    const publicUrl = `/uploads/cartas/${uniqueFileName}`;
+    const fileId = `local_${timestamp}_${Math.random().toString(36).substring(2, 7)}`;
 
     return {
       fileId,
-      webViewLink:
-        file.data.webViewLink ||
-        `https://drive.google.com/file/d/${fileId}/view?usp=drivesdk`,
-      webContentLink: file.data.webContentLink || null,
+      webViewLink: publicUrl,
+      webContentLink: publicUrl,
     };
-  } catch (error) {
-    console.error(`[GoogleDrive] Erro ao fazer upload do arquivo "${fileName}":`, error);
-    throw new Error(`Falha no upload para o Google Drive: ${fileName}`);
+  } catch (localError) {
+    console.error('[GoogleDrive / LocalStorage] Falha crítica ao salvar arquivo:', localError);
+    throw new Error(`Falha no armazenamento do arquivo: ${fileName}`);
   }
 }

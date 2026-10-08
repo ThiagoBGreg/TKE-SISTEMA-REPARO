@@ -243,10 +243,17 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
   };
 
   // Funções de Compartilhamento da Carta de Conclusão
+  const getFullShareUrl = (url: string) => {
+    if (typeof window === 'undefined') return url;
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    return `${window.location.origin}${url.startsWith('/') ? '' : '/'}${url}`;
+  };
+
   const handleCopyLink = async (url: string) => {
     try {
+      const fullUrl = getFullShareUrl(url);
       if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        await navigator.clipboard.writeText(url);
+        await navigator.clipboard.writeText(fullUrl);
         setCopySuccess(true);
         setTimeout(() => setCopySuccess(false), 3000);
       }
@@ -256,33 +263,35 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
   };
 
   const handleShareWhatsApp = (permit: WorkPermitItem, cartaUrl: string) => {
+    const fullUrl = getFullShareUrl(cartaUrl);
     const text =
       `*Carta de Conclusão e Aceite do Serviço - TKE*\n\n` +
       `*PT:* ${permit.codigo}\n` +
       `*Contrato / Orçamento:* ${permit.contratoOrcamento}\n` +
       `*Equipamento:* ${permit.equipamento}\n` +
       `*Status:* Concluído\n\n` +
-      `Acesse a carta oficial assinada:\n${cartaUrl}`;
+      `Acesse a carta oficial assinada:\n${fullUrl}`;
 
     const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
     window.open(waUrl, '_blank');
   };
 
   const handleNativeShare = async (permit: WorkPermitItem, cartaUrl: string) => {
+    const fullUrl = getFullShareUrl(cartaUrl);
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({
           title: `Carta de Conclusão - ${permit.codigo}`,
           text: `Carta de Conclusão e Aceite do Serviço referente à PT ${permit.codigo} (Contrato: ${permit.contratoOrcamento}).`,
-          url: cartaUrl,
+          url: fullUrl,
         });
       } catch (err: any) {
         if (err.name !== 'AbortError') {
-          handleCopyLink(cartaUrl);
+          handleCopyLink(fullUrl);
         }
       }
     } else {
-      handleCopyLink(cartaUrl);
+      handleCopyLink(fullUrl);
     }
   };
 
@@ -1824,14 +1833,26 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
               </div>
             </div>
 
-            {/* Viewer Iframe / Link Google Drive */}
-            <div className="flex-1 min-h-[420px] sm:min-h-[560px] bg-slate-900 relative flex flex-col items-center justify-center">
-              <iframe
-                src={previewingCarta.carta.driveViewUrl.replace(/\/view(\?usp=.*)?$/, '/preview')}
-                className="w-full h-full min-h-[420px] sm:min-h-[560px] border-0"
-                title={`Carta de Conclusão ${previewingCarta.permit.codigo}`}
-                allow="autoplay"
-              />
+            {/* Viewer Iframe / Imagem / Link */}
+            <div className="flex-1 min-h-[420px] sm:min-h-[560px] bg-slate-900 relative flex flex-col items-center justify-center overflow-hidden">
+              {previewingCarta.carta.driveViewUrl.match(/\.(jpeg|jpg|png|webp)$/i) ? (
+                <img
+                  src={previewingCarta.carta.driveViewUrl}
+                  alt={`Carta de Conclusão ${previewingCarta.permit.codigo}`}
+                  className="max-h-[75vh] w-auto object-contain mx-auto p-2"
+                />
+              ) : (
+                <iframe
+                  src={
+                    previewingCarta.carta.driveViewUrl.startsWith('http') && previewingCarta.carta.driveViewUrl.includes('drive.google.com')
+                      ? previewingCarta.carta.driveViewUrl.replace(/\/view(\?usp=.*)?$/, '/preview')
+                      : previewingCarta.carta.driveViewUrl
+                  }
+                  className="w-full h-full min-h-[420px] sm:min-h-[560px] border-0 bg-white"
+                  title={`Carta de Conclusão ${previewingCarta.permit.codigo}`}
+                  allow="autoplay"
+                />
+              )}
             </div>
 
             {/* Footer com Ações de Compartilhamento e Acesso Direto */}
@@ -1867,14 +1888,14 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
                   <span>{copySuccess ? 'Link Copiado!' : 'Copiar Link'}</span>
                 </button>
 
-                {/* Abrir no Drive */}
+                {/* Abrir Documento em Nova Aba */}
                 <a
                   href={previewingCarta.carta.driveViewUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold px-3 py-2 rounded-xl border border-blue-200 transition"
                 >
-                  <span>Abrir no Google Drive ↗</span>
+                  <span>Abrir Documento ↗</span>
                 </a>
               </div>
             </div>
