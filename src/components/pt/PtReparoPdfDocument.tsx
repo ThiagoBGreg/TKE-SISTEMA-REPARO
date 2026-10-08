@@ -444,15 +444,39 @@ export function PtReparoPdfDocument({ data, codigoPT }: PtReparoPdfProps) {
           <Text style={styles.sectionTitle}>14 - TÉRMINO DO SERVIÇO DE REPARO</Text>
           <View style={[styles.row, { padding: 3, alignItems: 'center' }]}>
             <View style={{ flex: 2 }}>
-              <Text><Text style={styles.bold}>Emitente:</Text> {data.terminoServico?.emitenteAssinatura.nome || 'Pendente'}</Text>
-              <Text><Text style={styles.bold}>Data/Hora Término:</Text> {data.terminoServico?.dataHoraTermino || 'Em andamento'}</Text>
+              <Text>
+                <Text style={styles.bold}>Emitente:</Text>{' '}
+                {data.terminoServico?.emitenteAssinatura?.nome || 'Pendente'}
+              </Text>
+              <Text style={{ marginTop: 2 }}>
+                <Text style={styles.bold}>Data/Hora Término:</Text>{' '}
+                {data.terminoServico?.dataHoraTermino
+                  ? String(data.terminoServico.dataHoraTermino).replace('T', ' ')
+                  : 'Em andamento'}
+              </Text>
+              {data.terminoServico?.dataHoraTermino && (
+                <Text style={{ marginTop: 2, fontSize: 6.5, color: '#16a34a' }}>
+                  ✓ Serviço de Reparo Concluído
+                </Text>
+              )}
             </View>
             <View style={{ flex: 2, alignItems: 'center' }}>
-              {data.terminoServico?.emitenteAssinatura ? (
-                <View style={styles.signatureBox}>
-                  {/* eslint-disable-next-line jsx-a11y/alt-text */}
-                  <Image src={data.terminoServico.emitenteAssinatura.assinaturaBase64} style={styles.signatureImage} />
-                </View>
+              {data.terminoServico?.emitenteAssinatura?.assinaturaBase64 ? (
+                <>
+                  <View style={styles.signatureBox}>
+                    {/* eslint-disable-next-line jsx-a11y/alt-text */}
+                    <Image
+                      src={data.terminoServico.emitenteAssinatura.assinaturaBase64}
+                      style={styles.signatureImage}
+                    />
+                  </View>
+                  {data.terminoServico.emitenteAssinatura.geolocalizacao && (
+                    <Text style={styles.geoBadge}>
+                      📍 {data.terminoServico.emitenteAssinatura.geolocalizacao.latitude.toFixed(5)},{' '}
+                      {data.terminoServico.emitenteAssinatura.geolocalizacao.longitude.toFixed(5)}
+                    </Text>
+                  )}
+                </>
               ) : (
                 <Text style={{ fontSize: 6.5, color: '#94a3b8' }}>[Serviço em execução]</Text>
               )}

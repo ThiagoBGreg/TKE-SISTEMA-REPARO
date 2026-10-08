@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { eq, desc } from 'drizzle-orm';
 import { db } from '@/db';
 import { notifications, serviceOrderHistory, serviceOrders, users, workPermits } from '@/db/schema';
-import { ptReparoSchema, type PtReparoFormData } from '@/lib/validations/ptReparoSchema';
+import { ptReparoSchema, type DigitalSignature, type PtReparoFormData } from '@/lib/validations/ptReparoSchema';
 import type { AuthUser } from '@/types/auth';
 
 export type SubmitPtReparoResult =
@@ -338,5 +338,111 @@ export async function deletePtReparoAction(id: string) {
   } catch (error) {
     console.error('[deletePtReparoAction] Erro ao excluir PT:', error);
     return { success: false, error: 'Erro ao excluir a Permissão de Trabalho.' };
+  }
+}
+
+export interface ConcluirTerminoPayload {
+  workPermitId: string;
+  dataHoraTermino: string;
+  emitenteNome: string;
+  emitenteAssinaturaBase64: string;
+  geolocalizacao?: { latitude: number; longitude: number; accuracy?: number } | null;
+  observacoesFinais?: string;
+}
+
+/**
+ * Registra o Término do Serviço de Reparo (Item 14) e atualiza o status para CONCLUIDO
+ */
+export async function concluirTerminoPtReparoAction(payload: ConcluirTerminoPayload) {
+  try {
+    if (!payload.workPermitId) {
+      return { success: false, error: 'ID da Permissão de Trabalho é obrigatório.' };
+    }
+    if (!payload.emitenteNome?.trim()) {
+      return { success: false, error: 'Nome do responsável pelo término é obrigatório.' };
+    }
+    if (!payload.emitenteAssinaturaBase64?.trim()) {
+      return { success: false, error: 'Assinatura digital do término é obrigatória.' };
+    }
+
+    const [permit] = await db
+      .select()
+      .from(workPermits)
+      .where(eq(workPermits.id, payload.workPermitId))
+      .limit(1);
+
+    if (!permit) {
+      return { success: false, error: 'Permissão de Trabalho não encontrada.' };
+    }
+
+    const sessionUser = await getSessionUser();
+
+    const assinaturaTerminoData: DigitalSignature = {
+      nome: payload.emitenteNome.trim(),
+      cargo: 'TECNICO',
+      assinaturaBase64: payload.emitenteAssinaturaBase64,
+      timestamp: new Date().toISOString(),
+      geolocalizacao: payload.geolocalizacao || null,
+    };
+
+    const finalDataTermino = payload.dataHoraTermino || new Date().toISOString().slice(0, 16);
+
+    const updatedDadosCompletos: PtReparoFormData = {
+      ...permit.dadosCompletos,
+      terminoServico: {
+        dataHoraTermino: finalDataTermino,
+        emitenteAssinatura: assinaturaTerminoData,
+      },
+      observacoesGerais: payload.observacoesFinais?.trim()
+        ? `${permit.dadosCompletos.observacoesGerais || ''}\n[Término ${new Date().toLocaleDateString('pt-BR')}]: ${payload.observacoesFinais.trim()}`.trim()
+        : permit.dadosCompletos.observacoesGerais,
+    };
+
+    // 1. Atualiza a PT no banco de dados para CONCLUIDO
+    await db
+      .update(workPermits)
+      .set({
+        status: 'CONCLUIDO',
+        assinaturaTermino: assinaturaTerminoData,
+        dadosCompletos: updatedDadosCompletos,
+        updatedAt: new Date(),
+      })
+      .where(eq(workPermits.id, payload.workPermitId));
+
+    // 2. Atualiza a Ordem de Serviço vinculada se existir
+    if (permit.serviceOrderId) {
+      await db
+        .update(serviceOrders)
+        .set({
+          status: 'CONCLUIDA',
+          dataConclusao: new Date(finalDataTermino),
+          updatedAt: new Date(),
+        })
+        .where(eq(serviceOrders.id, permit.serviceOrderId));
+
+      await db.insert(serviceOrderHistory).values({
+        serviceOrderId: permit.serviceOrderId,
+        alteradoPorId: sessionUser?.id || null,
+        statusAnterior: 'EM_EXECUCAO',
+        statusNovo: 'CONCLUIDA',
+        acao: 'FINALIZACAO_PT',
+        descricao: `Término do serviço de reparo concluído e assinado digitalmente por ${payload.emitenteNome}. Permissão e OS finalizadas.`,
+        alteracoes: {
+          ptStatus: { antes: permit.status, depois: 'CONCLUIDO' },
+          dataTermino: { antes: null, depois: finalDataTermino },
+        },
+      });
+    }
+
+    revalidatePath('/dashboard/reparo/pt');
+    revalidatePath('/dashboard/reparo');
+    if (permit.serviceOrderId) {
+      revalidatePath(`/dashboard/reparo/${permit.serviceOrderId}`);
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('[concluirTerminoPtReparoAction] Erro ao registrar término:', error);
+    return { success: false, error: 'Erro ao registrar término do serviço no banco de dados.' };
   }
 }

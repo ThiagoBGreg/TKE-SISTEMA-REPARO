@@ -95,6 +95,7 @@ export const workPermitStatusEnum = pgEnum('work_permit_status', [
   'EM_ANALISE_OSH',
   'APROVADA',
   'FINALIZADA',
+  'CONCLUIDO',
   'CANCELADA',
 ]);
 

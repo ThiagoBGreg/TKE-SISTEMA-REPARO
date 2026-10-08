@@ -3,8 +3,13 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { PtReparoWizard } from '@/components/pt/PtReparoWizard';
-import { deletePtReparoAction, updatePtReparoAction } from '@/actions/ptReparoActions';
-import type { PtReparoFormData } from '@/lib/validations/ptReparoSchema';
+import { SignaturePad } from '@/components/pt/SignaturePad';
+import {
+  deletePtReparoAction,
+  updatePtReparoAction,
+  concluirTerminoPtReparoAction,
+} from '@/actions/ptReparoActions';
+import type { DigitalSignature, PtReparoFormData } from '@/lib/validations/ptReparoSchema';
 
 export interface WorkPermitItem {
   id: string;
@@ -31,28 +36,136 @@ export function PtManagementView({ initialPermits, isAdmin }: PtManagementViewPr
   const [activeTab, setActiveTab] = useState<'LIST' | 'CREATE'>('LIST');
   const [permits, setPermits] = useState<WorkPermitItem[]>(initialPermits);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'EM_ANDAMENTO' | 'FINALIZADA'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'EM_ANDAMENTO' | 'CONCLUIDO'>('ALL');
 
-  // Modais
+  // Modais de Visualização e Administração
   const [viewingPermit, setViewingPermit] = useState<WorkPermitItem | null>(null);
   const [editingPermit, setEditingPermit] = useState<WorkPermitItem | null>(null);
   const [deletingPermitId, setDeletingPermitId] = useState<string | null>(null);
+
+  // Modal de Preenchimento do Término de Serviço (Item 14)
+  const [concludingPermit, setConcludingPermit] = useState<WorkPermitItem | null>(null);
+  const [terminoDataHora, setTerminoDataHora] = useState('');
+  const [terminoNome, setTerminoNome] = useState('');
+  const [terminoAssinatura, setTerminoAssinatura] = useState<DigitalSignature | null>(null);
+  const [terminoObservacoes, setTerminoObservacoes] = useState('');
+  const [terminoErro, setTerminoErro] = useState<string | null>(null);
 
   // Estados de loading e mensagens
   const [isProcessing, setIsProcessing] = useState(false);
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Filtros
+  // Filtros de busca e status
   const filteredPermits = permits.filter((item) => {
     const matchesSearch =
       item.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.contratoOrcamento.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.equipamento.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatus = statusFilter === 'ALL' || item.status === statusFilter;
+    const isConcluido = item.status === 'CONCLUIDO' || item.status === 'FINALIZADA';
+    const matchesStatus =
+      statusFilter === 'ALL' ||
+      (statusFilter === 'CONCLUIDO' ? isConcluido : item.status === statusFilter);
 
     return matchesSearch && matchesStatus;
   });
+
+  // Abre o modal de término de serviço
+  const handleOpenTerminoModal = (permit: WorkPermitItem) => {
+    setConcludingPermit(permit);
+    setTerminoDataHora(new Date().toISOString().slice(0, 16));
+    setTerminoNome('');
+    setTerminoAssinatura(null);
+    setTerminoObservacoes('');
+    setTerminoErro(null);
+  };
+
+  // Submissão do Término de Serviço
+  const handleConcluirTermino = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!concludingPermit) return;
+
+    if (!terminoNome.trim()) {
+      setTerminoErro('Por favor, informe o nome do responsável pelo término.');
+      return;
+    }
+
+    if (!terminoAssinatura || !terminoAssinatura.assinaturaBase64) {
+      setTerminoErro('Por favor, colete a assinatura digital gráfica do responsável pelo término.');
+      return;
+    }
+
+    setIsProcessing(true);
+    setTerminoErro(null);
+
+    try {
+      const res = await concluirTerminoPtReparoAction({
+        workPermitId: concludingPermit.id,
+        dataHoraTermino: terminoDataHora,
+        emitenteNome: terminoNome,
+        emitenteAssinaturaBase64: terminoAssinatura.assinaturaBase64,
+        geolocalizacao: terminoAssinatura.geolocalizacao || null,
+        observacoesFinais: terminoObservacoes,
+      });
+
+      if (res.success) {
+        // Atualiza a lista local com status CONCLUIDO e os dados do término
+        setPermits((prev) =>
+          prev.map((p) => {
+            if (p.id === concludingPermit.id) {
+              const updatedItem: WorkPermitItem = {
+                ...p,
+                status: 'CONCLUIDO',
+                dadosCompletos: {
+                  ...p.dadosCompletos,
+                  terminoServico: {
+                    dataHoraTermino: terminoDataHora,
+                    emitenteAssinatura: terminoAssinatura,
+                  },
+                  observacoesGerais: terminoObservacoes
+                    ? `${p.dadosCompletos?.observacoesGerais || ''}\n[Término]: ${terminoObservacoes}`.trim()
+                    : p.dadosCompletos?.observacoesGerais,
+                },
+              };
+              return updatedItem;
+            }
+            return p;
+          })
+        );
+
+        // Se o modal de visualização estiver aberto para a mesma PT, atualiza-o
+        if (viewingPermit && viewingPermit.id === concludingPermit.id) {
+          setViewingPermit((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  status: 'CONCLUIDO',
+                  dadosCompletos: {
+                    ...prev.dadosCompletos,
+                    terminoServico: {
+                      dataHoraTermino: terminoDataHora,
+                      emitenteAssinatura: terminoAssinatura,
+                    },
+                  },
+                }
+              : null
+          );
+        }
+
+        setActionMessage({
+          type: 'success',
+          text: `Término do serviço registrado com sucesso para a PT ${concludingPermit.codigo}! Status atualizado para Concluído.`,
+        });
+        setConcludingPermit(null);
+      } else {
+        setTerminoErro(res.error || 'Erro ao registrar o término do serviço.');
+      }
+    } catch {
+      setTerminoErro('Erro inesperado ao registrar o término do serviço.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   // Handler para Exclusão (Admin)
   const handleDeleteConfirm = async (id: string) => {
@@ -62,7 +175,10 @@ export function PtManagementView({ initialPermits, isAdmin }: PtManagementViewPr
       const res = await deletePtReparoAction(id);
       if (res.success) {
         setPermits((prev) => prev.filter((p) => p.id !== id));
-        setActionMessage({ type: 'success', text: 'Permissão de Trabalho excluída com sucesso do banco de dados.' });
+        setActionMessage({
+          type: 'success',
+          text: 'Permissão de Trabalho excluída com sucesso do banco de dados.',
+        });
         setDeletingPermitId(null);
       } else {
         setActionMessage({ type: 'error', text: res.error || 'Erro ao excluir a Permissão.' });
@@ -124,7 +240,7 @@ export function PtManagementView({ initialPermits, isAdmin }: PtManagementViewPr
             Permissões de Trabalho & APR - Reparos
           </h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            Visualize o histórico de autorizações, faça download do PDF oficial assinado ou emita novas permissões de trabalho.
+            Visualize o histórico de autorizações, faça download do PDF oficial assinado, registre o término de serviços ou emita novas permissões de trabalho.
           </p>
         </div>
 
@@ -160,17 +276,20 @@ export function PtManagementView({ initialPermits, isAdmin }: PtManagementViewPr
       {/* Alertas de Ação */}
       {actionMessage && (
         <div
-          className={`p-4 rounded-xl text-sm font-medium flex items-center justify-between ${
+          className={`p-4 rounded-xl text-sm font-medium flex items-center justify-between shadow-2xs ${
             actionMessage.type === 'success'
               ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
               : 'bg-red-50 text-red-800 border border-red-200'
           }`}
         >
-          <span>{actionMessage.text}</span>
+          <span className="flex items-center gap-2">
+            <span>{actionMessage.type === 'success' ? '✅' : '⚠️'}</span>
+            <span>{actionMessage.text}</span>
+          </span>
           <button
             type="button"
             onClick={() => setActionMessage(null)}
-            className="text-xs font-bold underline ml-4"
+            className="text-xs font-bold underline ml-4 hover:opacity-80"
           >
             Fechar
           </button>
@@ -201,7 +320,7 @@ export function PtManagementView({ initialPermits, isAdmin }: PtManagementViewPr
               >
                 <option value="ALL">Todos os Status</option>
                 <option value="EM_ANDAMENTO">Em Andamento</option>
-                <option value="FINALIZADA">Finalizadas</option>
+                <option value="CONCLUIDO">Concluídos</option>
               </select>
 
               <button
@@ -247,112 +366,131 @@ export function PtManagementView({ initialPermits, isAdmin }: PtManagementViewPr
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700">
-                    {filteredPermits.map((permit) => (
-                      <tr key={permit.id} className="hover:bg-slate-50/80 transition">
-                        {/* Código */}
-                        <td className="py-3.5 px-4 font-bold text-slate-900 whitespace-nowrap">
-                          {permit.codigo}
-                        </td>
+                    {filteredPermits.map((permit) => {
+                      const isConcluido =
+                        permit.status === 'CONCLUIDO' || permit.status === 'FINALIZADA';
 
-                        {/* Data */}
-                        <td className="py-3.5 px-4 whitespace-nowrap text-slate-500">
-                          {new Date(permit.createdAt).toLocaleDateString('pt-BR', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </td>
+                      return (
+                        <tr key={permit.id} className="hover:bg-slate-50/80 transition">
+                          {/* Código */}
+                          <td className="py-3.5 px-4 font-bold text-slate-900 whitespace-nowrap">
+                            {permit.codigo}
+                          </td>
 
-                        {/* Contrato */}
-                        <td className="py-3.5 px-4 font-semibold text-slate-800">
-                          {permit.contratoOrcamento}
-                        </td>
+                          {/* Data */}
+                          <td className="py-3.5 px-4 whitespace-nowrap text-slate-500">
+                            {new Date(permit.createdAt).toLocaleDateString('pt-BR', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </td>
 
-                        {/* Equipamento */}
-                        <td className="py-3.5 px-4 text-slate-600 max-w-xs truncate" title={permit.equipamento}>
-                          {permit.equipamento}
-                        </td>
+                          {/* Contrato */}
+                          <td className="py-3.5 px-4 font-semibold text-slate-800">
+                            {permit.contratoOrcamento}
+                          </td>
 
-                        {/* Mão de Obra */}
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-                              permit.tipoMaoDeObra === 'TKE'
+                          {/* Equipamento */}
+                          <td className="py-3.5 px-4 text-slate-600 max-w-xs truncate" title={permit.equipamento}>
+                            {permit.equipamento}
+                          </td>
+
+                          {/* Mão de Obra */}
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                                permit.tipoMaoDeObra === 'TKE'
                                 ? 'bg-blue-50 text-blue-700 border border-blue-200'
                                 : 'bg-purple-50 text-purple-700 border border-purple-200'
-                            }`}
-                          >
-                            {permit.tipoMaoDeObra}
-                          </span>
-                        </td>
+                              }`}
+                            >
+                              {permit.tipoMaoDeObra}
+                            </span>
+                          </td>
 
-                        {/* Status */}
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-                              permit.status === 'FINALIZADA'
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                : 'bg-amber-50 text-amber-700 border border-amber-200'
-                            }`}
-                          >
-                            {permit.status === 'FINALIZADA' ? 'Finalizada' : 'Em Andamento'}
-                          </span>
-                        </td>
+                          {/* Status */}
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <span
+                              className={`px-2.5 py-1 rounded-full text-[11px] font-bold inline-flex items-center gap-1 ${
+                                isConcluido
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+                              }`}
+                            >
+                              <span>{isConcluido ? '✓' : '⏳'}</span>
+                              <span>{isConcluido ? 'Concluído' : 'Em Andamento'}</span>
+                            </span>
+                          </td>
 
-                        {/* CAMPO DE BAIXAR EM PDF */}
-                        <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                          <a
-                            href={`/api/pt/${permit.id}/pdf`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-xs transition"
-                            title="Baixar PDF Oficial da Permissão"
-                          >
-                            <span>📄</span>
-                            <span>Baixar PDF</span>
-                          </a>
-                        </td>
+                          {/* CAMPO DE BAIXAR EM PDF */}
+                          <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                            <a
+                              href={`/api/pt/${permit.id}/pdf`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-xs transition"
+                              title="Baixar PDF Oficial da Permissão"
+                            >
+                              <span>📄</span>
+                              <span>Baixar PDF</span>
+                            </a>
+                          </td>
 
-                        {/* Ações (Visualizar para todos, Editar e Excluir para Admin) */}
-                        <td className="py-3.5 px-4 text-right whitespace-nowrap space-x-1">
-                          {/* Visualizar */}
-                          <button
-                            type="button"
-                            onClick={() => setViewingPermit(permit)}
-                            className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold px-2.5 py-1.5 rounded-lg transition text-xs"
-                            title="Visualizar Detalhes da APT"
-                          >
-                            👁️ Ver
-                          </button>
+                          {/* Ações */}
+                          <td className="py-3.5 px-4 text-right whitespace-nowrap space-x-1">
+                            {/* BOTÃO DE PREENCHIMENTO DO TÉRMINO DO SERVIÇO */}
+                            {!isConcluido && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenTerminoModal(permit)}
+                                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1.5 rounded-lg transition text-xs border border-emerald-300 shadow-2xs inline-flex items-center gap-1"
+                                title="Preencher Término do Serviço de Reparo e Mudar Status para Concluído"
+                              >
+                                <span>🏁</span>
+                                <span>Término</span>
+                              </button>
+                            )}
 
-                          {/* Se for Admin: Editar */}
-                          {isAdmin && (
+                            {/* Visualizar */}
                             <button
                               type="button"
-                              onClick={() => setEditingPermit({ ...permit })}
-                              className="bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold px-2.5 py-1.5 rounded-lg transition text-xs border border-blue-200"
-                              title="Editar Permissão de Trabalho"
+                              onClick={() => setViewingPermit(permit)}
+                              className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold px-2.5 py-1.5 rounded-lg transition text-xs"
+                              title="Visualizar Detalhes da APT"
                             >
-                              ✏️ Editar
+                              👁️ Ver
                             </button>
-                          )}
 
-                          {/* Se for Admin: Excluir */}
-                          {isAdmin && (
-                            <button
-                              type="button"
-                              onClick={() => setDeletingPermitId(permit.id)}
-                              className="bg-red-50 hover:bg-red-100 text-red-700 font-semibold px-2.5 py-1.5 rounded-lg transition text-xs border border-red-200"
-                              title="Excluir Permissão de Trabalho"
-                            >
-                              🗑️ Excluir
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                            {/* Se for Admin: Editar */}
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => setEditingPermit({ ...permit })}
+                                className="bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold px-2.5 py-1.5 rounded-lg transition text-xs border border-blue-200"
+                                title="Editar Permissão de Trabalho"
+                              >
+                                ✏️ Editar
+                              </button>
+                            )}
+
+                            {/* Se for Admin: Excluir */}
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => setDeletingPermitId(permit.id)}
+                                className="bg-red-50 hover:bg-red-100 text-red-700 font-semibold px-2.5 py-1.5 rounded-lg transition text-xs border border-red-200"
+                                title="Excluir Permissão de Trabalho"
+                              >
+                                🗑️ Excluir
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -398,13 +536,15 @@ export function PtManagementView({ initialPermits, isAdmin }: PtManagementViewPr
                 <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
                   {viewingPermit.codigo}
                   <span
-                    className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                      viewingPermit.status === 'FINALIZADA'
-                        ? 'bg-emerald-50 text-emerald-700'
-                        : 'bg-amber-50 text-amber-700'
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                      viewingPermit.status === 'CONCLUIDO' || viewingPermit.status === 'FINALIZADA'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-amber-50 text-amber-700 border border-amber-200'
                     }`}
                   >
-                    {viewingPermit.status}
+                    {viewingPermit.status === 'CONCLUIDO' || viewingPermit.status === 'FINALIZADA'
+                      ? '✓ Concluído'
+                      : '⏳ Em Andamento'}
                   </span>
                 </h2>
                 <p className="text-xs text-slate-500">
@@ -547,13 +687,13 @@ export function PtManagementView({ initialPermits, isAdmin }: PtManagementViewPr
                 </div>
               </div>
 
-              {/* 12 e 13: Assinaturas de Campo */}
+              {/* 12 e 13: Assinaturas de Campo (Início e Integrantes) */}
               <div className="space-y-3">
-                <h3 className="font-bold text-slate-900 uppercase">Assinaturas de Campo & Integrantes</h3>
+                <h3 className="font-bold text-slate-900 uppercase">Assinaturas de Início & Equipe Técnica</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Responsável Início */}
                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
-                    <span className="text-slate-500 block font-semibold">Responsável pelo Início:</span>
+                    <span className="text-slate-500 block font-semibold">12. Responsável pelo Início:</span>
                     <span className="font-bold text-slate-900 block">
                       {viewingPermit.dadosCompletos?.inicioServico?.emitenteAssinatura?.nome || 'Não informado'}
                     </span>
@@ -574,7 +714,7 @@ export function PtManagementView({ initialPermits, isAdmin }: PtManagementViewPr
 
                   {/* Integrantes da Equipe */}
                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
-                    <span className="text-slate-500 block font-semibold">Integrantes da Equipe:</span>
+                    <span className="text-slate-500 block font-semibold">13. Integrantes da Equipe:</span>
                     {viewingPermit.dadosCompletos?.equipeReparo?.map((m, idx) => (
                       <div key={idx} className="border-b border-slate-200 pb-1 last:border-none">
                         <span className="font-bold text-slate-800 block">{m.nomeCompleto || `Integrante ${idx + 1}`}</span>
@@ -592,6 +732,83 @@ export function PtManagementView({ initialPermits, isAdmin }: PtManagementViewPr
                     ))}
                   </div>
                 </div>
+              </div>
+
+              {/* 14: TÉRMINO DO SERVIÇO DE REPARO */}
+              <div className="p-4 bg-emerald-50/50 border border-emerald-200 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-emerald-950 uppercase flex items-center gap-1.5">
+                    <span>14. Término do Serviço de Reparo</span>
+                    <span
+                      className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
+                        viewingPermit.dadosCompletos?.terminoServico
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}
+                    >
+                      {viewingPermit.dadosCompletos?.terminoServico ? '✓ Concluído' : '⏳ Em Andamento'}
+                    </span>
+                  </h3>
+                  {!viewingPermit.dadosCompletos?.terminoServico && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenTerminoModal(viewingPermit)}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-2xs transition flex items-center gap-1"
+                    >
+                      <span>🏁</span>
+                      <span>Registrar Término</span>
+                    </button>
+                  )}
+                </div>
+
+                {viewingPermit.dadosCompletos?.terminoServico ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                    <div>
+                      <span className="text-slate-500 block">Responsável pelo Término:</span>
+                      <span className="font-bold text-slate-900 block text-sm">
+                        {viewingPermit.dadosCompletos.terminoServico.emitenteAssinatura?.nome}
+                      </span>
+                      <span className="text-slate-500 block mt-1">Data e Hora do Término:</span>
+                      <span className="font-semibold text-emerald-800 block">
+                        {new Date(viewingPermit.dadosCompletos.terminoServico.dataHoraTermino).toLocaleString('pt-BR')}
+                      </span>
+                      {viewingPermit.dadosCompletos.terminoServico.emitenteAssinatura?.geolocalizacao && (
+                        <span className="text-[11px] text-slate-500 block mt-1">
+                          📍 Coordenadas:{' '}
+                          {viewingPermit.dadosCompletos.terminoServico.emitenteAssinatura.geolocalizacao.latitude.toFixed(5)},{' '}
+                          {viewingPermit.dadosCompletos.terminoServico.emitenteAssinatura.geolocalizacao.longitude.toFixed(5)}
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block mb-1">Assinatura Gráfica de Conclusão:</span>
+                      <div className="bg-white border border-slate-200 rounded-lg p-2 inline-block">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={viewingPermit.dadosCompletos.terminoServico.emitenteAssinatura.assinaturaBase64}
+                          alt="Assinatura Término"
+                          className="h-14 max-w-xs object-contain"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-slate-600 bg-white/70 p-3 rounded-lg border border-emerald-100 flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">O serviço de reparo ainda está em andamento.</p>
+                      <p className="text-[11px] text-slate-500">
+                        Clique no botão ao lado para preencher o término e alterar o status para Concluído.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenTerminoModal(viewingPermit)}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-2 rounded-lg shadow-xs transition whitespace-nowrap ml-2"
+                    >
+                      Preencher Término
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Observações Gerais */}
@@ -624,6 +841,128 @@ export function PtManagementView({ initialPermits, isAdmin }: PtManagementViewPr
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE PREENCHIMENTO DO TÉRMINO DO SERVIÇO DE REPARO (ITEM 14) */}
+      {concludingPermit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div>
+                <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">
+                  Encerramento da Atividade
+                </span>
+                <h3 className="text-lg font-black text-slate-900">
+                  14 - Término do Serviço de Reparo
+                </h3>
+                <p className="text-xs text-slate-500">
+                  PT: <span className="font-bold text-slate-800">{concludingPermit.codigo}</span> • Contrato: {concludingPermit.contratoOrcamento}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConcludingPermit(null)}
+                className="text-slate-400 hover:text-slate-600 font-bold p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            {terminoErro && (
+              <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded-xl flex items-center gap-2">
+                <span>⚠️</span>
+                <span>{terminoErro}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleConcluirTermino} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Data e Hora do Término *
+                </label>
+                <input
+                  type="datetime-local"
+                  value={terminoDataHora}
+                  onChange={(e) => setTerminoDataHora(e.target.value)}
+                  className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-emerald-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Nome do Responsável pelo Término (Técnico Emitente) *
+                </label>
+                <input
+                  type="text"
+                  placeholder="Nome completo do responsável..."
+                  value={terminoNome}
+                  onChange={(e) => setTerminoNome(e.target.value)}
+                  className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-emerald-500"
+                  required
+                />
+              </div>
+
+              {/* Pad de Assinatura Digital com GPS */}
+              <div className="space-y-1">
+                <label className="block font-semibold text-slate-700">
+                  Assinatura Digital de Término *
+                </label>
+                <p className="text-[11px] text-slate-500 pb-1">
+                  Desenhe sua assinatura no quadro abaixo. Ela será vinculada às coordenadas GPS e carimbo auditável UTC.
+                </p>
+                <SignaturePad
+                  label="Assinatura do Responsável pelo Término"
+                  signatarioNome={terminoNome || 'Responsável pelo Término'}
+                  signatarioCargo="Técnico de Reparo"
+                  value={terminoAssinatura}
+                  onChange={(sig) => setTerminoAssinatura(sig)}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Observações Finais de Encerramento (Opcional)
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Informações sobre testes de funcionamento, limpeza da área, entrega do equipamento..."
+                  value={terminoObservacoes}
+                  onChange={(e) => setTerminoObservacoes(e.target.value)}
+                  className="w-full text-sm border border-slate-300 rounded-lg p-2.5 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setConcludingPermit(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isProcessing}
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-sm text-xs transition flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {isProcessing ? (
+                    <>
+                      <span className="animate-spin">⏳</span>
+                      <span>Gravando Término...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>🔒</span>
+                      <span>Confirmar Término e Mudar para Concluído</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
