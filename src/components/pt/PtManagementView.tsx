@@ -130,55 +130,116 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
     setCartaStatusMsg(null);
   };
 
+// Otimiza e comprime imagens de documentos antes do upload para evitar ultrapassar limites de payload e agilizar o envio móvel
+async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82): Promise<{ file: File; base64: string }> {
+  if (file.type === 'application/pdf') {
+    const base64 = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve((e.target?.result as string) || '');
+      reader.readAsDataURL(file);
+    });
+    return { file, base64 };
+  }
+
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const rawBase64 = (event.target?.result as string) || '';
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                const compressedFile = new File(
+                  [blob],
+                  file.name.replace(/\.[^.]+$/, '.jpg'),
+                  { type: 'image/jpeg' }
+                );
+                resolve({ file: compressedFile, base64: compressedBase64 });
+              } else {
+                resolve({ file, base64: rawBase64 });
+              }
+            },
+            'image/jpeg',
+            quality
+          );
+        } else {
+          resolve({ file, base64: rawBase64 });
+        }
+      };
+      img.onerror = () => resolve({ file, base64: rawBase64 });
+      img.src = rawBase64;
+    };
+    reader.onerror = () => resolve({ file, base64: '' });
+    reader.readAsDataURL(file);
+  });
+}
+
   // Seleciona foto da carta de conclusão e gera o PDF automaticamente
   const handleSelectCartaFoto = async (file: File) => {
     if (!file) return;
-    setCartaFotoFile(file);
     setCartaPdfBlob(null);
     if (cartaPdfUrl) {
       URL.revokeObjectURL(cartaPdfUrl);
       setCartaPdfUrl(null);
     }
-    setCartaStatusMsg(null);
+    setCartaStatusMsg('Otimizando imagem para envio...');
+    setIsGerandoPdfCarta(true);
 
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const base64 = e.target?.result as string;
+    try {
+      const { file: compressedFile, base64 } = await compressImageForUpload(file);
+      setCartaFotoFile(compressedFile);
       setCartaFotoPreview(base64);
 
-      setIsGerandoPdfCarta(true);
-      try {
-        const response = await fetch('/api/pt/carta-conclusao/pdf', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            codigoPT: concludingPermit?.codigo || 'PT-REPARO',
-            contratoOrcamento: concludingPermit?.contratoOrcamento || '',
-            equipamento: concludingPermit?.equipamento || '',
-            tecnicoNome: terminoNome || 'Técnico de Reparo',
-            dataHoraTermino: terminoDataHora || new Date().toISOString(),
-            observacoes: terminoObservacoes || '',
-            fotoBase64: base64,
-          }),
-        });
+      const response = await fetch('/api/pt/carta-conclusao/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          codigoPT: concludingPermit?.codigo || 'PT-REPARO',
+          contratoOrcamento: concludingPermit?.contratoOrcamento || '',
+          equipamento: concludingPermit?.equipamento || '',
+          tecnicoNome: terminoNome || 'Técnico de Reparo',
+          dataHoraTermino: terminoDataHora || new Date().toISOString(),
+          observacoes: terminoObservacoes || '',
+          fotoBase64: base64,
+        }),
+      });
 
-        if (!response.ok) {
-          throw new Error('Falha na resposta ao gerar PDF.');
-        }
-
-        const blob = await response.blob();
-        setCartaPdfBlob(blob);
-        const url = URL.createObjectURL(blob);
-        setCartaPdfUrl(url);
-        setCartaStatusMsg('PDF oficial gerado com sucesso!');
-      } catch (err) {
-        console.error('Erro ao gerar PDF da carta de conclusão:', err);
-        setCartaStatusMsg('Aviso: Não foi possível compilar o PDF automaticamente.');
-      } finally {
-        setIsGerandoPdfCarta(false);
+      if (!response.ok) {
+        throw new Error('Falha na resposta ao gerar PDF.');
       }
-    };
-    reader.readAsDataURL(file);
+
+      const blob = await response.blob();
+      setCartaPdfBlob(blob);
+      const url = URL.createObjectURL(blob);
+      setCartaPdfUrl(url);
+      setCartaStatusMsg('PDF oficial gerado com sucesso!');
+    } catch (err) {
+      console.error('Erro ao gerar PDF da carta de conclusão:', err);
+      setCartaStatusMsg('Aviso: Imagem pronta para envio.');
+    } finally {
+      setIsGerandoPdfCarta(false);
+    }
   };
 
   const handleRemoverCartaFoto = () => {
@@ -2093,13 +2154,20 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
                 capture="environment"
                 ref={uploadCartaCameraInputRef}
                 className="hidden"
-                onChange={(e) => {
+                onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (file) {
-                    setUploadCartaFotoFile(file);
-                    const reader = new FileReader();
-                    reader.onload = (ev) => setUploadCartaFotoPreview(ev.target?.result as string);
-                    reader.readAsDataURL(file);
+                    setIsUploadingCarta(true);
+                    setUploadCartaErro(null);
+                    try {
+                      const { file: compressedFile, base64 } = await compressImageForUpload(file);
+                      setUploadCartaFotoFile(compressedFile);
+                      setUploadCartaFotoPreview(base64);
+                    } catch (err) {
+                      setUploadCartaErro('Erro ao processar imagem.');
+                    } finally {
+                      setIsUploadingCarta(false);
+                    }
                   }
                   e.target.value = '';
                 }}
@@ -2109,16 +2177,23 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
                 accept="image/*,application/pdf"
                 ref={uploadCartaFileInputRef}
                 className="hidden"
-                onChange={(e) => {
+                onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (file) {
-                    setUploadCartaFotoFile(file);
-                    if (file.type.startsWith('image/')) {
-                      const reader = new FileReader();
-                      reader.onload = (ev) => setUploadCartaFotoPreview(ev.target?.result as string);
-                      reader.readAsDataURL(file);
-                    } else {
-                      setUploadCartaFotoPreview(null);
+                    setIsUploadingCarta(true);
+                    setUploadCartaErro(null);
+                    try {
+                      const { file: compressedFile, base64 } = await compressImageForUpload(file);
+                      setUploadCartaFotoFile(compressedFile);
+                      if (file.type.startsWith('image/')) {
+                        setUploadCartaFotoPreview(base64);
+                      } else {
+                        setUploadCartaFotoPreview(null);
+                      }
+                    } catch (err) {
+                      setUploadCartaErro('Erro ao processar arquivo.');
+                    } finally {
+                      setIsUploadingCarta(false);
                     }
                   }
                   e.target.value = '';

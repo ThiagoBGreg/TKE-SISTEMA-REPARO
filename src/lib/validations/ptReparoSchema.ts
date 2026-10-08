@@ -171,6 +171,17 @@ export const ptReparoSchema = z.object({
     .optional(),
 
   observacoesGerais: z.string().optional(),
+
+  cartaConclusao: z
+    .object({
+      id: z.string().optional(),
+      fileName: z.string().optional(),
+      driveViewUrl: z.string(),
+      driveDownloadUrl: z.string().nullable().optional(),
+      enviadoEm: z.string().optional(),
+      rawBase64: z.string().optional(),
+    })
+    .optional(),
 });
 
 export type PtReparoFormData = z.infer<typeof ptReparoSchema>;

@@ -189,7 +189,7 @@ export async function uploadFileToDrive({
     }
   }
 
-  // 2. FALLBACK HÍBRIDO SEGURO: Grava em public/uploads/cartas
+  // 2. FALLBACK HÍBRIDO EM DISCO (Ambiente local / Containers com disco gravável)
   try {
     const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'cartas');
     if (!fs.existsSync(uploadDir)) {
@@ -211,8 +211,23 @@ export async function uploadFileToDrive({
       webViewLink: publicUrl,
       webContentLink: publicUrl,
     };
-  } catch (localError) {
-    console.error('[GoogleDrive / LocalStorage] Falha crítica ao salvar arquivo:', localError);
-    throw new Error(`Falha no armazenamento do arquivo: ${fileName}`);
+  } catch (localDiskError) {
+    console.warn(
+      '[GoogleDrive / Storage] Disco local read-only ou inacessível (ex: Vercel Serverless). Acionando armazenamento inline de alta resiliência:',
+      localDiskError
+    );
   }
+
+  // 3. FALLBACK DE ALTA RESILIÊNCIA PARA PRODUÇÃO / SERVERLESS (Vercel, Cloud Functions)
+  // Converte para Data URI segura que pode ser persistida diretamente no PostgreSQL (Neon)
+  const base64Data = buffer.toString('base64');
+  const safeMime = mimeType || 'application/pdf';
+  const dataUri = `data:${safeMime};base64,${base64Data}`;
+  const fileId = `inline_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+  return {
+    fileId,
+    webViewLink: dataUri,
+    webContentLink: dataUri,
+  };
 }

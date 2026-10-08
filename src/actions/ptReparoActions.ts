@@ -668,24 +668,28 @@ export async function anexarCartaConclusaoDirectAction(formData: FormData) {
     let driveViewUrl = '';
     let driveDownloadUrl: string | null = null;
 
-    // 1. Se a PT estiver vinculada a uma OS, usa a rota oficial de anexos da OS
+    // 1. Se a PT estiver vinculada a uma OS, tenta anexar via OS
     if (permit.serviceOrderId) {
-      const { uploadAttachmentsAction } = await import('@/actions/attachmentActions');
-      const uploadFormData = new FormData();
-      uploadFormData.append('serviceOrderId', permit.serviceOrderId);
-      uploadFormData.append('category', 'CARTA_CONCLUSAO');
-      uploadFormData.append('files', file);
+      try {
+        const { uploadAttachmentsAction } = await import('@/actions/attachmentActions');
+        const uploadFormData = new FormData();
+        uploadFormData.append('serviceOrderId', permit.serviceOrderId);
+        uploadFormData.append('category', 'CARTA_CONCLUSAO');
+        uploadFormData.append('files', file);
 
-      const uploadRes = await uploadAttachmentsAction(uploadFormData);
-      if (uploadRes.success && uploadRes.attachments && uploadRes.attachments.length > 0) {
-        const att = uploadRes.attachments[0];
-        attachmentId = att.id;
-        driveViewUrl = att.driveViewUrl;
-        driveDownloadUrl = att.driveDownloadUrl || null;
+        const uploadRes = await uploadAttachmentsAction(uploadFormData);
+        if (uploadRes.success && uploadRes.attachments && uploadRes.attachments.length > 0) {
+          const att = uploadRes.attachments[0];
+          attachmentId = att.id;
+          driveViewUrl = att.driveViewUrl;
+          driveDownloadUrl = att.driveDownloadUrl || null;
+        }
+      } catch (osErr) {
+        console.warn('[anexarCartaConclusaoDirectAction] Aviso no upload da OS, usando armazenamento resiliente:', osErr);
       }
     }
 
-    // 2. Fallback: se não tiver OS ou falhar na OS, faz upload direto no Drive
+    // 2. Fallback resiliente: grava via uploadFileToDrive (Google Drive / Banco Neon)
     if (!driveViewUrl) {
       const { uploadFileToDrive, getOrCreateFolder } = await import('@/lib/google-drive');
       const targetFolderId = await getOrCreateFolder('CARTAS_CONCLUSAO');
@@ -702,12 +706,19 @@ export async function anexarCartaConclusaoDirectAction(formData: FormData) {
       driveDownloadUrl = driveUpload.webContentLink || null;
     }
 
+    // Se a URL for um Data URI inline (modo resiliente para produção/serverless),
+    // apontamos driveViewUrl para a rota oficial da API pública /api/pt/[codigo]/carta-conclusao
+    // e guardamos o rawBase64 no banco de dados para entrega instantânea
+    const isDataUri = driveViewUrl.startsWith('data:');
+    const apiPublicUrl = `/api/pt/${permit.codigo}/carta-conclusao`;
+
     const cartaObj = {
-      id: attachmentId,
+      id: attachmentId || `carta_${Date.now()}`,
       fileName: file.name,
-      driveViewUrl,
-      driveDownloadUrl,
+      driveViewUrl: isDataUri ? apiPublicUrl : driveViewUrl,
+      driveDownloadUrl: isDataUri ? apiPublicUrl : (driveDownloadUrl || driveViewUrl),
       enviadoEm: new Date().toISOString(),
+      rawBase64: isDataUri ? driveViewUrl : undefined,
     };
 
     // 3. Atualiza os dados estruturados da PT com a carta de conclusão
