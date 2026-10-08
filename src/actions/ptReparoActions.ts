@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, or } from 'drizzle-orm';
 import { db } from '@/db';
 import { notifications, serviceOrderHistory, serviceOrders, users, workPermits } from '@/db/schema';
 import { ptReparoSchema, type DigitalSignature, type PtReparoFormData } from '@/lib/validations/ptReparoSchema';
@@ -95,6 +95,8 @@ export async function submitPtReparoAction(
         ? validatedData.contratoOrcamento.trim().toUpperCase()
         : `OS-${validatedData.contratoOrcamento.trim() || Math.floor(100000 + Math.random() * 900000)}`;
 
+      const isSub = sessionUser?.cargo === 'SUBCONTRATADO';
+
       const [newOrder] = await db
         .insert(serviceOrders)
         .values({
@@ -108,6 +110,7 @@ export async function submitPtReparoAction(
           clienteNome: 'Cliente Corporativo TKE',
           criadoPorId: creatorId,
           responsavelTecnicoId: creatorId,
+          subcontratadoId: isSub ? creatorId : null,
         })
         .returning();
 
@@ -212,60 +215,111 @@ async function getSessionUser(): Promise<AuthUser | null> {
 }
 
 /**
- * Busca todas as PTs/APRs emitidas (Usuários visualizam as suas ou todas se Admin)
+ * Busca todas as PTs/APRs emitidas (Subcontratados somente visualizam as próprias; Admins visualizam todas)
  */
 export async function getPtReparosAction() {
   try {
     const user = await getSessionUser();
     const { isSuperAdmin } = await import('@/lib/permissions');
     const isAdmin = isSuperAdmin(user);
+    const isSubcontratado = !isAdmin && user?.cargo === 'SUBCONTRATADO';
 
-    const permits = await db
-      .select({
-        id: workPermits.id,
-        codigo: workPermits.codigo,
-        status: workPermits.status,
-        contratoOrcamento: workPermits.contratoOrcamento,
-        equipamento: workPermits.equipamento,
-        tipoMaoDeObra: workPermits.tipoMaoDeObra,
-        tipoEquipamento: workPermits.tipoEquipamento,
-        classificacaoReparo: workPermits.classificacaoReparo,
-        trabalhoEmAltura: workPermits.trabalhoEmAltura,
-        serviceOrderId: workPermits.serviceOrderId,
-        criadoPorId: workPermits.criadoPorId,
-        dadosCompletos: workPermits.dadosCompletos,
-        createdAt: workPermits.createdAt,
-      })
-      .from(workPermits)
-      .orderBy(desc(workPermits.createdAt));
+    let permits;
+    if (isSubcontratado && user?.id) {
+      // Subcontratados somente podem visualizar as próprias APRs preenchidas ou atribuídas
+      permits = await db
+        .select({
+          id: workPermits.id,
+          codigo: workPermits.codigo,
+          status: workPermits.status,
+          contratoOrcamento: workPermits.contratoOrcamento,
+          equipamento: workPermits.equipamento,
+          tipoMaoDeObra: workPermits.tipoMaoDeObra,
+          tipoEquipamento: workPermits.tipoEquipamento,
+          classificacaoReparo: workPermits.classificacaoReparo,
+          trabalhoEmAltura: workPermits.trabalhoEmAltura,
+          serviceOrderId: workPermits.serviceOrderId,
+          criadoPorId: workPermits.criadoPorId,
+          dadosCompletos: workPermits.dadosCompletos,
+          createdAt: workPermits.createdAt,
+        })
+        .from(workPermits)
+        .leftJoin(serviceOrders, eq(workPermits.serviceOrderId, serviceOrders.id))
+        .where(
+          or(
+            eq(workPermits.criadoPorId, user.id),
+            eq(serviceOrders.subcontratadoId, user.id)
+          )
+        )
+        .orderBy(desc(workPermits.createdAt));
+    } else {
+      // Gestores, Supervisores, OSH e Administradores visualizam todas
+      permits = await db
+        .select({
+          id: workPermits.id,
+          codigo: workPermits.codigo,
+          status: workPermits.status,
+          contratoOrcamento: workPermits.contratoOrcamento,
+          equipamento: workPermits.equipamento,
+          tipoMaoDeObra: workPermits.tipoMaoDeObra,
+          tipoEquipamento: workPermits.tipoEquipamento,
+          classificacaoReparo: workPermits.classificacaoReparo,
+          trabalhoEmAltura: workPermits.trabalhoEmAltura,
+          serviceOrderId: workPermits.serviceOrderId,
+          criadoPorId: workPermits.criadoPorId,
+          dadosCompletos: workPermits.dadosCompletos,
+          createdAt: workPermits.createdAt,
+        })
+        .from(workPermits)
+        .orderBy(desc(workPermits.createdAt));
+    }
 
-    return { success: true, permits, isAdmin };
+    return { success: true, permits, isAdmin, isSubcontratado, currentUser: user };
   } catch (error) {
     console.error('[getPtReparosAction] Erro ao buscar PTs:', error);
-    return { success: false, permits: [], isAdmin: false };
+    return { success: false, permits: [], isAdmin: false, isSubcontratado: false };
   }
 }
 
 /**
- * Busca dados completos de uma PT pelo ID
+ * Busca dados completos de uma PT pelo ID (com validação estrita para subcontratados)
  */
 export async function getPtReparoByIdAction(id: string) {
   try {
-    const [permit] = await db
-      .select()
-      .from(workPermits)
-      .where(eq(workPermits.id, id))
-      .limit(1);
-
-    if (!permit) {
-      return { success: false, error: 'Permissão de Trabalho não encontrada.' };
-    }
-
     const user = await getSessionUser();
     const { isSuperAdmin } = await import('@/lib/permissions');
     const isAdmin = isSuperAdmin(user);
+    const isSubcontratado = !isAdmin && user?.cargo === 'SUBCONTRATADO';
 
-    return { success: true, permit, isAdmin };
+    const [result] = await db
+      .select({
+        permit: workPermits,
+        subcontratadoId: serviceOrders.subcontratadoId,
+      })
+      .from(workPermits)
+      .leftJoin(serviceOrders, eq(workPermits.serviceOrderId, serviceOrders.id))
+      .where(eq(workPermits.id, id))
+      .limit(1);
+
+    if (!result) {
+      return { success: false, error: 'Permissão de Trabalho não encontrada.' };
+    }
+
+    // Restrição: Subcontratados somente podem visualizar as próprias APRs
+    if (isSubcontratado && user?.id) {
+      const isOwner =
+        result.permit.criadoPorId === user.id ||
+        result.subcontratadoId === user.id;
+
+      if (!isOwner) {
+        return {
+          success: false,
+          error: 'Acesso negado: Subcontratados somente podem visualizar as próprias APRs preenchidas.',
+        };
+      }
+    }
+
+    return { success: true, permit: result.permit, isAdmin, isSubcontratado };
   } catch (error) {
     console.error('[getPtReparoByIdAction] Erro:', error);
     return { success: false, error: 'Erro ao buscar Permissão de Trabalho.' };

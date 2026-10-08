@@ -15,6 +15,7 @@ export default async function PtReparoPage() {
       <PtManagementView
         initialPermits={(result.permits || []) as any}
         isAdmin={!!result.isAdmin}
+        isSubcontratado={!!result.isSubcontratado}
       />
     </main>
   );

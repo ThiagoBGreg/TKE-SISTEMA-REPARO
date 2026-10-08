@@ -30,9 +30,10 @@ export interface WorkPermitItem {
 interface PtManagementViewProps {
   initialPermits: WorkPermitItem[];
   isAdmin: boolean;
+  isSubcontratado?: boolean;
 }
 
-export function PtManagementView({ initialPermits, isAdmin }: PtManagementViewProps) {
+export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = false }: PtManagementViewProps) {
   const [activeTab, setActiveTab] = useState<'LIST' | 'CREATE'>('LIST');
   const [permits, setPermits] = useState<WorkPermitItem[]>(initialPermits);
   const [searchTerm, setSearchTerm] = useState('');
@@ -226,7 +227,7 @@ export function PtManagementView({ initialPermits, isAdmin }: PtManagementViewPr
       {/* Header Principal */}
       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-bold text-red-600 tracking-wider uppercase bg-red-50 px-2 py-0.5 rounded-full border border-red-100">
               Módulo de Segurança e Auditoria
             </span>
@@ -235,12 +236,19 @@ export function PtManagementView({ initialPermits, isAdmin }: PtManagementViewPr
                 Acesso Total (Administrador)
               </span>
             )}
+            {isSubcontratado && (
+              <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                🔒 Visão do Prestador (Suas APRs)
+              </span>
+            )}
           </div>
           <h1 className="text-2xl font-black text-slate-900 mt-1">
             Permissões de Trabalho & APR - Reparos
           </h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            Visualize o histórico de autorizações, faça download do PDF oficial assinado, registre o término de serviços ou emita novas permissões de trabalho.
+            {isSubcontratado
+              ? 'Visualize exclusivamente as Permissões de Trabalho & APRs preenchidas por você ou atribuídas à sua equipe, baixe o PDF oficial e registre o término de serviços.'
+              : 'Visualize o histórico de autorizações, faça download do PDF oficial assinado, registre o término de serviços ou emita novas permissões de trabalho.'}
           </p>
         </div>
 
@@ -256,7 +264,7 @@ export function PtManagementView({ initialPermits, isAdmin }: PtManagementViewPr
             }`}
           >
             <span>📋</span>
-            <span>Permissões Salvas ({permits.length})</span>
+            <span>{isSubcontratado ? `Suas APRs Salvas (${permits.length})` : `Permissões Salvas (${permits.length})`}</span>
           </button>
           <button
             type="button"
@@ -337,9 +345,13 @@ export function PtManagementView({ initialPermits, isAdmin }: PtManagementViewPr
           {filteredPermits.length === 0 ? (
             <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center space-y-3">
               <div className="text-4xl">📄</div>
-              <h3 className="text-base font-bold text-slate-800">Nenhuma Permissão de Trabalho Encontrada</h3>
+              <h3 className="text-base font-bold text-slate-800">
+                {isSubcontratado ? 'Nenhuma APR Emitida por Você' : 'Nenhuma Permissão de Trabalho Encontrada'}
+              </h3>
               <p className="text-xs text-slate-500 max-w-md mx-auto">
-                Não há registros de PT / APR que correspondam aos filtros selecionados. Clique no botão abaixo para emitir uma nova permissão com campos em branco.
+                {isSubcontratado
+                  ? 'Você ainda não preencheu nenhuma Permissão de Trabalho / APR ou não há registros com os filtros informados. Clique no botão abaixo para emitir sua APR.'
+                  : 'Não há registros de PT / APR que correspondam aos filtros selecionados. Clique no botão abaixo para emitir uma nova permissão com campos em branco.'}
               </p>
               <button
                 type="button"
