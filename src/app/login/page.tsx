@@ -100,17 +100,21 @@ function LoginFormContent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4 selection:bg-red-600">
-      <div className="w-full max-w-5xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[640px]">
+    <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4 selection:bg-orange-500 selection:text-white relative overflow-hidden">
+      {/* Luz ambiente de fundo */}
+      <div className="absolute top-10 left-10 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl pointer-events-none -z-10" />
+      <div className="absolute bottom-10 right-10 w-96 h-96 bg-orange-600/10 rounded-full blur-3xl pointer-events-none -z-10" />
+
+      <div className="w-full max-w-5xl bg-slate-900/90 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[640px] backdrop-blur-md">
         {/* ====================================================================
-            PAINEL LATERAL COM IDENTIDADE VISUAL TKE
+            PAINEL LATERAL COM IDENTIDADE VISUAL OFICIAL TKE
             ==================================================================== */}
-        <div className="lg:col-span-5 relative bg-gradient-to-br from-slate-950 via-slate-900 to-red-950 p-8 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-800 overflow-hidden">
-          {/* Imagem de Fundo Estilizada */}
-          <div className="absolute inset-0 opacity-15 pointer-events-none mix-blend-overlay">
+        <div className="lg:col-span-5 relative bg-gradient-to-br from-slate-950 via-slate-900 to-purple-950/40 p-8 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-800 overflow-hidden">
+          {/* Imagem de Fundo Estilizada (Template-Capa-Blogs com o gradiente da marca) */}
+          <div className="absolute inset-0 opacity-20 pointer-events-none mix-blend-screen">
             <Image
               src="/images/Template-Capa-Blogs.png"
-              alt="TKE Background"
+              alt="TKE Move Beyond Background"
               fill
               className="object-cover"
               priority
@@ -119,48 +123,50 @@ function LoginFormContent() {
 
           {/* Logo e Informações */}
           <div className="relative z-10 space-y-6">
-            <div className="w-32 h-auto relative">
-              <Image
-                src="/images/tke-logo-claim-510x336px_image_w450_h338.webp"
-                alt="TKE Elevadores"
-                width={160}
-                height={100}
-                className="object-contain"
-                priority
-              />
+            <div className="flex items-center gap-3">
+              <div className="bg-white/95 p-2 rounded-2xl shadow-lg border border-slate-200 inline-block">
+                <Image
+                  src="/images/tke-logo-claim-510x336px_image_w450_h338.webp"
+                  alt="TKE Elevadores Move Beyond"
+                  width={150}
+                  height={95}
+                  className="object-contain h-10 w-auto"
+                  priority
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-600/20 border border-red-500/40 text-red-400 text-[11px] font-bold">
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                Portal Operacional
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/15 border border-orange-500/30 text-orange-400 text-[11px] font-bold">
+                <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                Portal Operacional Integrado
               </div>
               <h1 className="text-2xl font-black text-white tracking-tight leading-snug">
                 Gestão & Monitoramento de Reparos
               </h1>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Plataforma integrada de emissão de APRs digitais, upload de evidências e controle de medições técnicas.
+              <p className="text-xs text-slate-300 leading-relaxed font-normal">
+                Plataforma corporativa da TKE para emissão de Permissão de Trabalho (PT/APR), assinaturas digitais, evidências técnicas e conformidade operacional.
               </p>
             </div>
           </div>
 
           {/* Rodapé do Painel Visual */}
-          <div className="relative z-10 pt-6 space-y-3">
-            <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 backdrop-blur-xs text-xs space-y-1">
-              <div className="text-slate-300 font-bold flex items-center gap-1.5">
-                <span>🛡️</span> Autorização Obrigatória
+          <div className="relative z-10 pt-6 space-y-4">
+            <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 backdrop-blur-md text-xs space-y-1">
+              <div className="text-orange-400 font-bold flex items-center gap-1.5 text-xs">
+                <span>🛡️</span> Autorização Corporativa
               </div>
               <p className="text-[11px] text-slate-400 leading-normal">
-                Novos cadastros passam por análise e liberação prévia da Administração da TKE antes do primeiro acesso.
+                Cadastros de técnicos e parceiros subcontratados passam por liberação prévia da Coordenação TKE.
               </p>
             </div>
 
-            <div className="relative h-6 w-full opacity-60">
+            <div className="relative h-8 w-full rounded-xl overflow-hidden border border-white/10 shadow-md">
               <Image
                 src="/images/brand-keyvisual-1900px_image_w1900_h450.webp"
-                alt="TKE Wave"
+                alt="TKE Move Beyond"
                 fill
-                className="object-contain"
+                className="object-cover"
               />
             </div>
           </div>
@@ -180,10 +186,10 @@ function LoginFormContent() {
                   setLoginError(null);
                   setRegSuccessMessage(null);
                 }}
-                className={`flex-1 sm:flex-initial px-5 py-2.5 rounded-xl transition ${
+                className={`flex-1 sm:flex-initial px-5 py-2.5 rounded-xl transition-all duration-300 ${
                   activeTab === 'login'
-                    ? 'bg-red-600 text-white shadow-md shadow-red-600/30'
-                    : 'text-slate-400 hover:text-white'
+                    ? 'bg-gradient-to-r from-tke-purple via-tke-magenta to-tke-orange text-white shadow-md shadow-orange-500/25 font-extrabold'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
                 }`}
               >
                 Acessar Conta
@@ -195,17 +201,17 @@ function LoginFormContent() {
                   setRegError(null);
                   setLoginError(null);
                 }}
-                className={`flex-1 sm:flex-initial px-5 py-2.5 rounded-xl transition ${
+                className={`flex-1 sm:flex-initial px-5 py-2.5 rounded-xl transition-all duration-300 ${
                   activeTab === 'cadastro'
-                    ? 'bg-red-600 text-white shadow-md shadow-red-600/30'
-                    : 'text-slate-400 hover:text-white'
+                    ? 'bg-gradient-to-r from-tke-purple via-tke-magenta to-tke-orange text-white shadow-md shadow-orange-500/25 font-extrabold'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
                 }`}
               >
                 Criar Nova Conta
               </button>
             </div>
 
-            <Link href="/" className="hidden sm:block text-xs text-slate-400 hover:text-white">
+            <Link href="/" className="hidden sm:inline-flex items-center gap-1 text-xs font-medium text-slate-400 hover:text-orange-400 transition">
               ← Início
             </Link>
           </div>
@@ -216,7 +222,10 @@ function LoginFormContent() {
           {activeTab === 'login' && (
             <form onSubmit={handleLoginSubmit} className="space-y-4">
               <div>
-                <h2 className="text-lg font-bold text-white">Bem-vindo ao Sistema</h2>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <span>Bem-vindo ao Sistema</span>
+                  <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md bg-orange-500/15 text-orange-400 border border-orange-500/30">TKE SECURE</span>
+                </h2>
                 <p className="text-xs text-slate-400">
                   Informe suas credenciais corporativas para entrar.
                 </p>
@@ -239,7 +248,7 @@ function LoginFormContent() {
                   value={loginIdentificador}
                   onChange={(e) => setLoginIdentificador(e.target.value)}
                   placeholder="Ex: Thiago Gregorio ou Jose Augusto"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-red-500 transition"
+                  className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition placeholder:text-slate-500"
                 />
               </div>
 
@@ -252,44 +261,46 @@ function LoginFormContent() {
                     value={loginSenha}
                     onChange={(e) => setLoginSenha(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-red-500 transition pr-10"
+                    className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition pr-10 placeholder:text-slate-500"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 text-slate-400 hover:text-white text-xs"
+                    className="absolute right-3 top-3 text-slate-400 hover:text-white text-xs transition"
                   >
                     {showPassword ? '🙈' : '👁️'}
                   </button>
                 </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={loginLoading}
-                className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 disabled:opacity-50 text-white font-bold text-xs py-3.5 rounded-xl shadow-lg shadow-red-600/30 transition flex items-center justify-center gap-2"
-              >
-                {loginLoading ? (
-                  <>
-                    <span className="animate-spin text-sm">⏳</span> Autenticando...
-                  </>
-                ) : (
-                  'Entrar no Sistema →'
-                )}
-              </button>
+              <div className="pt-1">
+                <button
+                  type="submit"
+                  disabled={loginLoading}
+                  className="btn-tke-gradient w-full py-3.5 text-xs tracking-wide uppercase font-bold"
+                >
+                  {loginLoading ? (
+                    <span className="inline-flex items-center gap-2">
+                      <span className="animate-spin text-sm">⏳</span> Autenticando...
+                    </span>
+                  ) : (
+                    <span>Entrar no Sistema →</span>
+                  )}
+                </button>
+              </div>
 
               {/* Botão de Preenchimento Rápido para Admin Thiago Gregorio */}
               <div className="pt-2 border-t border-slate-800/80">
                 <button
                   type="button"
                   onClick={handlePreFillAdmin}
-                  className="w-full p-2.5 rounded-xl border border-red-900/60 bg-red-950/20 hover:bg-red-950/40 text-red-300 text-xs font-semibold transition flex items-center justify-between"
+                  className="w-full p-2.5 rounded-xl border border-orange-500/30 bg-orange-500/5 hover:bg-orange-500/15 text-orange-300 text-xs font-semibold transition-all duration-200 flex items-center justify-between group hover:border-orange-500/50"
                 >
                   <span className="flex items-center gap-2">
-                    <span>👑</span>
-                    <span>Acesso Admin: Thiago Gregorio</span>
+                    <span className="text-sm">👑</span>
+                    <span>Acesso Rápido Admin: Thiago Gregorio</span>
                   </span>
-                  <span className="text-[10px] bg-red-800 text-white px-2 py-0.5 rounded-md">
+                  <span className="text-[10px] bg-gradient-to-r from-tke-purple to-tke-orange text-white px-2 py-0.5 rounded-md font-bold shadow-xs group-hover:scale-105 transition-transform">
                     Preencher
                   </span>
                 </button>
@@ -343,7 +354,7 @@ function LoginFormContent() {
                     value={regNome}
                     onChange={(e) => setRegNome(e.target.value)}
                     placeholder="Ex: João da Silva"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                    className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   />
                 </div>
                 <div>
@@ -356,7 +367,7 @@ function LoginFormContent() {
                     value={regEmail}
                     onChange={(e) => setRegEmail(e.target.value)}
                     placeholder="joao@parceiro.com"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                    className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   />
                 </div>
               </div>
@@ -369,7 +380,7 @@ function LoginFormContent() {
                   <select
                     value={regDepartamento}
                     onChange={(e) => handleDepartmentChange(e.target.value as DepartmentType)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                    className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   >
                     <option value="REPARO">REPARO</option>
                     <option value="SERVICOS">SERVIÇOS</option>
@@ -384,7 +395,7 @@ function LoginFormContent() {
                   <select
                     value={regCargo}
                     onChange={(e) => setRegCargo(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                    className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   >
                     {DEPARTMENT_ROLES[regDepartamento].map((role) => (
                       <option key={role} value={role}>
@@ -405,7 +416,7 @@ function LoginFormContent() {
                     value={regTelefone}
                     onChange={(e) => setRegTelefone(e.target.value)}
                     placeholder="(11) 99999-9999"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                    className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   />
                 </div>
                 <div>
@@ -417,7 +428,7 @@ function LoginFormContent() {
                     value={regDocumento}
                     onChange={(e) => setRegDocumento(e.target.value)}
                     placeholder="000.000.000-00"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                    className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   />
                 </div>
               </div>
@@ -432,7 +443,7 @@ function LoginFormContent() {
                   value={regSenha}
                   onChange={(e) => setRegSenha(e.target.value)}
                   placeholder="Mínimo 6 caracteres"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                  className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                 />
               </div>
 
@@ -443,12 +454,12 @@ function LoginFormContent() {
               <button
                 type="submit"
                 disabled={regLoading}
-                className="w-full bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-bold text-xs py-3.5 rounded-xl shadow-lg shadow-red-600/30 transition flex items-center justify-center gap-2"
+                className="btn-tke-gradient w-full py-3.5 text-xs tracking-wide uppercase font-bold"
               >
                 {regLoading ? (
-                  <>
+                  <span className="inline-flex items-center gap-2">
                     <span className="animate-spin text-sm">⏳</span> Enviando Cadastro...
-                  </>
+                  </span>
                 ) : (
                   'Enviar Solicitação de Cadastro →'
                 )}

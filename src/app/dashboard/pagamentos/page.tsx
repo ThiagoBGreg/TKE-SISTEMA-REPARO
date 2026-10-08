@@ -1,5 +1,7 @@
 import React from 'react';
 import { PermissionGate } from '@/hooks/useRBAC';
+import { AnimatedButton } from '@/components/ui/AnimatedButton';
+import { TkeLogo } from '@/components/ui/TkeLogo';
 
 export default function PagamentosDashboardPage() {
   const INVOICES = [
@@ -25,23 +27,31 @@ export default function PagamentosDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-slate-900">
-          Módulo Administrativo • Pagamento de Subcontratados
-        </h1>
-        <p className="text-xs text-slate-500">
-          Validação de OS concluídas com APR aprovada para liberação de medições e faturamento.
-        </p>
+      <div className="flex items-center gap-3">
+        <TkeLogo variant="badge" size="sm" />
+        <div>
+          <h1 className="text-xl font-bold text-slate-900">
+            Módulo Administrativo • Pagamento de Subcontratados
+          </h1>
+          <p className="text-xs text-slate-500">
+            Validação de OS concluídas com APR aprovada para liberação de medições e faturamento TKE.
+          </p>
+        </div>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
-        <h2 className="text-sm font-bold text-slate-900">Medições Concluídas Prontas para Pagamento</h2>
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
+        <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+          <span>Medições Concluídas Prontas para Pagamento</span>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200">
+            {INVOICES.length} medições
+          </span>
+        </h2>
 
         <div className="space-y-3">
           {INVOICES.map((inv) => (
             <div
               key={inv.id}
-              className="p-4 rounded-xl border border-purple-200 bg-purple-50/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              className="p-4 rounded-xl border border-purple-200/80 bg-purple-50/30 hover:bg-purple-50/60 transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
             >
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
@@ -54,12 +64,15 @@ export default function PagamentosDashboardPage() {
 
               <div className="flex items-center gap-2">
                 <PermissionGate resource="PAGAMENTOS_SUBCONTRATADOS" action="PROCESS_PAYMENT">
-                  <button
-                    type="button"
-                    className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-xs transition"
+                  <AnimatedButton
+                    variant="purple"
+                    size="xs"
+                    shimmer
+                    lift
+                    icon={<span>💳</span>}
                   >
-                    💳 Processar Pagamento
-                  </button>
+                    Processar Pagamento
+                  </AnimatedButton>
                 </PermissionGate>
               </div>
             </div>
@@ -69,3 +82,4 @@ export default function PagamentosDashboardPage() {
     </div>
   );
 }
+

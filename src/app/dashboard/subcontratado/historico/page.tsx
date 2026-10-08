@@ -9,6 +9,7 @@ import {
 } from '@/actions/subcontractorActions';
 import { ServiceHistoryDetailDialog } from '@/components/subcontractor/ServiceHistoryDetailDialog';
 import { useRBAC } from '@/hooks/useRBAC';
+import { TkeLogo } from '@/components/ui/TkeLogo';
 
 export default function SubcontractorHistoryPage() {
   const { user } = useRBAC();
@@ -80,27 +81,30 @@ export default function SubcontractorHistoryPage() {
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
-      {/* Header com Branding e Exportação */}
+      {/* Header com Branding TKE e Exportação */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <span className="text-xs font-bold text-red-600 tracking-wider uppercase">
-            Portal do Prestador • TKE
-          </span>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
-            Histórico de Serviços & Extrato Mensal
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500">
-            Acompanhe suas ordens de reparo executadas, vistorias técnicas e valores liberados.
-          </p>
+        <div className="flex items-center gap-3">
+          <TkeLogo variant="badge" size="sm" />
+          <div>
+            <span className="text-xs font-bold text-orange-600 tracking-wider uppercase bg-orange-50 px-2.5 py-0.5 rounded-full border border-orange-200 inline-block mb-1">
+              Portal do Prestador • TKE
+            </span>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              Histórico de Serviços & Extrato Mensal
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500">
+              Acompanhe suas ordens de reparo executadas, vistorias técnicas e valores liberados no padrão TKE.
+            </p>
+          </div>
         </div>
 
-        {/* Botões de Exportação */}
+        {/* Botões de Exportação Animados */}
         <div className="flex items-center gap-2 self-start sm:self-center">
           <button
             type="button"
             onClick={handleExportExcel}
             disabled={isExportingExcel}
-            className="inline-flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl shadow-xs transition"
+            className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md shadow-emerald-600/20 hover:shadow-emerald-600/35 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0"
           >
             {isExportingExcel ? (
               <span className="animate-spin">⏳</span>
@@ -114,7 +118,7 @@ export default function SubcontractorHistoryPage() {
             type="button"
             onClick={handleExportPdf}
             disabled={isExportingPdf}
-            className="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl shadow-xs transition"
+            className="btn-tke-gradient text-xs px-4 py-2.5 disabled:opacity-50"
           >
             {isExportingPdf ? (
               <span className="animate-spin">⏳</span>

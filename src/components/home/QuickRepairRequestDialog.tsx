@@ -100,28 +100,36 @@ export function QuickRepairRequestDialog() {
 
   return (
     <>
-      {/* Botão de Disparo na Hero Section */}
+      {/* Botão de Disparo na Hero Section com Animação Shimmer e Glow */}
       <button
         type="button"
         onClick={handleOpenClick}
-        className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold text-sm px-6 py-3.5 rounded-xl shadow-lg shadow-red-600/30 transition transform active:scale-95 flex items-center gap-2"
+        className="btn-tke-gradient px-6 py-3.5 text-sm sm:text-base font-black shadow-xl shadow-orange-500/30 hover:shadow-orange-500/50"
       >
-        <span>⚡</span> Solicitar Reparo / Abrir Chamado
+        <span className="text-base animate-pulse">⚡</span>
+        <span>Solicitar Reparo / Abrir Chamado</span>
       </button>
 
       {/* Modal / Dialog */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-left text-white">
-            {/* Header */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-left text-white">
+            {/* Header com Identidade TKE */}
             <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950">
-              <div>
-                <span className="text-xs font-bold text-red-500 uppercase tracking-wider">
-                  TKE • Solicitação Rápida
-                </span>
-                <h3 className="text-base font-bold text-white">
-                  Abertura de Chamado Emergencial / Orçamento
-                </h3>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-tke-purple to-tke-orange p-0.5">
+                  <div className="w-full h-full bg-slate-950 rounded-[6px] flex items-center justify-center p-1">
+                    <img src="/images/tke-symbol.png" alt="TKE" className="invert brightness-200" />
+                  </div>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-orange-400 uppercase tracking-wider block">
+                    TKE • MOVE BEYOND
+                  </span>
+                  <h3 className="text-base font-bold text-white">
+                    Abertura de Chamado Emergencial / Orçamento
+                  </h3>
+                </div>
               </div>
               <button
                 type="button"
@@ -129,7 +137,7 @@ export function QuickRepairRequestDialog() {
                   setIsOpen(false);
                   setCreatedOS(null);
                 }}
-                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm"
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm transition"
               >
                 ✕
               </button>
@@ -195,7 +203,7 @@ export function QuickRepairRequestDialog() {
                         value={contratoOrcamento}
                         onChange={(e) => setContratoOrcamento(e.target.value)}
                         placeholder="Ex: CT-2026-8812"
-                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                        className="w-full bg-slate-800 border border-slate-700/80 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                       />
                     </div>
                     <div>
@@ -208,7 +216,7 @@ export function QuickRepairRequestDialog() {
                         value={clienteNome}
                         onChange={(e) => setClienteNome(e.target.value)}
                         placeholder="Ex: Condomínio Grand Tower"
-                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                        className="w-full bg-slate-800 border border-slate-700/80 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                       />
                     </div>
                   </div>
@@ -224,7 +232,7 @@ export function QuickRepairRequestDialog() {
                         value={equipamentoNumero}
                         onChange={(e) => setEquipamentoNumero(e.target.value)}
                         placeholder="Ex: Elevador Social 02"
-                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                        className="w-full bg-slate-800 border border-slate-700/80 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                       />
                     </div>
                     <div>
@@ -234,7 +242,7 @@ export function QuickRepairRequestDialog() {
                       <select
                         value={prioridade}
                         onChange={(e) => setPrioridade(e.target.value)}
-                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                        className="w-full bg-slate-800 border border-slate-700/80 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                       >
                         <option value="BAIXA">Baixa</option>
                         <option value="MEDIA">Média</option>
@@ -251,7 +259,7 @@ export function QuickRepairRequestDialog() {
                     <select
                       value={categoriaReparo}
                       onChange={(e) => setCategoriaReparo(e.target.value)}
-                      className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                      className="w-full bg-slate-800 border border-slate-700/80 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     >
                       <option value="CABOS_DE_TRAÇÃO">Cabos de Tração (troca/encurtamento/equalização)</option>
                       <option value="MAQUINA_E_MOTOR">Máquinas de Tração e Motores</option>
@@ -266,7 +274,7 @@ export function QuickRepairRequestDialog() {
                       type="checkbox"
                       checked={temCasaDeMaquinas}
                       onChange={(e) => setTemCasaDeMaquinas(e.target.checked)}
-                      className="w-4 h-4 rounded text-red-600 bg-slate-800 border-slate-700"
+                      className="w-4 h-4 rounded text-orange-600 bg-slate-800 border-slate-700 focus:ring-orange-500"
                     />
                     <span className="text-slate-300">Equipamento possui Casa de Máquinas</span>
                   </label>
@@ -281,7 +289,7 @@ export function QuickRepairRequestDialog() {
                       value={descricao}
                       onChange={(e) => setDescricao(e.target.value)}
                       placeholder="Descreva ruídos anormais, desgaste visual, vibrações ou componente danificado..."
-                      className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                      className="w-full bg-slate-800 border border-slate-700/80 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     />
                   </div>
 
@@ -294,11 +302,11 @@ export function QuickRepairRequestDialog() {
                       type="file"
                       accept="image/*"
                       onChange={handlePhotoChange}
-                      className="block w-full text-xs text-slate-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700"
+                      className="block w-full text-xs text-slate-400 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-orange-400 hover:file:bg-slate-700"
                     />
 
                     {selectedPhoto && (
-                      <div className="relative w-24 h-24 rounded-xl overflow-hidden border border-slate-700 mt-2">
+                      <div className="relative w-24 h-24 rounded-2xl overflow-hidden border border-slate-700 mt-2 shadow-md">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={selectedPhoto.preview}
@@ -309,19 +317,19 @@ export function QuickRepairRequestDialog() {
                     )}
                   </div>
 
-                  {/* Botão de Envio */}
+                  {/* Botão de Envio Animado */}
                   <div className="pt-3">
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="w-full bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl shadow-lg shadow-red-600/30 transition flex items-center justify-center gap-2"
+                      className="btn-tke-gradient w-full py-3.5 text-xs uppercase tracking-wide font-extrabold"
                     >
                       {isSubmitting ? (
-                        <>
+                        <span className="inline-flex items-center gap-2">
                           <span className="animate-spin text-sm">⏳</span> Gerando OS no Neon...
-                        </>
+                        </span>
                       ) : (
-                        '⚡ Confirmar e Abrir Chamado'
+                        <span>⚡ Confirmar e Abrir Chamado</span>
                       )}
                     </button>
                   </div>

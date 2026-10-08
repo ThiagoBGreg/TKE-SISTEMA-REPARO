@@ -57,14 +57,14 @@ export default function UsuariosPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
-          <span className="text-xs font-bold text-red-600 tracking-wider uppercase">
+          <span className="text-xs font-bold text-orange-600 tracking-wider uppercase bg-orange-50 px-2.5 py-0.5 rounded-full border border-orange-200 inline-block mb-1.5">
             Administração de Acessos • TKE
           </span>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
             Aprovação de Usuários & Cadastros
           </h1>
           <p className="text-xs text-slate-500">
-            Somente administradores podem liberar o acesso de novos colaboradores e prestadores.
+            Somente administradores autorizados podem liberar o acesso de novos colaboradores e prestadores.
           </p>
         </div>
 
@@ -83,7 +83,7 @@ export default function UsuariosPage() {
       )}
 
       {/* Lista de Cadastros Pendentes */}
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+      <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden">
         {isPendingTransition ? (
           <div className="p-12 text-center text-xs text-slate-400 font-semibold space-y-2">
             <span className="animate-spin text-2xl block">⏳</span>
@@ -102,7 +102,7 @@ export default function UsuariosPage() {
             {pendingUsers.map((pendingUser) => (
               <div
                 key={pendingUser.id}
-                className="p-5 hover:bg-slate-50 transition flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                className="p-5 hover:bg-orange-50/20 transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
               >
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
@@ -144,7 +144,7 @@ export default function UsuariosPage() {
                   <button
                     type="button"
                     onClick={() => handleApprove(pendingUser.id, pendingUser.nome, false)}
-                    className="bg-white border border-slate-300 hover:bg-red-50 hover:text-red-700 text-slate-600 text-xs font-semibold px-3.5 py-2 rounded-xl transition"
+                    className="bg-white border border-slate-300 hover:bg-rose-50 hover:border-rose-300 hover:text-rose-700 text-slate-600 text-xs font-semibold px-3.5 py-2 rounded-xl transition-all duration-200 active:scale-95"
                   >
                     ✕ Recusar
                   </button>
@@ -152,7 +152,7 @@ export default function UsuariosPage() {
                   <button
                     type="button"
                     onClick={() => handleApprove(pendingUser.id, pendingUser.nome, true)}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-xs transition flex items-center gap-1.5"
+                    className="btn-tke-orange px-4 py-2 text-xs font-bold shadow-md shadow-orange-500/20 hover:shadow-orange-500/35"
                   >
                     <span>✓</span> Autorizar Acesso
                   </button>

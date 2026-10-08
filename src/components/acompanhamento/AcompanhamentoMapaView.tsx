@@ -231,10 +231,10 @@ export function AcompanhamentoMapaView({
           </div>
 
           <div style="display: flex; gap: 6px; margin-top: 10px; padding-top: 6px; border-top: 1px solid #e2e8f0;">
-            <a href="/api/pt/${p.id}/pdf" target="_blank" style="flex: 1; text-align: center; background-color: #dc2626; color: white; padding: 6px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none; display: inline-block;">
+            <a href="/api/pt/${p.id}/pdf" target="_blank" style="flex: 1; text-align: center; background: linear-gradient(135deg, #791E88 0%, #FF5E00 100%); color: white; padding: 6px 8px; border-radius: 8px; font-size: 11px; font-weight: 700; text-decoration: none; display: inline-block;">
               📄 Baixar PDF
             </a>
-            <a href="https://www.google.com/maps/search/?api=1&query=${p.latitude},${p.longitude}" target="_blank" style="flex: 1; text-align: center; background-color: #0f172a; color: white; padding: 6px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none; display: inline-block;">
+            <a href="https://www.google.com/maps/search/?api=1&query=${p.latitude},${p.longitude}" target="_blank" style="flex: 1; text-align: center; background-color: #0f172a; color: white; padding: 6px 8px; border-radius: 8px; font-size: 11px; font-weight: 700; text-decoration: none; display: inline-block;">
               🧭 Abrir no Maps
             </a>
           </div>
@@ -322,7 +322,7 @@ export function AcompanhamentoMapaView({
           <button
             type="button"
             onClick={handleResetBounds}
-            className="px-4 py-2.5 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-xs transition flex items-center gap-2"
+            className="btn-tke-gradient px-4 py-2.5 text-xs font-bold shadow-md shadow-orange-500/20"
             title="Ajustar zoom para abranger todos os serviços"
           >
             <span>🎯</span>
@@ -333,7 +333,7 @@ export function AcompanhamentoMapaView({
 
       {/* Cards de Métricas em Tempo Real */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Serviços Mapeados
@@ -346,20 +346,20 @@ export function AcompanhamentoMapaView({
           <span className="text-[11px] text-slate-400">Com GPS validado em campo</span>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+        <div className="bg-white border border-orange-200/90 bg-orange-50/20 rounded-2xl p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <span className="text-xs font-semibold text-orange-700 uppercase tracking-wider">
               Em Andamento
             </span>
             <span className="text-base">⚡</span>
           </div>
-          <div className="text-2xl font-black text-red-600 mt-1">
+          <div className="text-2xl font-black text-orange-600 mt-1">
             {stats.emAndamento}
           </div>
-          <span className="text-[11px] text-slate-400">Atividades ativas no momento</span>
+          <span className="text-[11px] text-orange-500/80">Atividades ativas no momento</span>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Concluídos

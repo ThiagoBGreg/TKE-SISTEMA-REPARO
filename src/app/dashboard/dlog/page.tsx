@@ -1,5 +1,7 @@
 import React from 'react';
 import { PermissionGate } from '@/hooks/useRBAC';
+import { AnimatedButton } from '@/components/ui/AnimatedButton';
+import { TkeLogo } from '@/components/ui/TkeLogo';
 
 export default function DlogDashboardPage() {
   const ROUTES = [
@@ -23,21 +25,29 @@ export default function DlogDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-slate-900">Módulo DLOG • Logística e Frotas</h1>
-        <p className="text-xs text-slate-500">
-          Despacho de peças pesadas, roteirização de motoristas e entrega de ferramentais especiais em campo.
-        </p>
+      <div className="flex items-center gap-3">
+        <TkeLogo variant="badge" size="sm" />
+        <div>
+          <h1 className="text-xl font-bold text-slate-900">Módulo DLOG • Logística e Frotas</h1>
+          <p className="text-xs text-slate-500">
+            Despacho de peças pesadas, roteirização de motoristas e entrega de ferramentais especiais em campo.
+          </p>
+        </div>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
-        <h2 className="text-sm font-bold text-slate-900">Rotas e Despachos do Dia</h2>
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
+        <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+          <span>Rotas e Despachos do Dia</span>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+            {ROUTES.length} rotas ativas
+          </span>
+        </h2>
 
         <div className="space-y-3">
           {ROUTES.map((route) => (
             <div
               key={route.id}
-              className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              className="p-4 rounded-xl border border-slate-200/90 bg-slate-50/50 hover:bg-slate-50 transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
             >
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
@@ -46,8 +56,8 @@ export default function DlogDashboardPage() {
                   <span
                     className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
                       route.status === 'EM_TRANSITO'
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'bg-amber-100 text-amber-700'
+                        ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                        : 'bg-amber-100 text-amber-700 border border-amber-200'
                     }`}
                   >
                     {route.status.replace('_', ' ')}
@@ -59,12 +69,15 @@ export default function DlogDashboardPage() {
 
               <div className="flex items-center gap-2">
                 <PermissionGate resource="DLOG_LOGISTICA" action="DISPATCH_DRIVER">
-                  <button
-                    type="button"
-                    className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow-xs transition"
+                  <AnimatedButton
+                    variant="dark"
+                    size="xs"
+                    shimmer
+                    lift
+                    icon={<span>🚚</span>}
                   >
-                    🚚 Despachar Motorista
-                  </button>
+                    Despachar Motorista
+                  </AnimatedButton>
                 </PermissionGate>
               </div>
             </div>
@@ -74,3 +87,4 @@ export default function DlogDashboardPage() {
     </div>
   );
 }
+

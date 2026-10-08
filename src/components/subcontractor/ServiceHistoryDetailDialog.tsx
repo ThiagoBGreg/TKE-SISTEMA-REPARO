@@ -25,20 +25,27 @@ export function ServiceHistoryDetailDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-xs animate-in fade-in">
       <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-        {/* Header do Modal */}
-        <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-900 text-white shrink-0">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-red-400 font-mono tracking-wide">
-                {order.codigo}
-              </span>
-              <span className="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded-md">
-                {order.status.replace('_', ' ')}
-              </span>
+        {/* Header do Modal com Identidade TKE */}
+        <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-950 text-white shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-tke-purple to-tke-orange p-0.5 shrink-0">
+              <div className="w-full h-full bg-slate-950 rounded-[6px] flex items-center justify-center p-1">
+                <img src="/images/tke-symbol.png" alt="TKE" className="invert brightness-200" />
+              </div>
             </div>
-            <h2 className="text-base font-bold text-white mt-1 truncate max-w-xl">
-              {order.titulo}
-            </h2>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-orange-400 font-mono tracking-wide">
+                  {order.codigo}
+                </span>
+                <span className="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded-md font-mono">
+                  {order.status.replace('_', ' ')}
+                </span>
+              </div>
+              <h2 className="text-base font-bold text-white mt-0.5 truncate max-w-xl">
+                {order.titulo}
+              </h2>
+            </div>
           </div>
           <button
             type="button"
@@ -61,9 +68,9 @@ export function ServiceHistoryDetailDialog({
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id as any)}
-              className={`text-xs font-bold py-3 px-3.5 border-b-2 transition whitespace-nowrap ${
+              className={`text-xs font-bold py-3 px-3.5 border-b-2 transition-all whitespace-nowrap ${
                 activeTab === tab.id
-                  ? 'border-red-600 text-red-600 bg-white'
+                  ? 'border-orange-500 text-orange-600 bg-white shadow-2xs'
                   : 'border-transparent text-slate-500 hover:text-slate-900'
               }`}
             >
@@ -304,15 +311,15 @@ export function ServiceHistoryDetailDialog({
         {/* Footer do Modal */}
         <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between shrink-0">
           <Link
-            href={`/dashboard/reparo/${order.id}/evidencias`}
-            className="text-xs font-bold text-red-600 hover:text-red-700"
+            href={`/dashboard/reparo`}
+            className="text-xs font-bold text-orange-600 hover:text-orange-700 transition"
           >
-            📸 Abrir Central de Evidências
+            📸 Acessar Central de Ordens
           </Link>
           <button
             type="button"
             onClick={onClose}
-            className="bg-slate-900 hover:bg-black text-white text-xs font-semibold px-4 py-2 rounded-xl transition"
+            className="btn-tke-dark text-xs px-4 py-2"
           >
             Fechar
           </button>

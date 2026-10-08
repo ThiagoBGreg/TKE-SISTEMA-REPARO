@@ -1,31 +1,47 @@
 import React from 'react';
 import Link from 'next/link';
+import { AnimatedButton } from '@/components/ui/AnimatedButton';
+import { TkeLogo } from '@/components/ui/TkeLogo';
 
 export default function AcessoNegadoPage() {
   return (
-    <div className="max-w-md mx-auto my-12 bg-white border border-red-200 rounded-2xl p-8 text-center shadow-sm space-y-4">
-      <div className="w-14 h-14 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-2xl mx-auto">
+    <div className="max-w-md mx-auto my-12 bg-white border border-slate-200/90 rounded-3xl p-8 text-center shadow-lg space-y-5">
+      <div className="flex justify-center">
+        <TkeLogo variant="badge" size="md" />
+      </div>
+
+      <div className="w-14 h-14 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-2xl mx-auto shadow-xs">
         🛡️
       </div>
-      <h1 className="text-xl font-bold text-slate-900">Acesso Restrito (403)</h1>
-      <p className="text-xs text-slate-500 leading-relaxed">
-        Seu cargo ou departamento atual não possui permissão para acessar este módulo. Caso precise de autorização especial, contate o administrador do sistema.
-      </p>
+
+      <div className="space-y-1">
+        <h1 className="text-xl font-black text-slate-900 tracking-tight">Acesso Restrito (403)</h1>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          Seu cargo ou departamento atual não possui autorização para este módulo. Caso necessite de liberação, solicite à Administração TKE.
+        </p>
+      </div>
 
       <div className="pt-2 flex justify-center gap-3">
-        <Link
+        <AnimatedButton
           href="/dashboard"
-          className="bg-slate-900 hover:bg-black text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition"
+          variant="dark"
+          size="sm"
+          shimmer
+          lift
         >
           Voltar ao Painel
-        </Link>
-        <Link
+        </AnimatedButton>
+
+        <AnimatedButton
           href="/login"
-          className="bg-white border border-slate-300 text-slate-700 text-xs font-semibold px-4 py-2.5 rounded-xl hover:bg-slate-50 transition"
+          variant="outline"
+          size="sm"
+          lift
         >
           Trocar de Perfil
-        </Link>
+        </AnimatedButton>
       </div>
     </div>
   );
 }
+

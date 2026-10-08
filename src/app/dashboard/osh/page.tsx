@@ -1,5 +1,7 @@
 import React from 'react';
 import { PermissionGate } from '@/hooks/useRBAC';
+import { AnimatedButton } from '@/components/ui/AnimatedButton';
+import { TkeLogo } from '@/components/ui/TkeLogo';
 
 export default function OshDashboardPage() {
   const PENDING_REVIEWS = [
@@ -23,27 +25,35 @@ export default function OshDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-slate-900">Módulo OSH • Segurança do Trabalho</h1>
-        <p className="text-xs text-slate-500">
-          Validação de Análise Preliminar de Riscos (APR), conformidade com NR-10, NR-18, NR-35 e laudos de campo.
-        </p>
+      <div className="flex items-center gap-3">
+        <TkeLogo variant="badge" size="sm" />
+        <div>
+          <h1 className="text-xl font-bold text-slate-900">Módulo OSH • Segurança do Trabalho</h1>
+          <p className="text-xs text-slate-500">
+            Validação de Análise Preliminar de Riscos (APR), conformidade com NR-10, NR-18, NR-35 e laudos técnicos TKE.
+          </p>
+        </div>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
-        <h2 className="text-sm font-bold text-slate-900">Permissões de Trabalho Aguardando Parecer OSH</h2>
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
+        <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+          <span>Permissões de Trabalho Aguardando Parecer OSH</span>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+            {PENDING_REVIEWS.length} pendentes
+          </span>
+        </h2>
 
         <div className="space-y-3">
           {PENDING_REVIEWS.map((item) => (
             <div
               key={item.pt}
-              className="p-4 rounded-xl border border-amber-200 bg-amber-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              className="p-4 rounded-xl border border-amber-200/80 bg-amber-50/40 hover:bg-amber-50/70 transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
             >
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-amber-900">{item.pt}</span>
+                  <span className="text-xs font-black text-amber-950 font-mono">{item.pt}</span>
                   <span className="text-xs text-slate-500 font-mono">({item.os})</span>
-                  <span className="text-[10px] font-bold bg-amber-200 text-amber-800 px-2 py-0.5 rounded-md">
+                  <span className="text-[10px] font-bold bg-amber-200 text-amber-900 px-2 py-0.5 rounded-md">
                     {item.status}
                   </span>
                 </div>
@@ -61,12 +71,15 @@ export default function OshDashboardPage() {
                     </span>
                   }
                 >
-                  <button
-                    type="button"
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow-xs transition"
+                  <AnimatedButton
+                    variant="orange"
+                    size="xs"
+                    shimmer
+                    lift
+                    icon={<span>✓</span>}
                   >
-                    ✓ Aprovar Laudo OSH
-                  </button>
+                    Aprovar Laudo OSH
+                  </AnimatedButton>
                 </PermissionGate>
               </div>
             </div>
@@ -76,3 +89,4 @@ export default function OshDashboardPage() {
     </div>
   );
 }
+

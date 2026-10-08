@@ -224,25 +224,25 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-      {/* Header Principal */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Header Principal com Identidade TKE */}
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-bold text-red-600 tracking-wider uppercase bg-red-50 px-2 py-0.5 rounded-full border border-red-100">
-              Módulo de Segurança e Auditoria
+            <span className="text-xs font-bold text-orange-600 tracking-wider uppercase bg-orange-50 px-2.5 py-0.5 rounded-full border border-orange-200">
+              Módulo de Segurança e Auditoria • TKE
             </span>
             {isAdmin && (
-              <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+              <span className="text-xs font-bold text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200">
                 Acesso Total (Administrador)
               </span>
             )}
             {isSubcontratado && (
-              <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+              <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
                 🔒 Visão do Prestador (Suas APRs)
               </span>
             )}
           </div>
-          <h1 className="text-2xl font-black text-slate-900 mt-1">
+          <h1 className="text-2xl font-black text-slate-900 mt-1.5 tracking-tight">
             Permissões de Trabalho & APR - Reparos
           </h1>
           <p className="text-sm text-slate-500 mt-0.5">
@@ -253,13 +253,13 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
         </div>
 
         {/* Botões das Abas */}
-        <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl self-start md:self-auto flex-wrap">
+        <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl self-start md:self-auto flex-wrap">
           <button
             type="button"
             onClick={() => setActiveTab('LIST')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-2 ${
               activeTab === 'LIST'
-                ? 'bg-white text-slate-900 shadow-xs'
+                ? 'bg-white text-slate-900 shadow-xs scale-102 font-extrabold'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -269,9 +269,9 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
           <button
             type="button"
             onClick={() => setActiveTab('CREATE')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-2 ${
               activeTab === 'CREATE'
-                ? 'bg-red-600 text-white shadow-xs'
+                ? 'btn-tke-gradient text-white shadow-md shadow-orange-500/25 scale-102 font-extrabold'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -280,7 +280,7 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
           </button>
           <Link
             href="/dashboard/reparo/acompanhamento"
-            className="px-4 py-2 rounded-lg text-xs font-bold text-slate-700 hover:text-slate-950 hover:bg-white/60 transition flex items-center gap-1.5"
+            className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 hover:text-orange-600 hover:bg-white/80 transition flex items-center gap-1.5"
             title="Acessar Acompanhamento de Serviços no Mapa"
           >
             <span>📍</span>

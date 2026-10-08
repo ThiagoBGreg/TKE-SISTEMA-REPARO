@@ -243,14 +243,14 @@ export function AttachmentUploader({
           <button
             type="button"
             onClick={() => cameraFotosInputRef.current?.click()}
-            className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs py-3 px-4 rounded-xl shadow-xs transition"
+            className="btn-tke-orange py-3 px-4 text-xs font-bold"
           >
             📷 Abrir Câmera de Campo
           </button>
           <button
             type="button"
             onClick={() => fotosInputRef.current?.click()}
-            className="flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs py-3 px-4 rounded-xl transition"
+            className="flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs py-3 px-4 rounded-xl transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0"
           >
             🖼️ Selecionar da Galeria
           </button>
@@ -266,7 +266,7 @@ export function AttachmentUploader({
               <button
                 type="button"
                 onClick={() => setSelectedFotos([])}
-                className="text-[11px] text-red-600 hover:underline font-medium"
+                className="text-[11px] text-orange-600 hover:underline font-semibold"
               >
                 Limpar seleção
               </button>
@@ -287,7 +287,7 @@ export function AttachmentUploader({
                   <button
                     type="button"
                     onClick={() => handleRemoveSelectedFoto(idx)}
-                    className="absolute top-1 right-1 bg-black/70 hover:bg-red-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px] transition"
+                    className="absolute top-1 right-1 bg-black/70 hover:bg-rose-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px] transition"
                   >
                     ✕
                   </button>
@@ -299,12 +299,12 @@ export function AttachmentUploader({
               type="button"
               onClick={handleUploadFotos}
               disabled={isUploadingFotos}
-              className="w-full bg-slate-900 hover:bg-black disabled:opacity-50 text-white text-xs font-bold py-3 rounded-xl shadow-sm transition flex items-center justify-center gap-2"
+              className="btn-tke-gradient w-full py-3 text-xs uppercase tracking-wide font-bold"
             >
               {isUploadingFotos ? (
-                <>
+                <span className="inline-flex items-center gap-2">
                   <span className="animate-spin text-sm">⏳</span> Enviando para o Google Drive...
-                </>
+                </span>
               ) : (
                 `☁️ Salvar ${selectedFotos.length} foto(s) no Google Drive`
               )}
@@ -386,14 +386,14 @@ export function AttachmentUploader({
           <button
             type="button"
             onClick={() => cartaCameraInputRef.current?.click()}
-            className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-3 px-4 rounded-xl shadow-xs transition"
+            className="btn-tke-gradient py-3 px-4 text-xs font-bold"
           >
             📷 Escanear Carta com a Câmera
           </button>
           <button
             type="button"
             onClick={() => cartaFileInputRef.current?.click()}
-            className="flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs py-3 px-4 rounded-xl transition"
+            className="flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs py-3 px-4 rounded-xl transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0"
           >
             📄 Selecionar Arquivo / PDF
           </button>
@@ -409,18 +409,18 @@ export function AttachmentUploader({
               <button
                 type="button"
                 onClick={() => setSelectedCarta(null)}
-                className="text-[11px] text-red-600 hover:underline font-medium"
+                className="text-[11px] text-orange-600 hover:underline font-semibold"
               >
                 Cancelar
               </button>
             </div>
 
-            <div className="w-full max-h-96 bg-slate-50 border-2 border-dashed border-emerald-300 rounded-xl overflow-hidden flex items-center justify-center p-2">
+            <div className="w-full max-h-96 bg-slate-50 border-2 border-dashed border-orange-300 rounded-2xl overflow-hidden flex items-center justify-center p-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={selectedCarta.preview}
                 alt="Prévia da Carta de Conclusão"
-                className="max-h-88 max-w-full object-contain rounded-lg shadow-xs"
+                className="max-h-88 max-w-full object-contain rounded-xl shadow-xs"
               />
             </div>
 
@@ -432,12 +432,12 @@ export function AttachmentUploader({
               type="button"
               onClick={handleUploadCarta}
               disabled={isUploadingCarta}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold py-3 rounded-xl shadow-sm transition flex items-center justify-center gap-2"
+              className="btn-tke-gradient w-full py-3.5 text-xs uppercase tracking-wide font-extrabold"
             >
               {isUploadingCarta ? (
-                <>
+                <span className="inline-flex items-center gap-2">
                   <span className="animate-spin text-sm">⏳</span> Enviando Carta ao Google Drive...
-                </>
+                </span>
               ) : (
                 '🔒 Confirmar e Gravar Carta de Conclusão'
               )}
