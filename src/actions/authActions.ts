@@ -94,6 +94,7 @@ export async function loginUserAction(formData: FormData): Promise<AuthActionRes
         departamento: 'ADMINISTRATIVO',
         cargo: 'ADMINISTRATIVO',
         status: 'ATIVO',
+        isAdmin: true,
       };
 
       const cookieStore = await cookies();
@@ -150,6 +151,11 @@ export async function loginUserAction(formData: FormData): Promise<AuthActionRes
     }
 
     // 5. Cria a sessão do usuário
+    const isUserAdmin =
+      user.isAdmin ||
+      user.email === ADMIN_EMAIL ||
+      user.nome.trim().toLowerCase() === 'thiago gregorio';
+
     const authUser: AuthUser = {
       id: user.id,
       nome: user.nome,
@@ -157,6 +163,7 @@ export async function loginUserAction(formData: FormData): Promise<AuthActionRes
       departamento: user.departamento,
       cargo: user.cargo,
       status: user.status,
+      isAdmin: isUserAdmin,
     };
 
     const cookieStore = await cookies();

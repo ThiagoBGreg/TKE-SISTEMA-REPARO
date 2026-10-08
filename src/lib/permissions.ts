@@ -215,6 +215,21 @@ export const ROUTE_RULES: RouteRule[] = [
    ========================================================================== */
 
 /**
+ * Identifica se o usuário é o Administrador Geral (Thiago Gregorio / isAdmin)
+ */
+export function isSuperAdmin(user: AuthUser | null | undefined): boolean {
+  if (!user) return false;
+  if (user.isAdmin) return true;
+  const nome = user.nome?.trim().toLowerCase();
+  const email = user.email?.trim().toLowerCase();
+  return (
+    email === 'thiago.gregorio@tke.com' ||
+    nome === 'thiago gregorio' ||
+    nome === 'thiago'
+  );
+}
+
+/**
  * Verifica se um usuário possui permissão para executar uma ação em um recurso
  */
 export function hasPermission(
@@ -223,6 +238,9 @@ export function hasPermission(
   action: AppAction
 ): boolean {
   if (!user || user.status !== 'ATIVO') return false;
+
+  // Administrador Geral (Thiago Gregorio) tem acesso total a tudo
+  if (isSuperAdmin(user)) return true;
 
   const departmentPermissions = PERMISSIONS_MATRIX[user.departamento];
   if (!departmentPermissions) return false;
@@ -241,6 +259,9 @@ export function hasPermission(
  */
 export function canAccessRoute(pathname: string, user: AuthUser | null | undefined): boolean {
   if (!user || user.status !== 'ATIVO') return false;
+
+  // Administrador Geral (Thiago Gregorio) tem acesso irrestrito a todas as rotas
+  if (isSuperAdmin(user)) return true;
 
   // Busca se a rota atual possui uma regra de restrição específica
   const matchingRule = ROUTE_RULES.find((rule) => rule.pattern.test(pathname));

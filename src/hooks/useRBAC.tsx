@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useMemo } from 'react';
 import { Department, UserRole } from '@/db/schema';
-import { canAccessRoute, hasPermission } from '@/lib/permissions';
+import { canAccessRoute, hasPermission, isSuperAdmin } from '@/lib/permissions';
 import { AppAction, AppResource, AuthUser } from '@/types/auth';
 
 interface RBACContextType {
@@ -31,10 +31,12 @@ export function RBACProvider({
       can: (resource: AppResource, action: AppAction) => hasPermission(user, resource, action),
       isDepartment: (...departments: Department[]) => {
         if (!user || user.status !== 'ATIVO') return false;
+        if (isSuperAdmin(user)) return true;
         return departments.includes(user.departamento);
       },
       hasRole: (...roles: UserRole[]) => {
         if (!user || user.status !== 'ATIVO') return false;
+        if (isSuperAdmin(user)) return true;
         return roles.includes(user.cargo);
       },
       canAccess: (pathname: string) => canAccessRoute(pathname, user),
@@ -57,10 +59,12 @@ export function useRBAC(customUser?: AuthUser | null): RBACContextType {
       can: (resource: AppResource, action: AppAction) => hasPermission(customUser, resource, action),
       isDepartment: (...departments: Department[]) => {
         if (!customUser || customUser.status !== 'ATIVO') return false;
+        if (isSuperAdmin(customUser)) return true;
         return departments.includes(customUser.departamento);
       },
       hasRole: (...roles: UserRole[]) => {
         if (!customUser || customUser.status !== 'ATIVO') return false;
+        if (isSuperAdmin(customUser)) return true;
         return roles.includes(customUser.cargo);
       },
       canAccess: (pathname: string) => canAccessRoute(pathname, customUser),

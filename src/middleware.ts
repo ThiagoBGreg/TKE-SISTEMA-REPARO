@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { canAccessRoute } from './lib/permissions';
+import { canAccessRoute, isSuperAdmin } from './lib/permissions';
 import { AuthUser } from './types/auth';
 
 /**
@@ -62,7 +62,22 @@ export function middleware(request: NextRequest) {
     return response;
   }
 
-  // 5. Verificação de RBAC (Departamento / Cargo / Rota)
+  // 5. Superadministrador (Thiago Gregorio): Acesso total irrestrito a todas as rotas e módulos
+  if (isSuperAdmin(user)) {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-user-id', user.id);
+    requestHeaders.set('x-user-department', user.departamento);
+    requestHeaders.set('x-user-role', user.cargo);
+    requestHeaders.set('x-is-admin', 'true');
+
+    return NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
+  }
+
+  // 6. Verificação de RBAC (Departamento / Cargo / Rota)
   const hasAccess = canAccessRoute(pathname, user);
 
   if (!hasAccess) {

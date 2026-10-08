@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { AuthUser } from '@/types/auth';
 import { RBACProvider } from '@/hooks/useRBAC';
+import { isSuperAdmin } from '@/lib/permissions';
 
 const NAV_ITEMS = [
   {
@@ -114,7 +115,7 @@ export default function DashboardLayout({
                   TKE Reparos
                 </span>
                 <span className="text-[10px] text-slate-400 block -mt-1 font-mono uppercase">
-                  {user?.departamento || 'Sistema'}
+                  {isSuperAdmin(user) ? 'Acesso Total (Admin)' : user?.departamento || 'Sistema'}
                 </span>
               </div>
             </div>
@@ -122,7 +123,7 @@ export default function DashboardLayout({
             {/* Menu Links */}
             <nav className="space-y-1">
               {NAV_ITEMS.filter(
-                (item) => !user || item.departments.includes(user.departamento)
+                (item) => isSuperAdmin(user) || !user || item.departments.includes(user.departamento)
               ).map((item) => {
                 const isActive = pathname === item.href;
                 return (

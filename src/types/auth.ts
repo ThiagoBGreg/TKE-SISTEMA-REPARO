@@ -10,6 +10,7 @@ export interface AuthUser {
   departamento: Department;
   cargo: UserRole;
   status: UserStatus;
+  isAdmin?: boolean;
 }
 
 /**
