@@ -32,13 +32,59 @@ export async function submitPtReparoAction(
 
     const validatedData = validation.data;
 
-    // Obtém o usuário criador
+    // Obtém o usuário criador e valida existência no banco de dados
     const sessionUser = await getSessionUser();
     let creatorId = userId || sessionUser?.id;
-    if (!creatorId) {
-      const [firstUser] = await db.select({ id: users.id }).from(users).limit(1);
-      creatorId = firstUser?.id;
+    let validCreator = null;
+
+    if (creatorId) {
+      try {
+        const [userInDb] = await db
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.id, creatorId))
+          .limit(1);
+        validCreator = userInDb;
+      } catch {
+        validCreator = null;
+      }
     }
+
+    if (!validCreator) {
+      // Fallback para admin padrão Thiago Gregorio ou primeiro usuário do banco
+      const ADMIN_ID = '00000000-0000-0000-0000-000000000001';
+      const [adminUser] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.id, ADMIN_ID))
+        .limit(1);
+
+      if (adminUser) {
+        creatorId = adminUser.id;
+      } else {
+        const [firstUser] = await db.select({ id: users.id }).from(users).limit(1);
+        if (firstUser) {
+          creatorId = firstUser.id;
+        } else {
+          // Se o banco estiver vazio, semeia o admin Thiago Gregorio
+          await db
+            .insert(users)
+            .values({
+              id: ADMIN_ID,
+              nome: 'Thiago Gregorio',
+              email: 'thiago.gregorio@tke.com',
+              senhaHash: 'Thiago200189',
+              departamento: 'ADMINISTRATIVO',
+              cargo: 'ADMINISTRATIVO',
+              status: 'ATIVO',
+              isAdmin: true,
+            })
+            .onConflictDoNothing();
+          creatorId = ADMIN_ID;
+        }
+      }
+    }
+    const finalCreatorId: string = creatorId || '00000000-0000-0000-0000-000000000001';
 
     // 2. Busca ou auto-cria a Ordem de Serviço vinculada
     let targetServiceOrderId = validatedData.serviceOrderId;
@@ -58,13 +104,26 @@ export async function submitPtReparoAction(
       }
     }
 
-    // 2.2 Se não encontrou por ID, busca pelo Código de Contrato/Orçamento
-    if (!existingOrder && validatedData.contratoOrcamento) {
+    const contratoRaw = validatedData.contratoOrcamento?.trim() || '';
+    const contratoUpper = contratoRaw.toUpperCase();
+    const osPrefix = contratoUpper.startsWith('OS-') ? contratoUpper : `OS-${contratoUpper}`;
+    const semPrefix = contratoUpper.replace(/^OS-/, '');
+
+    // 2.2 Se não encontrou por ID, busca pelo Código de Contrato/Orçamento (todas as variações)
+    if (!existingOrder && contratoRaw) {
       const [orderByCodigo] = await db
         .select()
         .from(serviceOrders)
-        .where(eq(serviceOrders.codigo, validatedData.contratoOrcamento.trim()))
+        .where(
+          or(
+            eq(serviceOrders.codigo, contratoRaw),
+            eq(serviceOrders.codigo, contratoUpper),
+            eq(serviceOrders.codigo, osPrefix),
+            eq(serviceOrders.codigo, semPrefix)
+          )
+        )
         .limit(1);
+
       if (orderByCodigo) {
         existingOrder = orderByCodigo;
         targetServiceOrderId = existingOrder.id;
@@ -73,49 +132,64 @@ export async function submitPtReparoAction(
 
     // 2.3 Se ainda não existir a OS (ex: emissão avulsa pelo técnico/subcontratado), auto-cria a OS
     if (!existingOrder) {
-      const ADMIN_ID = '00000000-0000-0000-0000-000000000001';
-      if (!creatorId) {
-        await db
-          .insert(users)
-          .values({
-            id: ADMIN_ID,
-            nome: 'Thiago Gregorio',
-            email: 'thiago.gregorio@tke.com',
-            senhaHash: 'Thiago200189',
-            departamento: 'ADMINISTRATIVO',
-            cargo: 'ADMINISTRATIVO',
-            status: 'ATIVO',
-            isAdmin: true,
-          })
-          .onConflictDoNothing();
-        creatorId = ADMIN_ID;
+      // Verifica se o código pretendido já existe para evitar violação de unique constraint
+      let osCodigo = osPrefix;
+      const [existsCode] = await db
+        .select()
+        .from(serviceOrders)
+        .where(eq(serviceOrders.codigo, osCodigo))
+        .limit(1);
+
+      if (existsCode) {
+        existingOrder = existsCode;
+        targetServiceOrderId = existsCode.id;
+      } else {
+        const isSub = sessionUser?.cargo === 'SUBCONTRATADO';
+
+        try {
+          const [newOrder] = await db
+            .insert(serviceOrders)
+            .values({
+              codigo: osCodigo,
+              titulo: `Reparo: ${validatedData.equipamento || 'Equipamento'}`,
+              descricao: `Serviço de reparo classificado como ${validatedData.classificacaoReparo} (Mão de Obra: ${validatedData.tipoMaoDeObra}).`,
+              status: 'EM_EXECUCAO',
+              prioridade: 'MEDIA',
+              categoriaReparo: validatedData.classificacaoReparo,
+              equipamentoNumero: validatedData.equipamento,
+              clienteNome: 'Cliente Corporativo TKE',
+              criadoPorId: finalCreatorId,
+              responsavelTecnicoId: finalCreatorId,
+              subcontratadoId: isSub ? finalCreatorId : null,
+            })
+            .returning();
+
+          existingOrder = newOrder;
+          targetServiceOrderId = newOrder.id;
+        } catch {
+          // Fallback caso ocorra colisão de código
+          const osCodigoUnico = `OS-${semPrefix || 'REP'}-${Math.floor(100000 + Math.random() * 900000)}`;
+          const [newOrder] = await db
+            .insert(serviceOrders)
+            .values({
+              codigo: osCodigoUnico,
+              titulo: `Reparo: ${validatedData.equipamento || 'Equipamento'}`,
+              descricao: `Serviço de reparo classificado como ${validatedData.classificacaoReparo} (Mão de Obra: ${validatedData.tipoMaoDeObra}).`,
+              status: 'EM_EXECUCAO',
+              prioridade: 'MEDIA',
+              categoriaReparo: validatedData.classificacaoReparo,
+              equipamentoNumero: validatedData.equipamento,
+              clienteNome: 'Cliente Corporativo TKE',
+              criadoPorId: finalCreatorId,
+              responsavelTecnicoId: finalCreatorId,
+              subcontratadoId: isSub ? finalCreatorId : null,
+            })
+            .returning();
+
+          existingOrder = newOrder;
+          targetServiceOrderId = newOrder.id;
+        }
       }
-
-      const osCodigo = validatedData.contratoOrcamento.trim().toUpperCase().startsWith('OS-')
-        ? validatedData.contratoOrcamento.trim().toUpperCase()
-        : `OS-${validatedData.contratoOrcamento.trim() || Math.floor(100000 + Math.random() * 900000)}`;
-
-      const isSub = sessionUser?.cargo === 'SUBCONTRATADO';
-
-      const [newOrder] = await db
-        .insert(serviceOrders)
-        .values({
-          codigo: osCodigo,
-          titulo: `Reparo: ${validatedData.equipamento || 'Equipamento'}`,
-          descricao: `Serviço de reparo classificado como ${validatedData.classificacaoReparo} (Mão de Obra: ${validatedData.tipoMaoDeObra}).`,
-          status: 'EM_EXECUCAO',
-          prioridade: 'MEDIA',
-          categoriaReparo: validatedData.classificacaoReparo,
-          equipamentoNumero: validatedData.equipamento,
-          clienteNome: 'Cliente Corporativo TKE',
-          criadoPorId: creatorId,
-          responsavelTecnicoId: creatorId,
-          subcontratadoId: isSub ? creatorId : null,
-        })
-        .returning();
-
-      existingOrder = newOrder;
-      targetServiceOrderId = newOrder.id;
     }
 
     const finalServiceOrderId = targetServiceOrderId || existingOrder?.id;
@@ -123,10 +197,18 @@ export async function submitPtReparoAction(
       throw new Error('Não foi possível associar a Ordem de Serviço para gravação da PT.');
     }
 
-    // 3. Gera código sequencial/formatado da PT
+    // 3. Gera código sequencial/formatado da PT garantindo unicidade
     const anoAtual = new Date().getFullYear();
-    const hash = Math.floor(1000 + Math.random() * 9000);
-    const codigoPT = `PT-${anoAtual}-${hash}`;
+    let codigoPT = `PT-${anoAtual}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const [existingPt] = await db
+      .select({ id: workPermits.id })
+      .from(workPermits)
+      .where(eq(workPermits.codigo, codigoPT))
+      .limit(1);
+
+    if (existingPt) {
+      codigoPT = `PT-${anoAtual}-${Date.now().toString().slice(-4)}${Math.floor(10 + Math.random() * 90)}`;
+    }
 
     // 4. Determina status inicial da PT e da OS
     const isFinalizada = !!validatedData.terminoServico?.emitenteAssinatura;
@@ -140,7 +222,7 @@ export async function submitPtReparoAction(
         serviceOrderId: finalServiceOrderId,
         codigo: codigoPT,
         status: ptStatus,
-        criadoPorId: creatorId,
+        criadoPorId: finalCreatorId,
         contratoOrcamento: validatedData.contratoOrcamento,
         equipamento: validatedData.equipamento,
         tipoMaoDeObra: validatedData.tipoMaoDeObra,
@@ -155,35 +237,46 @@ export async function submitPtReparoAction(
       .returning({ id: workPermits.id, codigo: workPermits.codigo });
 
     // 6. Atualiza o status da Ordem de Serviço
-    await db
-      .update(serviceOrders)
-      .set({
-        status: novoStatusOS,
-        dataInicio: existingOrder.dataInicio || new Date(validatedData.inicioServico.dataHoraInicio),
-        ...(isFinalizada && validatedData.terminoServico?.dataHoraTermino
-          ? { dataConclusao: new Date(validatedData.terminoServico.dataHoraTermino) }
-          : {}),
-        updatedAt: new Date(),
-      })
-      .where(eq(serviceOrders.id, finalServiceOrderId));
+    if (existingOrder) {
+      try {
+        await db
+          .update(serviceOrders)
+          .set({
+            status: novoStatusOS,
+            dataInicio: existingOrder.dataInicio || new Date(validatedData.inicioServico.dataHoraInicio),
+            ...(isFinalizada && validatedData.terminoServico?.dataHoraTermino
+              ? { dataConclusao: new Date(validatedData.terminoServico.dataHoraTermino) }
+              : {}),
+            updatedAt: new Date(),
+          })
+          .where(eq(serviceOrders.id, finalServiceOrderId));
+      } catch (updateErr) {
+        console.warn('[submitPtReparoAction] Aviso ao atualizar status da OS:', updateErr);
+      }
+    }
 
-    // 7. Registra no Histórico de Auditoria da OS
-    await db.insert(serviceOrderHistory).values({
-      serviceOrderId: finalServiceOrderId,
-      alteradoPorId: userId || null,
-      statusAnterior: existingOrder.status,
-      statusNovo: novoStatusOS,
-      acao: isFinalizada ? 'FINALIZACAO_PT' : 'EMISSAO_PT',
-      descricao: `Permissão de Trabalho (${codigoPT}) emitida com sucesso e assinaturas auditadas registradas.`,
-      alteracoes: {
-        ptCodigo: { antes: null, depois: codigoPT },
-        statusOS: { antes: existingOrder.status, depois: novoStatusOS },
-      },
-    });
+    // 7. Registra no Histórico de Auditoria da OS de forma resiliente
+    try {
+      await db.insert(serviceOrderHistory).values({
+        serviceOrderId: finalServiceOrderId,
+        alteradoPorId: creatorId || null,
+        statusAnterior: existingOrder?.status || 'PENDENTE',
+        statusNovo: novoStatusOS,
+        acao: isFinalizada ? 'FINALIZACAO_PT' : 'EMISSAO_PT',
+        descricao: `Permissão de Trabalho (${codigoPT}) emitida com sucesso e assinaturas auditadas registradas.`,
+        alteracoes: {
+          ptCodigo: { antes: null, depois: codigoPT },
+          statusOS: { antes: existingOrder?.status || null, depois: novoStatusOS },
+        },
+      });
+    } catch (historyErr) {
+      console.warn('[submitPtReparoAction] Aviso ao registrar histórico:', historyErr);
+    }
 
     revalidatePath(`/dashboard/reparo/${targetServiceOrderId}`);
     revalidatePath('/dashboard/reparo');
     revalidatePath('/dashboard/reparo/pt');
+    revalidatePath('/dashboard/reparo/acompanhamento');
 
     return {
       success: true,
@@ -192,9 +285,10 @@ export async function submitPtReparoAction(
     };
   } catch (error) {
     console.error('[submitPtReparoAction] Erro ao gravar Permissão de Trabalho:', error);
+    const errorDetails = error instanceof Error ? error.message : 'Erro interno';
     return {
       success: false,
-      error: 'Erro interno ao salvar a Permissão de Trabalho no banco de dados.',
+      error: `Erro ao salvar a Permissão de Trabalho no banco de dados: ${errorDetails}`,
     };
   }
 }
