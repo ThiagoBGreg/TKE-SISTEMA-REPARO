@@ -8,6 +8,7 @@ import {
   deletePtReparoAction,
   updatePtReparoAction,
   concluirTerminoPtReparoAction,
+  anexarCartaConclusaoDirectAction,
 } from '@/actions/ptReparoActions';
 import { uploadAttachmentsAction } from '@/actions/attachmentActions';
 import type { DigitalSignature, PtReparoFormData } from '@/lib/validations/ptReparoSchema';
@@ -50,6 +51,29 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
   const [viewingPermit, setViewingPermit] = useState<WorkPermitItem | null>(null);
   const [editingPermit, setEditingPermit] = useState<WorkPermitItem | null>(null);
   const [deletingPermitId, setDeletingPermitId] = useState<string | null>(null);
+
+  // Modais de Visualização e Compartilhamento da Carta de Conclusão
+  const [previewingCarta, setPreviewingCarta] = useState<{
+    permit: WorkPermitItem;
+    carta: { id: string; fileName: string; driveViewUrl: string; driveDownloadUrl: string | null };
+  } | null>(null);
+
+  const [sharingCarta, setSharingCarta] = useState<{
+    permit: WorkPermitItem;
+    carta: { id: string; fileName: string; driveViewUrl: string; driveDownloadUrl: string | null };
+  } | null>(null);
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  // Modal de Envio Direto de Carta de Conclusão (para PTs concluídas ou atalho direto)
+  const [uploadingCartaPermit, setUploadingCartaPermit] = useState<WorkPermitItem | null>(null);
+  const [uploadCartaFotoFile, setUploadCartaFotoFile] = useState<File | null>(null);
+  const [uploadCartaFotoPreview, setUploadCartaFotoPreview] = useState<string | null>(null);
+  const [uploadCartaObservacoes, setUploadCartaObservacoes] = useState('');
+  const [uploadCartaTecnicoNome, setUploadCartaTecnicoNome] = useState('');
+  const [isUploadingCarta, setIsUploadingCarta] = useState(false);
+  const [uploadCartaErro, setUploadCartaErro] = useState<string | null>(null);
+  const uploadCartaCameraInputRef = useRef<HTMLInputElement | null>(null);
+  const uploadCartaFileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Modal de Preenchimento do Término de Serviço (Item 14)
   const [concludingPermit, setConcludingPermit] = useState<WorkPermitItem | null>(null);
@@ -215,6 +239,143 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
 
     if (cartaPdfUrl) {
       window.open(cartaPdfUrl, '_blank');
+    }
+  };
+
+  // Funções de Compartilhamento da Carta de Conclusão
+  const handleCopyLink = async (url: string) => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(url);
+        setCopySuccess(true);
+        setTimeout(() => setCopySuccess(false), 3000);
+      }
+    } catch (err) {
+      console.warn('Erro ao copiar link:', err);
+    }
+  };
+
+  const handleShareWhatsApp = (permit: WorkPermitItem, cartaUrl: string) => {
+    const text =
+      `*Carta de Conclusão e Aceite do Serviço - TKE*\n\n` +
+      `*PT:* ${permit.codigo}\n` +
+      `*Contrato / Orçamento:* ${permit.contratoOrcamento}\n` +
+      `*Equipamento:* ${permit.equipamento}\n` +
+      `*Status:* Concluído\n\n` +
+      `Acesse a carta oficial assinada:\n${cartaUrl}`;
+
+    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    window.open(waUrl, '_blank');
+  };
+
+  const handleNativeShare = async (permit: WorkPermitItem, cartaUrl: string) => {
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: `Carta de Conclusão - ${permit.codigo}`,
+          text: `Carta de Conclusão e Aceite do Serviço referente à PT ${permit.codigo} (Contrato: ${permit.contratoOrcamento}).`,
+          url: cartaUrl,
+        });
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          handleCopyLink(cartaUrl);
+        }
+      }
+    } else {
+      handleCopyLink(cartaUrl);
+    }
+  };
+
+  // Envio Direto de Carta de Conclusão (para PTs concluídas ou envio rápido)
+  const handleSalvarUploadCarta = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadingCartaPermit) return;
+    if (!uploadCartaFotoFile && !uploadCartaFotoPreview) {
+      setUploadCartaErro('Por favor, tire uma foto ou selecione o arquivo da Carta de Conclusão.');
+      return;
+    }
+
+    setIsUploadingCarta(true);
+    setUploadCartaErro(null);
+
+    try {
+      let finalFile: File = uploadCartaFotoFile!;
+
+      // Se temos o preview da foto em base64, geramos o PDF oficial TKE com cabeçalho auditável
+      if (uploadCartaFotoPreview) {
+        try {
+          const pdfRes = await fetch('/api/pt/carta-conclusao/pdf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              codigoPT: uploadingCartaPermit.codigo,
+              contratoOrcamento: uploadingCartaPermit.contratoOrcamento,
+              equipamento: uploadingCartaPermit.equipamento,
+              tecnicoNome: uploadCartaTecnicoNome || 'Técnico de Reparo TKE',
+              dataHoraTermino: new Date().toISOString(),
+              observacoes: uploadCartaObservacoes,
+              fotoBase64: uploadCartaFotoPreview,
+            }),
+          });
+
+          if (pdfRes.ok) {
+            const blob = await pdfRes.blob();
+            finalFile = new File(
+              [blob],
+              `Carta_Conclusao_${uploadingCartaPermit.codigo}.pdf`,
+              { type: 'application/pdf' }
+            );
+          }
+        } catch (pdfErr) {
+          console.warn('Aviso: enviando imagem diretamente após falha na compilação do PDF:', pdfErr);
+        }
+      }
+
+      // Envia via Server Action
+      const formData = new FormData();
+      formData.append('workPermitId', uploadingCartaPermit.id);
+      formData.append('file', finalFile);
+      if (uploadCartaObservacoes) {
+        formData.append('observacoes', uploadCartaObservacoes);
+      }
+
+      const res = await anexarCartaConclusaoDirectAction(formData);
+
+      if (res.success && res.carta) {
+        const novaCarta = res.carta;
+        // Atualiza a lista local de permits
+        setPermits((prev) =>
+          prev.map((p) => (p.id === uploadingCartaPermit.id ? { ...p, cartaConclusao: novaCarta } : p))
+        );
+
+        if (viewingPermit && viewingPermit.id === uploadingCartaPermit.id) {
+          setViewingPermit((prev) => (prev ? { ...prev, cartaConclusao: novaCarta } : null));
+        }
+
+        setActionMessage({
+          type: 'success',
+          text: `Carta de Conclusão enviada e vinculada com sucesso à PT ${uploadingCartaPermit.codigo}!`,
+        });
+
+        const permitAtualizada = { ...uploadingCartaPermit, cartaConclusao: novaCarta };
+        setUploadingCartaPermit(null);
+        setUploadCartaFotoFile(null);
+        setUploadCartaFotoPreview(null);
+        setUploadCartaObservacoes('');
+        setUploadCartaTecnicoNome('');
+
+        // Abre a visualização imediatamente para comodidade do usuário
+        setPreviewingCarta({
+          permit: permitAtualizada,
+          carta: novaCarta,
+        });
+      } else {
+        setUploadCartaErro(res.error || 'Erro ao enviar e processar a carta.');
+      }
+    } catch {
+      setUploadCartaErro('Erro inesperado ao enviar a carta.');
+    } finally {
+      setIsUploadingCarta(false);
     }
   };
 
@@ -632,44 +793,74 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
                             </a>
                           </td>
 
-                          {/* CAMPO DE BAIXAR CARTA DE CONCLUSÃO */}
+                          {/* CAMPO DE CARTA DE CONCLUSÃO (VISUALIZAR, BAIXAR E COMPARTILHAR) */}
                           <td className="py-3.5 px-4 text-center whitespace-nowrap">
                             {permit.cartaConclusao ? (
-                              <div className="inline-flex items-center gap-1.5 justify-center">
+                              <div className="inline-flex items-center gap-1.5 justify-center flex-wrap">
+                                {/* 1. Botão Visualizar Carta */}
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPreviewingCarta({
+                                      permit,
+                                      carta: permit.cartaConclusao!,
+                                    })
+                                  }
+                                  className="inline-flex items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs px-2.5 py-1.5 rounded-lg border border-blue-200 transition shadow-2xs hover:scale-102 active:scale-98"
+                                  title="Visualizar Carta de Conclusão em tela"
+                                >
+                                  <span>👁️</span>
+                                  <span>Visualizar</span>
+                                </button>
+
+                                {/* 2. Botão Baixar Carta */}
                                 <a
                                   href={permit.cartaConclusao.driveDownloadUrl || permit.cartaConclusao.driveViewUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-xs hover:shadow-md transition active:scale-95"
-                                  title={`Baixar Carta de Conclusão (${permit.cartaConclusao.fileName})`}
+                                  className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-2.5 py-1.5 rounded-lg shadow-2xs hover:shadow-xs transition active:scale-98"
+                                  title={`Baixar PDF da Carta (${permit.cartaConclusao.fileName})`}
                                 >
                                   <span>📥</span>
-                                  <span>Baixar Carta</span>
+                                  <span>Baixar</span>
                                 </a>
-                                <a
-                                  href={permit.cartaConclusao.driveViewUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="p-1.5 text-slate-500 hover:text-blue-600 rounded-lg hover:bg-slate-100 transition"
-                                  title="Visualizar Carta no Google Drive"
+
+                                {/* 3. Botão Compartilhar Carta */}
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setSharingCarta({
+                                      permit,
+                                      carta: permit.cartaConclusao!,
+                                    })
+                                  }
+                                  className="inline-flex items-center gap-1 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs px-2.5 py-1.5 rounded-lg border border-purple-200 transition shadow-2xs hover:scale-102 active:scale-98"
+                                  title="Compartilhar via WhatsApp, Copiar Link ou Celular"
                                 >
-                                  👁️
-                                </a>
+                                  <span>📲</span>
+                                  <span>Compartilhar</span>
+                                </button>
                               </div>
                             ) : isConcluido ? (
                               <button
                                 type="button"
-                                onClick={() => handleOpenTerminoModal(permit)}
-                                className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50 border border-dashed border-slate-300 hover:border-indigo-300 px-2.5 py-1.5 rounded-lg transition"
-                                title="Nenhuma carta anexada. Clique para anexar a carta agora."
+                                onClick={() => setUploadingCartaPermit(permit)}
+                                className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-700 hover:text-white bg-orange-50 hover:bg-orange-600 border border-orange-200 hover:border-orange-600 px-3 py-1.5 rounded-lg transition shadow-2xs hover:shadow-xs"
+                                title="Anexar Carta de Conclusão / Aceite do Cliente"
                               >
                                 <span>📎</span>
                                 <span>+ Enviar Carta</span>
                               </button>
                             ) : (
-                              <span className="text-[11px] font-medium text-slate-400 italic">
-                                Disponível no término
-                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setUploadingCartaPermit(permit)}
+                                className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-orange-600 bg-slate-50 hover:bg-orange-50 border border-dashed border-slate-300 hover:border-orange-300 px-2.5 py-1.5 rounded-lg transition"
+                                title="Anexar Carta de Conclusão para esta PT"
+                              >
+                                <span>📎</span>
+                                <span>+ Enviar Carta</span>
+                              </button>
                             )}
                           </td>
 
@@ -1070,26 +1261,49 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
                         </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                      {/* Visualizar Carta */}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPreviewingCarta({
+                            permit: viewingPermit,
+                            carta: viewingPermit.cartaConclusao!,
+                          })
+                        }
+                        className="inline-flex items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs px-3 py-1.5 rounded-lg border border-blue-200 transition shadow-2xs hover:scale-102"
+                      >
+                        <span>👁️</span>
+                        <span>Visualizar Carta</span>
+                      </button>
+
+                      {/* Baixar Carta */}
                       <a
                         href={viewingPermit.cartaConclusao.driveDownloadUrl || viewingPermit.cartaConclusao.driveViewUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-xs hover:shadow-md transition active:scale-95"
+                        className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-2xs hover:shadow-xs transition"
                         title="Baixar Arquivo PDF da Carta de Conclusão"
                       >
                         <span>📥</span>
-                        <span>Baixar Carta</span>
+                        <span>Baixar</span>
                       </a>
-                      <a
-                        href={viewingPermit.cartaConclusao.driveViewUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-slate-700 hover:text-blue-700 bg-slate-100 hover:bg-slate-200 font-semibold text-xs px-2.5 py-1.5 rounded-lg transition"
-                        title="Visualizar no Google Drive"
+
+                      {/* Compartilhar Carta */}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSharingCarta({
+                            permit: viewingPermit,
+                            carta: viewingPermit.cartaConclusao!,
+                          })
+                        }
+                        className="inline-flex items-center gap-1 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs px-3 py-1.5 rounded-lg border border-purple-200 transition shadow-2xs hover:scale-102"
+                        title="Compartilhar via WhatsApp, Link ou Celular"
                       >
-                        Visualizar ↗
-                      </a>
+                        <span>📲</span>
+                        <span>Compartilhar</span>
+                      </button>
                     </div>
                   </div>
                 ) : (
@@ -1100,11 +1314,8 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
                       </span>
                       <button
                         type="button"
-                        onClick={() => {
-                          setViewingPermit(null);
-                          handleOpenTerminoModal(viewingPermit);
-                        }}
-                        className="text-xs font-bold text-indigo-600 hover:underline"
+                        onClick={() => setUploadingCartaPermit(viewingPermit)}
+                        className="text-xs font-bold text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 px-3 py-1 rounded-lg border border-orange-200 transition"
                       >
                         + Anexar Carta Agora
                       </button>
@@ -1550,6 +1761,467 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
                 {isProcessing ? 'Excluindo...' : 'Sim, Excluir'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 1: VISUALIZAÇÃO COMPLETA DA CARTA DE CONCLUSÃO */}
+      {previewingCarta && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-2 sm:p-4 overflow-y-auto animate-in fade-in">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[94vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="text-2xl shrink-0">📄</span>
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-black text-slate-900 truncate">
+                    Carta de Conclusão • {previewingCarta.permit.codigo}
+                  </h3>
+                  <p className="text-xs text-slate-500 truncate">
+                    Contrato: <span className="font-semibold text-slate-700">{previewingCarta.permit.contratoOrcamento}</span> • Equipamento: <span className="font-semibold text-slate-700">{previewingCarta.permit.equipamento}</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                {/* Baixar */}
+                <a
+                  href={previewingCarta.carta.driveDownloadUrl || previewingCarta.carta.driveViewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-2 rounded-xl shadow-xs transition active:scale-95"
+                  title="Baixar arquivo da Carta"
+                >
+                  <span>📥</span>
+                  <span className="hidden sm:inline">Baixar</span>
+                </a>
+
+                {/* Compartilhar */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSharingCarta({
+                      permit: previewingCarta.permit,
+                      carta: previewingCarta.carta,
+                    })
+                  }
+                  className="inline-flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-3 py-2 rounded-xl shadow-xs transition active:scale-95"
+                  title="Compartilhar Carta"
+                >
+                  <span>📲</span>
+                  <span className="hidden sm:inline">Compartilhar</span>
+                </button>
+
+                {/* Fechar */}
+                <button
+                  type="button"
+                  onClick={() => setPreviewingCarta(null)}
+                  className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg text-lg font-bold"
+                  aria-label="Fechar"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Viewer Iframe / Link Google Drive */}
+            <div className="flex-1 min-h-[420px] sm:min-h-[560px] bg-slate-900 relative flex flex-col items-center justify-center">
+              <iframe
+                src={previewingCarta.carta.driveViewUrl.replace(/\/view(\?usp=.*)?$/, '/preview')}
+                className="w-full h-full min-h-[420px] sm:min-h-[560px] border-0"
+                title={`Carta de Conclusão ${previewingCarta.permit.codigo}`}
+                allow="autoplay"
+              />
+            </div>
+
+            {/* Footer com Ações de Compartilhamento e Acesso Direto */}
+            <div className="p-3 sm:p-4 bg-white border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 text-slate-500 w-full sm:w-auto">
+                <span>📎</span>
+                <span className="truncate max-w-xs">{previewingCarta.carta.fileName}</span>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-end">
+                {/* Botão WhatsApp */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleShareWhatsApp(
+                      previewingCarta.permit,
+                      previewingCarta.carta.driveViewUrl
+                    )
+                  }
+                  className="inline-flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold px-3 py-2 rounded-xl transition"
+                >
+                  <span>🟢</span>
+                  <span>WhatsApp</span>
+                </button>
+
+                {/* Botão Copiar Link */}
+                <button
+                  type="button"
+                  onClick={() => handleCopyLink(previewingCarta.carta.driveViewUrl)}
+                  className="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold px-3 py-2 rounded-xl transition"
+                >
+                  <span>{copySuccess ? '✓' : '📋'}</span>
+                  <span>{copySuccess ? 'Link Copiado!' : 'Copiar Link'}</span>
+                </button>
+
+                {/* Abrir no Drive */}
+                <a
+                  href={previewingCarta.carta.driveViewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold px-3 py-2 rounded-xl border border-blue-200 transition"
+                >
+                  <span>Abrir no Google Drive ↗</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: COMPARTILHAR CARTA DE CONCLUSÃO */}
+      {sharingCarta && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 overflow-y-auto animate-in fade-in">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-5">
+            <div className="flex items-start justify-between border-b border-slate-200 pb-3">
+              <div>
+                <span className="text-xs font-bold text-purple-600 uppercase tracking-wider">
+                  Compartilhar Documento
+                </span>
+                <h3 className="text-lg font-black text-slate-900 mt-0.5">
+                  Carta de Conclusão • {sharingCarta.permit.codigo}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Contrato: {sharingCarta.permit.contratoOrcamento} • Equipamento: {sharingCarta.permit.equipamento}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSharingCarta(null)}
+                className="text-slate-400 hover:text-slate-700 text-xl font-bold p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {/* Opção 1: WhatsApp */}
+              <button
+                type="button"
+                onClick={() => {
+                  handleShareWhatsApp(
+                    sharingCarta.permit,
+                    sharingCarta.carta.driveViewUrl
+                  );
+                  setSharingCarta(null);
+                }}
+                className="w-full flex items-center justify-between p-3.5 rounded-xl bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200 text-left transition group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-xl shrink-0 shadow-xs">
+                    💬
+                  </div>
+                  <div>
+                    <span className="font-bold text-emerald-950 text-sm block">
+                      Enviar no WhatsApp
+                    </span>
+                    <span className="text-xs text-emerald-700 block">
+                      Abre o WhatsApp com mensagem formatada e link oficial
+                    </span>
+                  </div>
+                </div>
+                <span className="text-emerald-700 font-bold text-sm">→</span>
+              </button>
+
+              {/* Opção 2: Copiar Link */}
+              <button
+                type="button"
+                onClick={() => handleCopyLink(sharingCarta.carta.driveViewUrl)}
+                className="w-full flex items-center justify-between p-3.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-left transition group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-slate-800 text-white flex items-center justify-center text-xl shrink-0 shadow-xs">
+                    {copySuccess ? '✓' : '🔗'}
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-900 text-sm block">
+                      {copySuccess ? 'Link Copiado para a Área de Transferência!' : 'Copiar Link da Carta'}
+                    </span>
+                    <span className="text-xs text-slate-500 block truncate max-w-xs">
+                      {sharingCarta.carta.driveViewUrl}
+                    </span>
+                  </div>
+                </div>
+                <span className="text-slate-400 group-hover:text-slate-700 font-bold text-sm">📋</span>
+              </button>
+
+              {/* Opção 3: Baixar PDF */}
+              <a
+                href={sharingCarta.carta.driveDownloadUrl || sharingCarta.carta.driveViewUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setSharingCarta(null)}
+                className="w-full flex items-center justify-between p-3.5 rounded-xl bg-blue-50 hover:bg-blue-100/80 border border-blue-200 text-left transition group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center text-xl shrink-0 shadow-xs">
+                    📥
+                  </div>
+                  <div>
+                    <span className="font-bold text-blue-950 text-sm block">
+                      Baixar Arquivo PDF
+                    </span>
+                    <span className="text-xs text-blue-700 block">
+                      Download do documento oficial assinado
+                    </span>
+                  </div>
+                </div>
+                <span className="text-blue-700 font-bold text-sm">↓</span>
+              </a>
+
+              {/* Opção 4: Compartilhar Nativo no Celular (se disponível) */}
+              {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleNativeShare(
+                      sharingCarta.permit,
+                      sharingCarta.carta.driveViewUrl
+                    );
+                    setSharingCarta(null);
+                  }}
+                  className="w-full flex items-center justify-between p-3.5 rounded-xl bg-purple-50 hover:bg-purple-100/80 border border-purple-200 text-left transition group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center text-xl shrink-0 shadow-xs">
+                      📲
+                    </div>
+                    <div>
+                      <span className="font-bold text-purple-950 text-sm block">
+                        Mais Opções de Compartilhamento
+                      </span>
+                      <span className="text-xs text-purple-700 block">
+                        Abrir painel nativo do smartphone
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-purple-700 font-bold text-sm">→</span>
+                </button>
+              )}
+            </div>
+
+            <div className="pt-2 text-center">
+              <button
+                type="button"
+                onClick={() => setSharingCarta(null)}
+                className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: ENVIAR CARTA DE CONCLUSÃO / ACEITE (DIRETO E RÁPIDO) */}
+      {uploadingCartaPermit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 overflow-y-auto animate-in fade-in">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[92vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-slate-200 pb-3">
+              <div>
+                <span className="text-xs font-bold text-orange-600 uppercase tracking-wider">
+                  Anexo de Documento
+                </span>
+                <h3 className="text-lg font-black text-slate-900">
+                  Enviar Carta de Conclusão / Aceite
+                </h3>
+                <p className="text-xs text-slate-500">
+                  PT: <span className="font-bold text-slate-800">{uploadingCartaPermit.codigo}</span> • Contrato: {uploadingCartaPermit.contratoOrcamento}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setUploadingCartaPermit(null);
+                  setUploadCartaFotoFile(null);
+                  setUploadCartaFotoPreview(null);
+                  setUploadCartaErro(null);
+                }}
+                className="text-slate-400 hover:text-slate-700 text-xl font-bold p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            {uploadCartaErro && (
+              <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded-xl flex items-center gap-2">
+                <span>⚠️</span>
+                <span>{uploadCartaErro}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSalvarUploadCarta} className="space-y-4 text-xs">
+              {/* Inputs Ocultos */}
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                ref={uploadCartaCameraInputRef}
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setUploadCartaFotoFile(file);
+                    const reader = new FileReader();
+                    reader.onload = (ev) => setUploadCartaFotoPreview(ev.target?.result as string);
+                    reader.readAsDataURL(file);
+                  }
+                  e.target.value = '';
+                }}
+              />
+              <input
+                type="file"
+                accept="image/*,application/pdf"
+                ref={uploadCartaFileInputRef}
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setUploadCartaFotoFile(file);
+                    if (file.type.startsWith('image/')) {
+                      const reader = new FileReader();
+                      reader.onload = (ev) => setUploadCartaFotoPreview(ev.target?.result as string);
+                      reader.readAsDataURL(file);
+                    } else {
+                      setUploadCartaFotoPreview(null);
+                    }
+                  }
+                  e.target.value = '';
+                }}
+              />
+
+              {/* Botões de Câmera e Arquivo */}
+              {!uploadCartaFotoFile && !uploadCartaFotoPreview ? (
+                <div className="border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center space-y-3 bg-slate-50/60">
+                  <div className="text-3xl">📷</div>
+                  <h4 className="font-bold text-slate-800 text-sm">Adicione a Foto da Carta de Conclusão</h4>
+                  <p className="text-slate-500 text-[11px] max-w-sm mx-auto">
+                    Tire uma foto nítida do documento assinado pelo cliente ou anexe o arquivo PDF/imagem.
+                  </p>
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => uploadCartaCameraInputRef.current?.click()}
+                      className="inline-flex items-center gap-1.5 bg-orange-600 hover:bg-orange-700 text-white font-bold px-4 py-2.5 rounded-xl shadow-xs transition active:scale-95"
+                    >
+                      <span>📷</span>
+                      <span>Tirar Foto (Câmera)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => uploadCartaFileInputRef.current?.click()}
+                      className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-semibold px-4 py-2.5 rounded-xl transition"
+                    >
+                      <span>📁</span>
+                      <span>Escolher Arquivo / Foto</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-800 flex items-center gap-1.5 truncate max-w-xs">
+                      <span>✓</span>
+                      <span className="truncate">{uploadCartaFotoFile?.name || 'Foto da Carta'}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUploadCartaFotoFile(null);
+                        setUploadCartaFotoPreview(null);
+                      }}
+                      className="text-red-600 hover:underline font-bold text-[11px] shrink-0"
+                    >
+                      Trocar
+                    </button>
+                  </div>
+
+                  {uploadCartaFotoPreview && (
+                    <div className="rounded-lg overflow-hidden border border-slate-200 bg-black/5 max-h-56 flex items-center justify-center">
+                      <img
+                        src={uploadCartaFotoPreview}
+                        alt="Preview da Carta de Conclusão"
+                        className="max-h-56 object-contain"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Responsável e Observações */}
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">
+                  Nome do Responsável pelo Envio (Opcional):
+                </label>
+                <input
+                  type="text"
+                  value={uploadCartaTecnicoNome}
+                  onChange={(e) => setUploadCartaTecnicoNome(e.target.value)}
+                  placeholder="Ex: Carlos Oliveira - Técnico de Reparo"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">
+                  Observações (Opcional):
+                </label>
+                <textarea
+                  value={uploadCartaObservacoes}
+                  onChange={(e) => setUploadCartaObservacoes(e.target.value)}
+                  placeholder="Ex: Assinado pelo síndico Sr. Marcos no local..."
+                  rows={2}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+
+              {/* Botões do Rodapé */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUploadingCartaPermit(null);
+                    setUploadCartaFotoFile(null);
+                    setUploadCartaFotoPreview(null);
+                  }}
+                  disabled={isUploadingCarta}
+                  className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 font-semibold text-slate-700 transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUploadingCarta || (!uploadCartaFotoFile && !uploadCartaFotoPreview)}
+                  className="btn-tke-gradient px-5 py-2 rounded-xl text-white font-bold shadow-md shadow-orange-500/20 disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isUploadingCarta ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Gerando PDF e Enviando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>🚀</span>
+                      <span>Salvar e Enviar Carta</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -406,10 +406,14 @@ export async function getPtReparosAction() {
       }
     }
 
-    const permitsWithCartas = permits.map((p) => ({
-      ...p,
-      cartaConclusao: p.serviceOrderId ? cartasMap.get(p.serviceOrderId) || null : null,
-    }));
+    const permitsWithCartas = permits.map((p) => {
+      const cartaFromAttachment = p.serviceOrderId ? cartasMap.get(p.serviceOrderId) : null;
+      const cartaFromDados = (p.dadosCompletos as any)?.cartaConclusao || null;
+      return {
+        ...p,
+        cartaConclusao: cartaFromAttachment || cartaFromDados || null,
+      };
+    });
 
     return { success: true, permits: permitsWithCartas, isAdmin, isSubcontratado, currentUser: user };
   } catch (error) {
@@ -635,5 +639,99 @@ export async function concluirTerminoPtReparoAction(payload: ConcluirTerminoPayl
   } catch (error) {
     console.error('[concluirTerminoPtReparoAction] Erro ao registrar término:', error);
     return { success: false, error: 'Erro ao registrar término do serviço no banco de dados.' };
+  }
+}
+
+/**
+ * Server Action para anexar a Carta de Conclusão / Aceite do Cliente diretamente a uma PT
+ */
+export async function anexarCartaConclusaoDirectAction(formData: FormData) {
+  try {
+    const workPermitId = formData.get('workPermitId') as string;
+    const file = formData.get('file') as File;
+
+    if (!workPermitId || !file) {
+      return { success: false, error: 'Identificador da PT ou arquivo não informado.' };
+    }
+
+    const [permit] = await db
+      .select()
+      .from(workPermits)
+      .where(eq(workPermits.id, workPermitId))
+      .limit(1);
+
+    if (!permit) {
+      return { success: false, error: 'Permissão de Trabalho não encontrada.' };
+    }
+
+    let attachmentId = '';
+    let driveViewUrl = '';
+    let driveDownloadUrl: string | null = null;
+
+    // 1. Se a PT estiver vinculada a uma OS, usa a rota oficial de anexos da OS
+    if (permit.serviceOrderId) {
+      const { uploadAttachmentsAction } = await import('@/actions/attachmentActions');
+      const uploadFormData = new FormData();
+      uploadFormData.append('serviceOrderId', permit.serviceOrderId);
+      uploadFormData.append('category', 'CARTA_CONCLUSAO');
+      uploadFormData.append('files', file);
+
+      const uploadRes = await uploadAttachmentsAction(uploadFormData);
+      if (uploadRes.success && uploadRes.attachments && uploadRes.attachments.length > 0) {
+        const att = uploadRes.attachments[0];
+        attachmentId = att.id;
+        driveViewUrl = att.driveViewUrl;
+        driveDownloadUrl = att.driveDownloadUrl || null;
+      }
+    }
+
+    // 2. Fallback: se não tiver OS ou falhar na OS, faz upload direto no Drive
+    if (!driveViewUrl) {
+      const { uploadFileToDrive, getOrCreateFolder } = await import('@/lib/google-drive');
+      const targetFolderId = await getOrCreateFolder('CARTAS_CONCLUSAO');
+      const arrayBuffer = await file.arrayBuffer();
+      const fileBuffer = Buffer.from(arrayBuffer);
+      const driveUpload = await uploadFileToDrive({
+        buffer: fileBuffer,
+        fileName: file.name,
+        mimeType: file.type || 'application/pdf',
+        targetFolderId,
+      });
+      attachmentId = driveUpload.fileId;
+      driveViewUrl = driveUpload.webViewLink;
+      driveDownloadUrl = driveUpload.webContentLink || null;
+    }
+
+    const cartaObj = {
+      id: attachmentId,
+      fileName: file.name,
+      driveViewUrl,
+      driveDownloadUrl,
+      enviadoEm: new Date().toISOString(),
+    };
+
+    // 3. Atualiza os dados estruturados da PT com a carta de conclusão
+    const updatedDados = {
+      ...permit.dadosCompletos,
+      cartaConclusao: cartaObj,
+    };
+
+    await db
+      .update(workPermits)
+      .set({
+        dadosCompletos: updatedDados as any,
+        updatedAt: new Date(),
+      })
+      .where(eq(workPermits.id, workPermitId));
+
+    revalidatePath('/dashboard/reparo/pt');
+
+    return {
+      success: true,
+      carta: cartaObj,
+    };
+  } catch (error) {
+    console.error('[anexarCartaConclusaoDirectAction] Erro ao anexar carta de conclusão:', error);
+    return { success: false, error: 'Erro interno ao processar o envio da carta de conclusão.' };
   }
 }
