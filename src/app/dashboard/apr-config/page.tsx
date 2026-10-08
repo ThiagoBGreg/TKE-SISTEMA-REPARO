@@ -5,10 +5,12 @@ import {
   getAprConfigAction,
   saveAprConfigAction,
   resetAprConfigAction,
+} from '@/actions/aprConfigActions';
+import {
   DEFAULT_APR_CATEGORIES,
   DEFAULT_EPIS,
   DEFAULT_REGRAS_DE_OURO,
-} from '@/actions/aprConfigActions';
+} from '@/lib/constants/aprConstants';
 import type { AprRiskCategoryConfig, AprRiskItemConfig, AprEpiConfig } from '@/db/schema';
 import { useRBAC } from '@/hooks/useRBAC';
 

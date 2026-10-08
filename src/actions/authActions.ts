@@ -277,6 +277,7 @@ export async function getPendingUsersAction() {
         email: users.email,
         telefone: users.telefone,
         documento: users.documento,
+        empresa: users.empresa,
         departamento: users.departamento,
         cargo: users.cargo,
         status: users.status,
@@ -350,6 +351,7 @@ export async function getAllUsersAction() {
         email: users.email,
         telefone: users.telefone,
         documento: users.documento,
+        empresa: users.empresa,
         departamento: users.departamento,
         cargo: users.cargo,
         status: users.status,
@@ -372,6 +374,7 @@ export interface UpdateUserData {
   email: string;
   telefone?: string;
   documento?: string;
+  empresa?: string;
   departamento: 'REPARO' | 'SERVICOS' | 'OSH' | 'DLOG' | 'ADMINISTRATIVO';
   cargo: string;
   status: 'ATIVO' | 'PENDENTE' | 'BLOQUEADO';
@@ -388,6 +391,7 @@ export async function updateUserByAdminAction(data: UpdateUserData) {
       email: data.email.trim().toLowerCase(),
       telefone: data.telefone?.trim() || null,
       documento: data.documento?.trim() || null,
+      empresa: data.empresa?.trim() || null,
       departamento: data.departamento,
       cargo: data.cargo,
       status: data.status,
@@ -419,6 +423,7 @@ export async function createUserByAdminAction(data: {
   cargo: string;
   telefone?: string;
   documento?: string;
+  empresa?: string;
   status?: 'ATIVO' | 'PENDENTE' | 'BLOQUEADO';
 }) {
   try {
@@ -447,6 +452,7 @@ export async function createUserByAdminAction(data: {
         cargo: data.cargo as any,
         telefone: data.telefone?.trim() || null,
         documento: data.documento?.trim() || null,
+        empresa: data.empresa?.trim() || null,
         status: data.status || 'ATIVO',
       })
       .returning();

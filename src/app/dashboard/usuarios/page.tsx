@@ -18,6 +18,7 @@ interface UserItem {
   email: string;
   telefone?: string | null;
   documento?: string | null;
+  empresa?: string | null;
   departamento: 'REPARO' | 'SERVICOS' | 'OSH' | 'DLOG' | 'ADMINISTRATIVO';
   cargo: string;
   status: 'ATIVO' | 'PENDENTE' | 'BLOQUEADO' | string;
@@ -48,6 +49,7 @@ export default function UsuariosPage() {
     email: string;
     telefone: string;
     documento: string;
+    empresa: string;
     departamento: 'REPARO' | 'SERVICOS' | 'OSH' | 'DLOG' | 'ADMINISTRATIVO';
     cargo: string;
     status: 'ATIVO' | 'PENDENTE' | 'BLOQUEADO';
@@ -57,6 +59,7 @@ export default function UsuariosPage() {
     email: '',
     telefone: '',
     documento: '',
+    empresa: '',
     departamento: 'REPARO',
     cargo: '',
     status: 'ATIVO',
@@ -70,6 +73,7 @@ export default function UsuariosPage() {
     senha: '',
     telefone: '',
     documento: '',
+    empresa: '',
     departamento: 'REPARO' as (typeof DEPARTAMENTOS)[number],
     cargo: 'Técnico de Manutenção',
     status: 'ATIVO' as 'ATIVO' | 'PENDENTE' | 'BLOQUEADO',
@@ -128,7 +132,8 @@ export default function UsuariosPage() {
         const matchesCargo = u.cargo?.toLowerCase().includes(query);
         const matchesDoc = u.documento?.toLowerCase().includes(query);
         const matchesTel = u.telefone?.toLowerCase().includes(query);
-        return matchesNome || matchesEmail || matchesCargo || matchesDoc || matchesTel;
+        const matchesEmpresa = u.empresa?.toLowerCase().includes(query);
+        return matchesNome || matchesEmail || matchesCargo || matchesDoc || matchesTel || matchesEmpresa;
       }
 
       return true;
@@ -162,6 +167,7 @@ export default function UsuariosPage() {
       email: userToEdit.email,
       telefone: userToEdit.telefone || '',
       documento: userToEdit.documento || '',
+      empresa: userToEdit.empresa || '',
       departamento: userToEdit.departamento,
       cargo: userToEdit.cargo || '',
       status: (userToEdit.status as 'ATIVO' | 'PENDENTE' | 'BLOQUEADO') || 'ATIVO',
@@ -181,6 +187,7 @@ export default function UsuariosPage() {
         email: editFormData.email,
         telefone: editFormData.telefone || undefined,
         documento: editFormData.documento || undefined,
+        empresa: editFormData.empresa || undefined,
         departamento: editFormData.departamento,
         cargo: editFormData.cargo,
         status: editFormData.status,
@@ -210,6 +217,7 @@ export default function UsuariosPage() {
         cargo: newUserFormData.cargo,
         telefone: newUserFormData.telefone || undefined,
         documento: newUserFormData.documento || undefined,
+        empresa: newUserFormData.empresa || undefined,
         status: newUserFormData.status,
       });
 
@@ -222,6 +230,7 @@ export default function UsuariosPage() {
           senha: '',
           telefone: '',
           documento: '',
+          empresa: '',
           departamento: 'REPARO',
           cargo: 'Técnico de Manutenção',
           status: 'ATIVO',
@@ -475,6 +484,16 @@ export default function UsuariosPage() {
                         <span className="text-[10px] font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-mono">
                           {colab.departamento}
                         </span>
+                        {colab.empresa && (
+                          <span className="text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-200 px-2 py-0.5 rounded-md flex items-center gap-1">
+                            🏢 {colab.empresa}
+                          </span>
+                        )}
+                        {colab.cargo?.toUpperCase().includes('SUBCONTRATADO') && !colab.empresa && (
+                          <span className="text-[10px] font-bold bg-orange-50 text-orange-800 border border-orange-200 px-2 py-0.5 rounded-md">
+                            ⚠️ Subcontratado (s/ empresa)
+                          </span>
+                        )}
                         <span
                           className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
                             colab.status === 'ATIVO'
@@ -495,6 +514,11 @@ export default function UsuariosPage() {
                         <span>
                           👔 <strong className="text-slate-600">Cargo:</strong> {colab.cargo}
                         </span>
+                        {colab.empresa && (
+                          <span>
+                            🏢 <strong className="text-slate-600">Empresa:</strong> {colab.empresa}
+                          </span>
+                        )}
                         {colab.telefone && (
                           <span>
                             📞 <strong className="text-slate-600">Tel:</strong> {colab.telefone}
@@ -697,6 +721,30 @@ export default function UsuariosPage() {
                   </select>
                 </div>
 
+                {/* Nome da Empresa / Razão Social (Especialmente para Subcontratados) */}
+                <div className="sm:col-span-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-bold text-slate-700 uppercase">
+                      🏢 Nome da Empresa / Razão Social {editFormData.cargo.toUpperCase().includes('SUBCONTRATADO') ? '*' : '(Opcional)'}
+                    </label>
+                    {editFormData.cargo.toUpperCase().includes('SUBCONTRATADO') && (
+                      <span className="text-[10px] font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded border border-orange-200">
+                        Obrigatório para Subcontratados
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Ex: Elevadores & Manutenção Silva Ltda ou Prestadora Parceira"
+                    value={editFormData.empresa}
+                    onChange={(e) => setEditFormData({ ...editFormData, empresa: e.target.value })}
+                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Nome da empresa prestadora de serviços à qual o técnico terceirizado/subcontratado pertence.
+                  </p>
+                </div>
+
                 {/* Nova Senha (Opcional) */}
                 <div className="sm:col-span-2 pt-2 border-t border-slate-100">
                   <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
@@ -891,6 +939,30 @@ export default function UsuariosPage() {
                     <option value="PENDENTE">🟡 PENDENTE</option>
                     <option value="BLOQUEADO">🔴 BLOQUEADO</option>
                   </select>
+                </div>
+
+                {/* Nome da Empresa / Subcontratada */}
+                <div className="sm:col-span-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-bold text-slate-700 uppercase">
+                      🏢 Nome da Empresa / Razão Social {newUserFormData.cargo.toUpperCase().includes('SUBCONTRATADO') ? '*' : '(Opcional)'}
+                    </label>
+                    {newUserFormData.cargo.toUpperCase().includes('SUBCONTRATADO') && (
+                      <span className="text-[10px] font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded border border-orange-200">
+                        Obrigatório para Subcontratados
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Ex: Elevadores & Manutenção Silva Ltda ou Prestadora Parceira"
+                    value={newUserFormData.empresa}
+                    onChange={(e) => setNewUserFormData({ ...newUserFormData, empresa: e.target.value })}
+                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Nome da empresa parceira ou razão social do prestador terceirizado/subcontratado.
+                  </p>
                 </div>
               </div>
 

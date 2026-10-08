@@ -162,6 +162,7 @@ export const users = pgTable(
     senhaHash: text('senha_hash'),
     telefone: varchar('telefone', { length: 30 }),
     documento: varchar('documento', { length: 30 }), // CPF ou CNPJ para extratos
+    empresa: varchar('empresa', { length: 255 }), // Nome da empresa / Razão Social (obrigatório para subcontratados)
     avatarUrl: text('avatar_url'),
     departamento: departmentEnum('departamento').notNull(),
     cargo: userRoleEnum('cargo').notNull(),
