@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Link from 'next/link';
 import { PtReparoWizard } from '@/components/pt/PtReparoWizard';
 import { SignaturePad } from '@/components/pt/SignaturePad';
@@ -9,6 +9,7 @@ import {
   updatePtReparoAction,
   concluirTerminoPtReparoAction,
 } from '@/actions/ptReparoActions';
+import { uploadAttachmentsAction } from '@/actions/attachmentActions';
 import type { DigitalSignature, PtReparoFormData } from '@/lib/validations/ptReparoSchema';
 
 export interface WorkPermitItem {
@@ -52,6 +53,16 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
   const [terminoObservacoes, setTerminoObservacoes] = useState('');
   const [terminoErro, setTerminoErro] = useState<string | null>(null);
 
+  // Estados para Carta de Conclusão no Término
+  const [cartaFotoFile, setCartaFotoFile] = useState<File | null>(null);
+  const [cartaFotoPreview, setCartaFotoPreview] = useState<string | null>(null);
+  const [cartaPdfBlob, setCartaPdfBlob] = useState<Blob | null>(null);
+  const [cartaPdfUrl, setCartaPdfUrl] = useState<string | null>(null);
+  const [isGerandoPdfCarta, setIsGerandoPdfCarta] = useState(false);
+  const [cartaStatusMsg, setCartaStatusMsg] = useState<string | null>(null);
+  const cartaCameraInputRef = useRef<HTMLInputElement | null>(null);
+  const cartaFileInputRef = useRef<HTMLInputElement | null>(null);
+
   // Estados de loading e mensagens
   const [isProcessing, setIsProcessing] = useState(false);
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -79,6 +90,126 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
     setTerminoAssinatura(null);
     setTerminoObservacoes('');
     setTerminoErro(null);
+    setCartaFotoFile(null);
+    setCartaFotoPreview(null);
+    setCartaPdfBlob(null);
+    if (cartaPdfUrl) {
+      URL.revokeObjectURL(cartaPdfUrl);
+      setCartaPdfUrl(null);
+    }
+    setCartaStatusMsg(null);
+  };
+
+  // Seleciona foto da carta de conclusão e gera o PDF automaticamente
+  const handleSelectCartaFoto = async (file: File) => {
+    if (!file) return;
+    setCartaFotoFile(file);
+    setCartaPdfBlob(null);
+    if (cartaPdfUrl) {
+      URL.revokeObjectURL(cartaPdfUrl);
+      setCartaPdfUrl(null);
+    }
+    setCartaStatusMsg(null);
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64 = e.target?.result as string;
+      setCartaFotoPreview(base64);
+
+      setIsGerandoPdfCarta(true);
+      try {
+        const response = await fetch('/api/pt/carta-conclusao/pdf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            codigoPT: concludingPermit?.codigo || 'PT-REPARO',
+            contratoOrcamento: concludingPermit?.contratoOrcamento || '',
+            equipamento: concludingPermit?.equipamento || '',
+            tecnicoNome: terminoNome || 'Técnico de Reparo',
+            dataHoraTermino: terminoDataHora || new Date().toISOString(),
+            observacoes: terminoObservacoes || '',
+            fotoBase64: base64,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Falha na resposta ao gerar PDF.');
+        }
+
+        const blob = await response.blob();
+        setCartaPdfBlob(blob);
+        const url = URL.createObjectURL(blob);
+        setCartaPdfUrl(url);
+        setCartaStatusMsg('PDF oficial gerado com sucesso!');
+      } catch (err) {
+        console.error('Erro ao gerar PDF da carta de conclusão:', err);
+        setCartaStatusMsg('Aviso: Não foi possível compilar o PDF automaticamente.');
+      } finally {
+        setIsGerandoPdfCarta(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoverCartaFoto = () => {
+    setCartaFotoFile(null);
+    setCartaFotoPreview(null);
+    setCartaPdfBlob(null);
+    if (cartaPdfUrl) {
+      URL.revokeObjectURL(cartaPdfUrl);
+      setCartaPdfUrl(null);
+    }
+    setCartaStatusMsg(null);
+  };
+
+  const handleBaixarCartaPdf = () => {
+    if (!cartaPdfUrl || !concludingPermit) return;
+    const link = document.createElement('a');
+    link.href = cartaPdfUrl;
+    link.download = `Carta_Conclusao_${concludingPermit.codigo}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleCompartilharCartaPdf = async () => {
+    if (!concludingPermit) return;
+
+    if (cartaPdfBlob && typeof navigator !== 'undefined') {
+      const fileName = `Carta_Conclusao_${concludingPermit.codigo}.pdf`;
+      const pdfFile = new File([cartaPdfBlob], fileName, { type: 'application/pdf' });
+
+      if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+        try {
+          await navigator.share({
+            title: `Carta de Conclusão - ${concludingPermit.codigo}`,
+            text: `Segue a Carta de Conclusão e Aceite do Serviço de Reparo referente à PT ${concludingPermit.codigo} (Contrato: ${concludingPermit.contratoOrcamento}).`,
+            files: [pdfFile],
+          });
+          return;
+        } catch (err: any) {
+          if (err.name !== 'AbortError') {
+            console.warn('Erro ao compartilhar via Web Share:', err);
+          }
+        }
+      } else if (navigator.share) {
+        try {
+          await navigator.share({
+            title: `Carta de Conclusão - ${concludingPermit.codigo}`,
+            text: `Carta de Conclusão e Aceite do Serviço de Reparo referente à PT ${concludingPermit.codigo} (Contrato: ${concludingPermit.contratoOrcamento}).`,
+          });
+          return;
+        } catch (err: any) {
+          if (err.name !== 'AbortError') {
+            console.warn('Erro ao compartilhar texto:', err);
+          }
+        }
+      }
+    }
+
+    if (cartaPdfUrl) {
+      window.open(cartaPdfUrl, '_blank');
+    }
   };
 
   // Submissão do Término de Serviço
@@ -151,6 +282,24 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
                 }
               : null
           );
+        }
+
+        // Se houver carta de conclusão em PDF gerada, anexa à Ordem de Serviço
+        if (cartaPdfBlob && concludingPermit.serviceOrderId) {
+          try {
+            const pdfFile = new File(
+              [cartaPdfBlob],
+              `Carta_Conclusao_${concludingPermit.codigo}.pdf`,
+              { type: 'application/pdf' }
+            );
+            const uploadFormData = new FormData();
+            uploadFormData.append('serviceOrderId', concludingPermit.serviceOrderId);
+            uploadFormData.append('category', 'CARTA_CONCLUSAO');
+            uploadFormData.append('files', pdfFile);
+            await uploadAttachmentsAction(uploadFormData);
+          } catch (anexoErr) {
+            console.warn('[handleConcluirTermino] Aviso ao anexar carta à OS:', anexoErr);
+          }
         }
 
         setActionMessage({
@@ -941,6 +1090,153 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
                   onChange={(sig) => setTerminoAssinatura(sig)}
                   required
                 />
+              </div>
+
+              {/* SEÇÃO DE CARTA DE CONCLUSÃO / ACEITE DO CLIENTE */}
+              <div className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/70 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">📄</span>
+                    <div>
+                      <label className="font-bold text-slate-800 text-xs block">
+                        Carta de Conclusão / Aceite do Cliente
+                      </label>
+                      <p className="text-[11px] text-slate-500">
+                        Adicione a foto da carta assinada para gerar o PDF oficial e compartilhar.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold text-orange-600 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-full">
+                    Opcional
+                  </span>
+                </div>
+
+                {/* Inputs Ocultos de Câmera e Arquivo */}
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  ref={cartaCameraInputRef}
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleSelectCartaFoto(file);
+                    e.target.value = '';
+                  }}
+                />
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={cartaFileInputRef}
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleSelectCartaFoto(file);
+                    e.target.value = '';
+                  }}
+                />
+
+                {!cartaFotoPreview ? (
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => cartaCameraInputRef.current?.click()}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-lg font-semibold text-xs transition shadow-2xs hover:scale-[1.01] active:scale-[0.99]"
+                    >
+                      <span>📷</span>
+                      <span>Tirar Foto da Carta</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => cartaFileInputRef.current?.click()}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-lg font-semibold text-xs transition shadow-2xs hover:scale-[1.01] active:scale-[0.99]"
+                    >
+                      <span>📁</span>
+                      <span>Escolher da Galeria</span>
+                    </button>
+                  </div>
+                ) : (
+                  /* Card da Foto Selecionada e PDF Gerado */
+                  <div className="space-y-3 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+                    <div className="flex items-start gap-3">
+                      {/* Preview da Imagem */}
+                      <div className="relative w-20 h-20 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 shrink-0">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={cartaFotoPreview}
+                          alt="Preview da Carta de Conclusão"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-bold text-slate-800 text-xs truncate">
+                            {cartaFotoFile?.name || 'Foto da Carta de Conclusão'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleRemoverCartaFoto}
+                            className="text-red-500 hover:text-red-700 font-semibold text-xs"
+                            title="Remover foto"
+                          >
+                            ✕ Remover
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-slate-500">
+                          {cartaFotoFile ? `${(cartaFotoFile.size / 1024).toFixed(1)} KB` : ''}
+                        </p>
+
+                        {/* Status da Geração de PDF */}
+                        {isGerandoPdfCarta ? (
+                          <div className="flex items-center gap-1.5 text-xs text-orange-600 font-medium animate-pulse">
+                            <span className="animate-spin">⏳</span>
+                            <span>Gerando arquivo PDF oficial da carta...</span>
+                          </div>
+                        ) : cartaPdfBlob ? (
+                          <div className="flex items-center gap-1 text-xs text-emerald-700 font-semibold">
+                            <span>✓</span>
+                            <span>PDF oficial da carta gerado com sucesso!</span>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {/* Botões de Ação do PDF: Baixar e Compartilhar */}
+                    {cartaPdfBlob && (
+                      <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
+                        <button
+                          type="button"
+                          onClick={handleBaixarCartaPdf}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition shadow-2xs hover:scale-[1.02] active:scale-[0.98]"
+                          title="Baixar o arquivo PDF da Carta de Conclusão"
+                        >
+                          <span>📥</span>
+                          <span>Baixar PDF</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleCompartilharCartaPdf}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-700 to-orange-500 hover:brightness-110 text-white font-bold rounded-lg text-xs transition shadow-2xs hover:scale-[1.02] active:scale-[0.98]"
+                          title="Compartilhar PDF via WhatsApp, e-mail ou abrir"
+                        >
+                          <span>📤</span>
+                          <span>Compartilhar</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => cartaCameraInputRef.current?.click()}
+                          className="text-[11px] text-slate-500 hover:text-slate-800 underline ml-auto"
+                        >
+                          Trocar foto
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>

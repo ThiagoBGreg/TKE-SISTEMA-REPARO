@@ -9,6 +9,8 @@ const PUBLIC_PATHS = [
   '/login',
   '/recuperar-senha',
   '/api/auth',
+  '/api/pt',
+  '/api/relatorios',
   '/favicon.ico',
 ];
 
