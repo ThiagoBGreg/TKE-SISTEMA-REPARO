@@ -13,7 +13,7 @@ function LoginFormContent() {
   const [activeTab, setActiveTab] = useState<'login' | 'cadastro'>('login');
 
   // Login Form State
-  const [loginEmail, setLoginEmail] = useState('');
+  const [loginIdentificador, setLoginIdentificador] = useState('');
   const [loginSenha, setLoginSenha] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
@@ -46,7 +46,7 @@ function LoginFormContent() {
     setLoginLoading(true);
 
     const formData = new FormData();
-    formData.append('email', loginEmail);
+    formData.append('identificador', loginIdentificador);
     formData.append('senha', loginSenha);
 
     const result = await loginUserAction(formData);
@@ -94,7 +94,7 @@ function LoginFormContent() {
   };
 
   const handlePreFillAdmin = () => {
-    setLoginEmail('thiago.gregorio@tke.com');
+    setLoginIdentificador('Thiago Gregorio');
     setLoginSenha('Thiago200189');
     setLoginError(null);
   };
@@ -231,14 +231,14 @@ function LoginFormContent() {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  E-mail de Acesso *
+                  Nome e Sobrenome *
                 </label>
                 <input
                   type="text"
                   required
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="seu.email@tke.com"
+                  value={loginIdentificador}
+                  onChange={(e) => setLoginIdentificador(e.target.value)}
+                  placeholder="Ex: Thiago Gregorio ou Jose Augusto"
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-red-500 transition"
                 />
               </div>

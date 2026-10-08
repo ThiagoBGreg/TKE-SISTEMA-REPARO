@@ -2,7 +2,7 @@
 
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, ilike, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/db';
 import { notifications, users } from '@/db/schema';
@@ -12,11 +12,12 @@ import { AuthUser } from '@/types/auth';
    CREDENCIAS DO ADMINISTRADOR PADRÃO
    ========================================================================== */
 const ADMIN_EMAIL = 'thiago.gregorio@tke.com';
+const ADMIN_NAME = 'Thiago Gregorio';
 const ADMIN_SENHA = 'Thiago200189';
 const ADMIN_ID = '00000000-0000-0000-0000-000000000001';
 
 const registerSchema = z.object({
-  nome: z.string().min(3, 'Nome completo é obrigatório'),
+  nome: z.string().min(3, 'Nome e sobrenome são obrigatórios'),
   email: z.string().email('E-mail corporativo inválido'),
   senha: z.string().min(6, 'A senha deve conter no mínimo 6 caracteres'),
   departamento: z.enum(['REPARO', 'SERVICOS', 'OSH', 'DLOG', 'ADMINISTRATIVO']),
@@ -37,13 +38,13 @@ async function ensureAdminExists() {
     const [existingAdmin] = await db
       .select()
       .from(users)
-      .where(eq(users.email, ADMIN_EMAIL))
+      .where(or(eq(users.email, ADMIN_EMAIL), ilike(users.nome, ADMIN_NAME)))
       .limit(1);
 
     if (!existingAdmin) {
       await db.insert(users).values({
         id: ADMIN_ID,
-        nome: 'Thiago Gregorio',
+        nome: ADMIN_NAME,
         email: ADMIN_EMAIL,
         senhaHash: ADMIN_SENHA,
         departamento: 'ADMINISTRATIVO',
@@ -58,20 +59,30 @@ async function ensureAdminExists() {
 }
 
 /**
- * Server Action de Login
+ * Server Action de Login (Aceita Nome e Sobrenome ou E-mail)
  */
 export async function loginUserAction(formData: FormData): Promise<AuthActionResult> {
   try {
-    const email = (formData.get('email') as string)?.trim().toLowerCase();
-    const senha = formData.get('senha') as string;
+    const identificador = (
+      (formData.get('identificador') ||
+        formData.get('nome') ||
+        formData.get('email')) as string
+    )?.trim();
+    const senha = (formData.get('senha') as string)?.trim();
 
-    if (!email || !senha) {
-      return { success: false, error: 'Informe o e-mail e a senha de acesso.' };
+    if (!identificador || !senha) {
+      return { success: false, error: 'Informe seu Nome e Sobrenome e a senha de acesso.' };
     }
+
+    const identLower = identificador.toLowerCase();
 
     // 1. Verificação Especial do Administrador Thiago Gregorio
     if (
-      (email === ADMIN_EMAIL || email === 'thiagogregorio' || email === 'admin') &&
+      (identLower === 'thiago gregorio' ||
+        identLower === 'thiagogregorio' ||
+        identLower === 'thiago' ||
+        identLower === ADMIN_EMAIL ||
+        identLower === 'admin') &&
       senha === ADMIN_SENHA
     ) {
       await ensureAdminExists();
@@ -96,23 +107,30 @@ export async function loginUserAction(formData: FormData): Promise<AuthActionRes
       return { success: true, user: adminUser, redirect: '/dashboard' };
     }
 
-    // 2. Busca o usuário no banco Neon Postgres
+    // 2. Busca o usuário no banco Neon Postgres pelo Nome e Sobrenome OU E-mail
     const [user] = await db
       .select()
       .from(users)
-      .where(eq(users.email, email))
+      .where(
+        or(
+          ilike(users.nome, identificador),
+          ilike(users.email, identificador),
+          sql`LOWER(TRIM(${users.nome})) = LOWER(TRIM(${identificador}))`
+        )
+      )
       .limit(1);
 
     if (!user) {
       return {
         success: false,
-        error: 'E-mail ou senha incorretos. Caso ainda não tenha conta, solicite seu cadastro.',
+        error:
+          'Usuário não encontrado. Verifique se digitou o Nome e Sobrenome corretamente ou solicite seu cadastro.',
       };
     }
 
     // 3. Verificação de Senha
     if (user.senhaHash && user.senhaHash !== senha) {
-      return { success: false, error: 'E-mail ou senha incorretos.' };
+      return { success: false, error: 'Senha incorreta. Tente novamente.' };
     }
 
     // 4. Verificação de Status do Usuário
