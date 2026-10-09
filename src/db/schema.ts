@@ -478,6 +478,23 @@ export interface AprRiskCategoryConfig {
   itens: AprRiskItemConfig[];
 }
 
+export interface AprOpcaoConfig {
+  id: string;
+  label: string;
+  ativo?: boolean;
+}
+
+export interface AprItensPlanejamentoConfig {
+  servicosRealizados: string[];
+  riscosPotenciais: string[];
+  tiposEquipamento: AprOpcaoConfig[];
+  classificacoesReparo: AprOpcaoConfig[];
+  opcoesMaoDeObra: AprOpcaoConfig[];
+  permiteOutroServico?: boolean;
+  permiteOutroRisco?: boolean;
+  sugestoesOutrosServicos?: string[];
+}
+
 export interface AprEpiConfig {
   id: string; // Ex: 'capacete', 'oculos', 'cinto_paraquedista'
   nome: string;
@@ -500,6 +517,7 @@ export const aprConfigs = pgTable('apr_configs', {
   regrasDeOuro: jsonb('regras_de_ouro').$type<string[]>(),
   categoriasRisco: jsonb('categorias_risco').$type<AprRiskCategoryConfig[]>().notNull(),
   episDisponiveis: jsonb('epis_disponiveis').$type<AprEpiConfig[]>().notNull(),
+  itensPlanejamento: jsonb('itens_planejamento').$type<AprItensPlanejamentoConfig>(),
   atualizadoPorNome: varchar('atualizado_por_nome', { length: 255 }),
   updatedAt: timestamp('updated_at', { withTimezone: true })
     .defaultNow()

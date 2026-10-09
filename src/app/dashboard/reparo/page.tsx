@@ -131,13 +131,21 @@ export default function ReparoPage() {
                   </td>
                   <td className="p-4 text-right">
                     <AnimatedButton
-                      href={`/dashboard/reparo/pt?os=${ordem.codigo}`}
-                      variant={ordem.ptCodigo ? 'dark' : 'orange'}
+                      href={
+                        ordem.status === 'EM_EXECUCAO' && ordem.ptCodigo
+                          ? `/dashboard/reparo/pt?editPtId=${ordem.ptCodigo}`
+                          : `/dashboard/reparo/pt?os=${ordem.codigo}`
+                      }
+                      variant={ordem.status === 'EM_EXECUCAO' && ordem.ptCodigo ? 'orange' : ordem.ptCodigo ? 'dark' : 'orange'}
                       size="xs"
                       shimmer
                       lift
                     >
-                      {ordem.ptCodigo ? 'Ver / Abrir PT' : 'Emitir PT'}
+                      {ordem.status === 'EM_EXECUCAO' && ordem.ptCodigo
+                        ? '✏️ Editar APR'
+                        : ordem.ptCodigo
+                        ? 'Ver / Abrir PT'
+                        : 'Emitir PT'}
                     </AnimatedButton>
                   </td>
                 </tr>

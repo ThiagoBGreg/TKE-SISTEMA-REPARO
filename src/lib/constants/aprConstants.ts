@@ -1,4 +1,9 @@
-import type { AprRiskCategoryConfig, AprEpiConfig } from '@/db/schema';
+import type {
+  AprRiskCategoryConfig,
+  AprEpiConfig,
+  AprOpcaoConfig,
+  AprItensPlanejamentoConfig,
+} from '@/db/schema';
 
 export const DEFAULT_APR_CATEGORIES: AprRiskCategoryConfig[] = [
   {
@@ -87,3 +92,94 @@ export const DEFAULT_REGRAS_DE_OURO: string[] = [
   '4. Desenergize o equipamento e aplique o kit LOTO (cadeado e etiqueta) antes de intervir na elétrica.',
   '5. É terminantemente proibido burlar circuitos de segurança, trincos de porta ou chaves de limite.',
 ];
+
+/* ==========================================================================
+   ITENS 1 A 5 - IDENTIFICAÇÃO & PLANEJAMENTO DAS ATIVIDADES DA APR
+   ========================================================================== */
+
+export const DEFAULT_SERVICOS_LIST: string[] = [
+  'Equalizar cabos de tração',
+  'Encurtar cabos de tração',
+  'Substituir cabos de tração',
+  'Substituir polia de tração',
+  'Remover vazamento de máquina de tração',
+  'Substituir rolamento da máquina de tração',
+  'Substituir máquina de tração',
+  'Desacunhar cabine',
+  'Desacunhar contrapeso',
+  'Retirar motor da máquina de tração',
+  'Substituir corrente/cabo de compensação',
+  'Encurtar corrente/cabo de compensação',
+  'Encurtar cabo do regulador de velocidade',
+  'Limpar cabos de tração',
+  'Instalar iluminação na caixa de corrida',
+  'Retificar guias',
+  'Balancear cabina/contrapeso',
+  'Revisar aparelho de segurança',
+  'Limpeza geral',
+];
+
+export const DEFAULT_RISCOS_LIST: string[] = [
+  'Corte',
+  'Prensagem',
+  'Queda de nível',
+  'Queda de materiais/ferramentas',
+  'Contato com partes móveis',
+  'Movimentação e transporte de material',
+  'Armazenamento inadequado',
+  'Contato com eletricidade',
+  'Iluminação inadequada',
+  'Ruído',
+  'Produto químico',
+  'Ausência de organização e limpeza',
+  'Poeiras',
+  'Risco biológico',
+];
+
+export const DEFAULT_TIPOS_EQUIPAMENTO: AprOpcaoConfig[] = [
+  { id: 'COM_CASA_DE_MAQUINAS', label: 'Com casa de máquinas', ativo: true },
+  { id: 'SEM_CASA_DE_MAQUINAS', label: 'Sem casa de máquinas (MRL)', ativo: true },
+  { id: 'ESCADA_ROLANTE', label: 'Escada Rolante', ativo: true },
+  { id: 'ESTEIRA_ROLANTE', label: 'Esteira Rolante', ativo: true },
+  { id: 'PLATAFORMA_ELEVATORIA', label: 'Plataforma Elevatória', ativo: true },
+];
+
+export const DEFAULT_CLASSIFICACOES_REPARO: AprOpcaoConfig[] = [
+  { id: 'ROTINEIRO', label: 'Rotineiro (instrução padrão)', ativo: true },
+  { id: 'NAO_ROTINEIRO', label: 'Não Rotineiro (instrução específica)', ativo: true },
+  { id: 'EMERGENCIAL', label: 'Emergencial (chamado urgente)', ativo: true },
+];
+
+export const DEFAULT_OPCOES_MAO_DE_OBRA: AprOpcaoConfig[] = [
+  { id: 'TKE', label: 'TKE (Equipe Própria)', ativo: true },
+  { id: 'CONTRATADA', label: 'Empresa CONTRATADA', ativo: true },
+];
+
+export const DEFAULT_SUGESTOES_OUTROS_SERVICOS: string[] = [
+  'Troca de operador de porta',
+  'Substituição de fita seletora / encoder',
+  'Regulagem e alinhamento de portas de pavimento',
+  'Substituição de sapatas e cursores de cabina',
+  'Revisão e regulagem do sistema de freio',
+  'Substituição de cabo de manobra',
+  'Reparo em quadro de comando / inversor de frequência',
+  'Substituição de corrediças e patins de porta',
+  'Substituição de botoeira de cabina e pavimento',
+  'Troca de amortecedores de poço / pistão hidráulico',
+  'Troca de óleo da máquina de tração',
+  'Substituição de limites de percurso e fins de curso',
+  'Reparo no sensor de peso e sobrecarga',
+  'Substituição de fiação da caixa de corrida',
+  'Instalação de barreira eletrônica infravermelha',
+];
+
+export const DEFAULT_ITENS_PLANEJAMENTO: AprItensPlanejamentoConfig = {
+  servicosRealizados: DEFAULT_SERVICOS_LIST,
+  riscosPotenciais: DEFAULT_RISCOS_LIST,
+  tiposEquipamento: DEFAULT_TIPOS_EQUIPAMENTO,
+  classificacoesReparo: DEFAULT_CLASSIFICACOES_REPARO,
+  opcoesMaoDeObra: DEFAULT_OPCOES_MAO_DE_OBRA,
+  permiteOutroServico: true,
+  permiteOutroRisco: true,
+  sugestoesOutrosServicos: DEFAULT_SUGESTOES_OUTROS_SERVICOS,
+};

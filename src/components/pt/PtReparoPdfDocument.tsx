@@ -12,8 +12,8 @@ import type { PtReparoFormData } from '@/lib/validations/ptReparoSchema';
 
 const styles = StyleSheet.create({
   page: {
-    padding: 18,
-    fontSize: 7.5,
+    padding: 12,
+    fontSize: 7,
     fontFamily: 'Helvetica',
     color: '#0f172a',
     backgroundColor: '#ffffff',
@@ -21,32 +21,32 @@ const styles = StyleSheet.create({
   headerTable: {
     borderWidth: 1,
     borderColor: '#000000',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 4,
+    padding: 3,
     borderBottomWidth: 1,
     borderColor: '#000000',
     backgroundColor: '#f8fafc',
   },
   title: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: 'bold',
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 8,
+    fontSize: 7.5,
     fontWeight: 'bold',
     textAlign: 'center',
   },
   sectionTitle: {
-    fontSize: 7.5,
+    fontSize: 7,
     fontWeight: 'bold',
     backgroundColor: '#e2e8f0',
-    padding: 2.5,
+    padding: 2,
     borderBottomWidth: 1,
     borderColor: '#000000',
   },
@@ -56,13 +56,13 @@ const styles = StyleSheet.create({
     borderColor: '#000000',
   },
   cell: {
-    padding: 2.5,
+    padding: 2,
     borderRightWidth: 0.5,
     borderColor: '#000000',
     flex: 1,
   },
   cellNoBorder: {
-    padding: 2.5,
+    padding: 2,
     flex: 1,
   },
   bold: {
@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderColor: '#cbd5e1',
     alignItems: 'center',
-    minHeight: 14,
+    minHeight: 11,
   },
   checkColDesc: {
     flex: 5,
@@ -89,27 +89,27 @@ const styles = StyleSheet.create({
   alertBanner: {
     backgroundColor: '#000000',
     color: '#ffffff',
-    fontSize: 6.5,
-    padding: 2,
+    fontSize: 6,
+    padding: 1.5,
     textAlign: 'center',
     fontWeight: 'bold',
   },
   signatureBox: {
-    height: 38,
+    height: 28,
     borderWidth: 0.5,
     borderColor: '#94a3b8',
-    marginTop: 2,
+    marginTop: 1,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#f8fafc',
   },
   signatureImage: {
-    maxHeight: 28,
-    maxWidth: 120,
+    maxHeight: 22,
+    maxWidth: 110,
     objectFit: 'contain',
   },
   geoBadge: {
-    fontSize: 5.5,
+    fontSize: 5,
     color: '#475569',
     textAlign: 'center',
     marginTop: 1,
@@ -158,8 +158,10 @@ export function PtReparoPdfPage1({ data, codigoPT }: PtReparoPdfProps) {
               <Text>
                 <Text style={styles.bold}>3 - MÃO DE OBRA:</Text>{' '}
                 {data.tipoMaoDeObra === 'TKE'
-                  ? '[X] TKE'
-                  : `[X] CONTRATADA: ${data.empresaContratada || ''}`}
+                  ? '[X] TKE (Equipe Própria)'
+                  : data.tipoMaoDeObra === 'CONTRATADA'
+                  ? `[X] CONTRATADA: ${data.empresaContratada || ''}`
+                  : `[X] ${data.tipoMaoDeObra}${data.empresaContratada ? ` (${data.empresaContratada})` : ''}`}
               </Text>
             </View>
           </View>
@@ -170,7 +172,9 @@ export function PtReparoPdfPage1({ data, codigoPT }: PtReparoPdfProps) {
                 <Text style={styles.bold}>4 - TIPO DE EQUIPAMENTO:</Text>{' '}
                 {data.tipoEquipamento === 'COM_CASA_DE_MAQUINAS'
                   ? '[X] Com casa de máquinas'
-                  : '[X] Sem casa de máquinas'}
+                  : data.tipoEquipamento === 'SEM_CASA_DE_MAQUINAS'
+                  ? '[X] Sem casa de máquinas (MRL)'
+                  : `[X] ${data.tipoEquipamento.replace(/_/g, ' ')}`}
               </Text>
             </View>
           </View>
@@ -206,7 +210,11 @@ export function PtReparoPdfPage1({ data, codigoPT }: PtReparoPdfProps) {
             <View style={styles.cell}>
               <Text>
                 <Text style={styles.bold}>5.4 CLASSIFICAÇÃO:</Text>{' '}
-                {data.classificacaoReparo === 'ROTINEIRO' ? 'Rotineiro' : 'Não Rotineiro'}
+                {data.classificacaoReparo === 'ROTINEIRO'
+                  ? 'Rotineiro'
+                  : data.classificacaoReparo === 'NAO_ROTINEIRO'
+                  ? 'Não Rotineiro'
+                  : data.classificacaoReparo.replace(/_/g, ' ')}
               </Text>
             </View>
             <View style={styles.cell}>
@@ -480,19 +488,122 @@ export function PtReparoPdfPage1({ data, codigoPT }: PtReparoPdfProps) {
             </View>
           </View>
 
-          {/* 15 a 19: Registros Complementares */}
-          <Text style={styles.sectionTitle}>REGISTROS COMPLEMENTARES</Text>
-          <View style={{ padding: 2 }}>
-            <Text style={{ fontSize: 6.5 }}>
-              <Text style={styles.bold}>15 - Direito de Recusa:</Text> {data.direitoRecusa.atividadeParalisada ? `SIM (Motivo: ${data.direitoRecusa.motivoParalisacao})` : 'NÃO'}  |  
-              <Text style={styles.bold}> 16 - Desvios:</Text> {data.registroDesviosQuaseAcidentes.desvioIdentificado ? `SIM (${data.registroDesviosQuaseAcidentes.descricaoDesvio})` : 'NÃO'}  |  
-              <Text style={styles.bold}> 17 - DSS:</Text> {data.dssDialogoSeguranca.realizado ? `SIM (${data.dssDialogoSeguranca.temaAbordado})` : 'NÃO'}
+          {/* 15 a 19: Registros Complementares Fiel ao Formulário Oficial */}
+          <Text style={[styles.sectionTitle, { backgroundColor: '#0f172a', color: '#ffffff', fontSize: 7.5 }]}>
+            REGISTROS COMPLEMENTARES (PREENCHER QUANDO APLICÁVEL):
+          </Text>
+
+          {/* 15 - DIREITO DE RECUSA */}
+          <View style={[styles.row, { backgroundColor: '#cbd5e1', alignItems: 'center' }]}>
+            <Text style={[styles.bold, { flex: 5, padding: 2, fontSize: 6.8 }]}>15 - DIREITO DE RECUSA:</Text>
+            <Text style={[styles.bold, { flex: 1, textAlign: 'center', borderLeftWidth: 0.5, borderColor: '#000000', fontSize: 6.8 }]}>SIM</Text>
+            <Text style={[styles.bold, { flex: 1, textAlign: 'center', borderLeftWidth: 0.5, borderColor: '#000000', fontSize: 6.8 }]}>NÃO</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={{ flex: 5, padding: 2, fontSize: 6.5 }}>A atividade foi paralisada por questões de segurança?</Text>
+            <Text style={{ flex: 1, textAlign: 'center', borderLeftWidth: 0.5, borderColor: '#000000', fontWeight: 'bold', fontSize: 7 }}>
+              {data.direitoRecusa?.atividadeParalisada ? 'X' : ''}
             </Text>
-            {data.observacoesGerais && (
-              <Text style={{ fontSize: 6.5, marginTop: 2 }}>
-                <Text style={styles.bold}>19 - Observações:</Text> {data.observacoesGerais}
-              </Text>
-            )}
+            <Text style={{ flex: 1, textAlign: 'center', borderLeftWidth: 0.5, borderColor: '#000000', fontWeight: 'bold', fontSize: 7 }}>
+              {!data.direitoRecusa?.atividadeParalisada ? 'X' : ''}
+            </Text>
+          </View>
+          <View style={[styles.row, { padding: 2 }]}>
+            <Text style={{ fontSize: 6.5 }}>
+              <Text style={styles.bold}>Qual foi o motivo da paralisação? </Text>
+              {data.direitoRecusa?.motivoParalisacao || '-'}
+            </Text>
+          </View>
+
+          {/* 16 - REGISTRO DE DESVIOS */}
+          <View style={[styles.row, { backgroundColor: '#cbd5e1', alignItems: 'center' }]}>
+            <Text style={[styles.bold, { flex: 5, padding: 2, fontSize: 6.8 }]}>16 - REGISTRO DE DESVIOS (QUASE ACIDENTES):</Text>
+            <Text style={[styles.bold, { flex: 1, textAlign: 'center', borderLeftWidth: 0.5, borderColor: '#000000', fontSize: 6.8 }]}>SIM</Text>
+            <Text style={[styles.bold, { flex: 1, textAlign: 'center', borderLeftWidth: 0.5, borderColor: '#000000', fontSize: 6.8 }]}>NÃO</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={{ flex: 5, padding: 2, fontSize: 6.5 }}>Você identificou algum desvio em seu local de trabalho?</Text>
+            <Text style={{ flex: 1, textAlign: 'center', borderLeftWidth: 0.5, borderColor: '#000000', fontWeight: 'bold', fontSize: 7 }}>
+              {data.registroDesviosQuaseAcidentes?.desvioIdentificado ? 'X' : ''}
+            </Text>
+            <Text style={{ flex: 1, textAlign: 'center', borderLeftWidth: 0.5, borderColor: '#000000', fontWeight: 'bold', fontSize: 7 }}>
+              {!data.registroDesviosQuaseAcidentes?.desvioIdentificado ? 'X' : ''}
+            </Text>
+          </View>
+          <View style={[styles.row, { padding: 2 }]}>
+            <Text style={{ fontSize: 6.5 }}>
+              <Text style={styles.bold}>Descreva o desvio encontrado: </Text>
+              {data.registroDesviosQuaseAcidentes?.descricaoDesvio || '-'}
+            </Text>
+          </View>
+
+          {/* 17 - DSS */}
+          <View style={[styles.row, { backgroundColor: '#cbd5e1', alignItems: 'center' }]}>
+            <Text style={[styles.bold, { flex: 4, padding: 2, fontSize: 6.8 }]}>17 - DIÁLOGO SEMANAL DE SEGURANÇA (DSS):</Text>
+            <Text style={[styles.bold, { flex: 1.5, textAlign: 'center', borderLeftWidth: 0.5, borderColor: '#000000', fontSize: 6.8 }]}>
+              SIM ({data.dssDialogoSeguranca?.realizado ? 'X' : ' '})
+            </Text>
+            <Text style={[styles.bold, { flex: 1.5, textAlign: 'center', borderLeftWidth: 0.5, borderColor: '#000000', fontSize: 6.8 }]}>
+              NÃO ({!data.dssDialogoSeguranca?.realizado ? 'X' : ' '})
+            </Text>
+          </View>
+          <View style={[styles.row, { padding: 2 }]}>
+            <Text style={{ fontSize: 6.5 }}>
+              <Text style={styles.bold}>Tema abordado: </Text>
+              {data.dssDialogoSeguranca?.temaAbordado || '-'}
+            </Text>
+          </View>
+
+          {/* 18 - REGISTRO DE VISITA TÉCNICA */}
+          <View style={[styles.row, { backgroundColor: '#cbd5e1', padding: 2 }]}>
+            <Text style={[styles.bold, { fontSize: 6.8 }]}>18 - REGISTRO DE VISITA TÉCNICA:</Text>
+          </View>
+          {(() => {
+            const rawVisitas = data.visitaTecnica || [];
+            // Garante exibição de no mínimo 3 linhas conforme formulário oficial impresso
+            const renderRows = [...rawVisitas];
+            while (renderRows.length < 3) {
+              renderRows.push({ nome: '', cargo: '', assinatura: undefined });
+            }
+            return renderRows.map((v, idx) => (
+              <View key={idx} style={[styles.row, { alignItems: 'center', minHeight: 20 }]}>
+                <View style={[styles.cell, { flex: 3.5 }]}>
+                  <Text style={{ fontSize: 6.5 }}>
+                    <Text style={styles.bold}>Nome: </Text>{v.nome || ''}
+                  </Text>
+                </View>
+                <View style={[styles.cell, { flex: 2.5 }]}>
+                  <Text style={{ fontSize: 6.5 }}>
+                    <Text style={styles.bold}>Cargo: </Text>{v.cargo || ''}
+                  </Text>
+                </View>
+                <View style={[styles.cellNoBorder, { flex: 2, alignItems: 'center', justifyContent: 'center' }]}>
+                  {v.assinatura?.assinaturaBase64 ? (
+                    <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                      {/* eslint-disable-next-line jsx-a11y/alt-text */}
+                      <Image
+                        src={v.assinatura.assinaturaBase64}
+                        style={{ maxHeight: 16, maxWidth: 80, objectFit: 'contain' }}
+                      />
+                    </View>
+                  ) : (
+                    <Text style={{ fontSize: 5.5, color: '#94a3b8' }}>
+                      {v.nome ? 'Assinatura Pendente' : 'Assinatura:'}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            ));
+          })()}
+
+          {/* 19 - OBSERVAÇÕES COMPLEMENTARES */}
+          <View style={[styles.row, { backgroundColor: '#cbd5e1', padding: 2 }]}>
+            <Text style={[styles.bold, { fontSize: 6.8 }]}>19 - OBSERVAÇÕES COMPLEMENTARES:</Text>
+          </View>
+          <View style={{ padding: 2.5, minHeight: 18 }}>
+            <Text style={{ fontSize: 6.5, color: '#0f172a' }}>
+              {data.observacoesGerais?.trim() || 'Nenhuma observação complementar informada.'}
+            </Text>
           </View>
         </View>
       </Page>

@@ -10,8 +10,15 @@ import {
   DEFAULT_APR_CATEGORIES,
   DEFAULT_EPIS,
   DEFAULT_REGRAS_DE_OURO,
+  DEFAULT_ITENS_PLANEJAMENTO,
 } from '@/lib/constants/aprConstants';
-import type { AprRiskCategoryConfig, AprRiskItemConfig, AprEpiConfig } from '@/db/schema';
+import type {
+  AprRiskCategoryConfig,
+  AprRiskItemConfig,
+  AprEpiConfig,
+  AprItensPlanejamentoConfig,
+  AprOpcaoConfig,
+} from '@/db/schema';
 import { useRBAC } from '@/hooks/useRBAC';
 
 export default function AprConfigPage() {
@@ -25,12 +32,21 @@ export default function AprConfigPage() {
   const [regrasDeOuro, setRegrasDeOuro] = useState<string[]>([]);
   const [categoriasRisco, setCategoriasRisco] = useState<AprRiskCategoryConfig[]>([]);
   const [episDisponiveis, setEpisDisponiveis] = useState<AprEpiConfig[]>([]);
+  const [itensPlanejamento, setItensPlanejamento] = useState<AprItensPlanejamentoConfig>(DEFAULT_ITENS_PLANEJAMENTO);
   const [ultimaModificacao, setUltimaModificacao] = useState<string | null>(null);
   const [autorUltimaModificacao, setAutorUltimaModificacao] = useState<string | null>(null);
 
   // Navegação por abas
-  const [activeTab, setActiveTab] = useState<'riscos' | 'epis' | 'regras'>('riscos');
+  const [activeTab, setActiveTab] = useState<'planejamento' | 'riscos' | 'epis' | 'regras'>('planejamento');
   const [activeCategoryTab, setActiveCategoryTab] = useState<string>('ALTURA');
+
+  // Inputs temporários para novos itens
+  const [novoServicoTexto, setNovoServicoTexto] = useState('');
+  const [novoRiscoTexto, setNovoRiscoTexto] = useState('');
+  const [novaSugestaoTexto, setNovaSugestaoTexto] = useState('');
+  const [novoTipoEquipTexto, setNovoTipoEquipTexto] = useState('');
+  const [novaClassificacaoTexto, setNovaClassificacaoTexto] = useState('');
+  const [novaMaoDeObraTexto, setNovaMaoDeObraTexto] = useState('');
 
   // Notificações
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -47,6 +63,7 @@ export default function AprConfigPage() {
         setRegrasDeOuro(res.config.regrasDeOuro || DEFAULT_REGRAS_DE_OURO);
         setCategoriasRisco(res.config.categoriasRisco || DEFAULT_APR_CATEGORIES);
         setEpisDisponiveis(res.config.episDisponiveis || DEFAULT_EPIS);
+        setItensPlanejamento(res.config.itensPlanejamento || DEFAULT_ITENS_PLANEJAMENTO);
         if (res.config.updatedAt) {
           setUltimaModificacao(new Date(res.config.updatedAt).toLocaleString('pt-BR'));
         }
@@ -78,6 +95,7 @@ export default function AprConfigPage() {
         regrasDeOuro,
         categoriasRisco,
         episDisponiveis,
+        itensPlanejamento,
         autorNome: user?.nome || 'Administrador',
       });
 
@@ -245,6 +263,183 @@ export default function AprConfigPage() {
     setRegrasDeOuro((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // =========================================================================
+  // Modificadores de Itens 1 a 5 (Identificação & Planejamento)
+  // =========================================================================
+  const handleUpdateServico = (index: number, val: string) => {
+    setItensPlanejamento((prev) => {
+      const copy = [...prev.servicosRealizados];
+      copy[index] = val;
+      return { ...prev, servicosRealizados: copy };
+    });
+  };
+
+  const handleAddServico = () => {
+    if (!novoServicoTexto.trim()) return;
+    setItensPlanejamento((prev) => ({
+      ...prev,
+      servicosRealizados: [...prev.servicosRealizados, novoServicoTexto.trim()],
+    }));
+    setNovoServicoTexto('');
+  };
+
+  const handleDeleteServico = (index: number) => {
+    setItensPlanejamento((prev) => ({
+      ...prev,
+      servicosRealizados: prev.servicosRealizados.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleTogglePermiteOutro = (key: 'permiteOutroServico' | 'permiteOutroRisco') => {
+    setItensPlanejamento((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const handleAddSugestao = () => {
+    if (!novaSugestaoTexto.trim()) return;
+    setItensPlanejamento((prev) => ({
+      ...prev,
+      sugestoesOutrosServicos: [
+        ...(prev.sugestoesOutrosServicos || []),
+        novaSugestaoTexto.trim(),
+      ],
+    }));
+    setNovaSugestaoTexto('');
+  };
+
+  const handleDeleteSugestao = (index: number) => {
+    setItensPlanejamento((prev) => ({
+      ...prev,
+      sugestoesOutrosServicos: (prev.sugestoesOutrosServicos || []).filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleUpdateRisco = (index: number, val: string) => {
+    setItensPlanejamento((prev) => {
+      const copy = [...prev.riscosPotenciais];
+      copy[index] = val;
+      return { ...prev, riscosPotenciais: copy };
+    });
+  };
+
+  const handleAddRisco = () => {
+    if (!novoRiscoTexto.trim()) return;
+    setItensPlanejamento((prev) => ({
+      ...prev,
+      riscosPotenciais: [...prev.riscosPotenciais, novoRiscoTexto.trim()],
+    }));
+    setNovoRiscoTexto('');
+  };
+
+  const handleDeleteRisco = (index: number) => {
+    setItensPlanejamento((prev) => ({
+      ...prev,
+      riscosPotenciais: prev.riscosPotenciais.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleUpdateTipoEquipamento = (index: number, label: string) => {
+    setItensPlanejamento((prev) => {
+      const copy = [...prev.tiposEquipamento];
+      copy[index] = { ...copy[index], label };
+      return { ...prev, tiposEquipamento: copy };
+    });
+  };
+
+  const handleToggleTipoEquipamentoAtivo = (index: number) => {
+    setItensPlanejamento((prev) => {
+      const copy = [...prev.tiposEquipamento];
+      copy[index] = { ...copy[index], ativo: !copy[index].ativo };
+      return { ...prev, tiposEquipamento: copy };
+    });
+  };
+
+  const handleAddTipoEquipamento = () => {
+    if (!novoTipoEquipTexto.trim()) return;
+    const id = novoTipoEquipTexto.trim().toUpperCase().replace(/[^A-Z0-9]/g, '_');
+    setItensPlanejamento((prev) => ({
+      ...prev,
+      tiposEquipamento: [
+        ...prev.tiposEquipamento,
+        { id, label: novoTipoEquipTexto.trim(), ativo: true },
+      ],
+    }));
+    setNovoTipoEquipTexto('');
+  };
+
+  const handleDeleteTipoEquipamento = (index: number) => {
+    setItensPlanejamento((prev) => ({
+      ...prev,
+      tiposEquipamento: prev.tiposEquipamento.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleUpdateClassificacao = (index: number, label: string) => {
+    setItensPlanejamento((prev) => {
+      const copy = [...prev.classificacoesReparo];
+      copy[index] = { ...copy[index], label };
+      return { ...prev, classificacoesReparo: copy };
+    });
+  };
+
+  const handleToggleClassificacaoAtivo = (index: number) => {
+    setItensPlanejamento((prev) => {
+      const copy = [...prev.classificacoesReparo];
+      copy[index] = { ...copy[index], ativo: !copy[index].ativo };
+      return { ...prev, classificacoesReparo: copy };
+    });
+  };
+
+  const handleAddClassificacao = () => {
+    if (!novaClassificacaoTexto.trim()) return;
+    const id = novaClassificacaoTexto.trim().toUpperCase().replace(/[^A-Z0-9]/g, '_');
+    setItensPlanejamento((prev) => ({
+      ...prev,
+      classificacoesReparo: [
+        ...prev.classificacoesReparo,
+        { id, label: novaClassificacaoTexto.trim(), ativo: true },
+      ],
+    }));
+    setNovaClassificacaoTexto('');
+  };
+
+  const handleDeleteClassificacao = (index: number) => {
+    setItensPlanejamento((prev) => ({
+      ...prev,
+      classificacoesReparo: prev.classificacoesReparo.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleUpdateMaoDeObra = (index: number, label: string) => {
+    setItensPlanejamento((prev) => {
+      const copy = [...prev.opcoesMaoDeObra];
+      copy[index] = { ...copy[index], label };
+      return { ...prev, opcoesMaoDeObra: copy };
+    });
+  };
+
+  const handleAddMaoDeObra = () => {
+    if (!novaMaoDeObraTexto.trim()) return;
+    const id = novaMaoDeObraTexto.trim().toUpperCase().replace(/[^A-Z0-9]/g, '_');
+    setItensPlanejamento((prev) => ({
+      ...prev,
+      opcoesMaoDeObra: [
+        ...prev.opcoesMaoDeObra,
+        { id, label: novaMaoDeObraTexto.trim(), ativo: true },
+      ],
+    }));
+    setNovaMaoDeObraTexto('');
+  };
+
+  const handleDeleteMaoDeObra = (index: number) => {
+    setItensPlanejamento((prev) => ({
+      ...prev,
+      opcoesMaoDeObra: prev.opcoesMaoDeObra.filter((_, i) => i !== index),
+    }));
+  };
+
   const currentCategory = categoriasRisco.find((c) => c.id === activeCategoryTab);
 
   return (
@@ -359,6 +554,26 @@ export default function AprConfigPage() {
         <div className="flex border-b border-slate-200 bg-slate-50/70 p-2 gap-2 overflow-x-auto">
           <button
             type="button"
+            onClick={() => setActiveTab('planejamento')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 cursor-pointer ${
+              activeTab === 'planejamento'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/60'
+            }`}
+          >
+            <span>📝</span>
+            <span>Itens 1 a 5 (Identificação & Serviços)</span>
+            <span
+              className={`text-[10px] px-2 py-0.5 rounded-full ${
+                activeTab === 'planejamento' ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-700'
+              }`}
+            >
+              {itensPlanejamento.servicosRealizados.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab('riscos')}
             className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === 'riscos'
@@ -417,6 +632,485 @@ export default function AprConfigPage() {
             </span>
           </button>
         </div>
+
+        {/* CONTEÚDO DA ABA 0: ITENS 1 A 5 (IDENTIFICAÇÃO & SERVIÇOS) */}
+        {activeTab === 'planejamento' && (
+          <div className="p-5 sm:p-6 space-y-8">
+            {/* Bloco Explicativo do Administrador */}
+            <div className="bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50/30 border border-orange-200/80 rounded-2xl p-4 sm:p-5">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl shrink-0">🛠️</span>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Gerenciamento dos Itens de 1 a 5 da APR
+                  </h3>
+                  <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                    Personalize os serviços disponíveis para seleção no campo, cadastre sugestões para <strong>autopreenchimento do campo &quot;Outro&quot;</strong>, edite os riscos potenciais identificados e controle as opções dos seletores de Mão de Obra, Tipo de Equipamento e Classificação do Reparo.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* SEÇÃO 5.1: SERVIÇOS A SEREM REALIZADOS */}
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-3">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <span>🔧</span> 5.1 Marque os Serviços a Serem Realizados
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Lista oficial de serviços exibidos em checkboxes na etapa 1 da APR.
+                  </p>
+                </div>
+                <span className="text-xs font-mono font-bold bg-orange-100 text-orange-800 px-2.5 py-1 rounded-lg w-fit">
+                  {itensPlanejamento.servicosRealizados.length} serviços cadastrados
+                </span>
+              </div>
+
+              {/* Adicionar Novo Serviço */}
+              <div className="flex flex-col sm:flex-row gap-2.5 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                <input
+                  type="text"
+                  placeholder="Nome do novo serviço (ex: Ajuste do freio de emergência)..."
+                  value={novoServicoTexto}
+                  onChange={(e) => setNovoServicoTexto(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddServico();
+                    }
+                  }}
+                  className="flex-1 text-xs bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddServico}
+                  disabled={!novoServicoTexto.trim()}
+                  className="btn-tke-orange px-4 py-2 text-xs font-bold shrink-0 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <span>+</span>
+                  <span>Adicionar Serviço</span>
+                </button>
+              </div>
+
+              {/* Grid de Serviços */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                {itensPlanejamento.servicosRealizados.map((servico, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-2 p-2.5 bg-white border border-slate-200 rounded-xl hover:border-orange-300 transition group"
+                  >
+                    <span className="w-6 h-6 rounded-md bg-slate-100 text-slate-600 font-bold text-[11px] flex items-center justify-center shrink-0">
+                      {idx + 1}
+                    </span>
+                    <input
+                      type="text"
+                      value={servico}
+                      onChange={(e) => handleUpdateServico(idx, e.target.value)}
+                      className="w-full text-xs text-slate-800 font-medium bg-transparent border border-transparent hover:border-slate-200 focus:border-orange-500 rounded px-1.5 py-1 focus:bg-white focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteServico(idx)}
+                      className="text-slate-300 hover:text-rose-600 p-1 rounded transition opacity-60 group-hover:opacity-100 cursor-pointer shrink-0"
+                      title="Excluir serviço"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* CARD DESTAQUE: OPÇÃO 'OUTRO' E AUTOPREENCHIMENTO INTELIGENTE */}
+              <div className="mt-4 bg-gradient-to-br from-amber-50/80 via-white to-orange-50/60 border border-amber-300/80 rounded-2xl p-4 sm:p-5 space-y-4 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-200/60 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-xl">✨</span>
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-black text-slate-900">
+                        Opção &quot;Outro&quot; & Autopreenchimento de Serviços
+                      </h4>
+                      <p className="text-[11px] text-slate-500">
+                        Permite que o técnico informe serviços não listados acima com sugestões inteligentes.
+                      </p>
+                    </div>
+                  </div>
+
+                  <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer bg-white px-3 py-1.5 rounded-xl border border-amber-200 shadow-2xs">
+                    <input
+                      type="checkbox"
+                      checked={itensPlanejamento.permiteOutroServico}
+                      onChange={() => handleTogglePermiteOutro('permiteOutroServico')}
+                      className="rounded text-orange-500 focus:ring-orange-500 w-4 h-4"
+                    />
+                    <span>Habilitar opção &quot;Outro&quot; na APR</span>
+                  </label>
+                </div>
+
+                {itensPlanejamento.permiteOutroServico && (
+                  <div className="space-y-3 pt-1">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                        <span>💡</span> Sugestões para Autopreenchimento no Formulário
+                      </label>
+                      <span className="text-[11px] text-slate-500 font-medium">
+                        O técnico verá essas sugestões ao começar a digitar no campo &quot;Outro&quot;.
+                      </span>
+                    </div>
+
+                    {/* Input para adicionar nova sugestão de autopreenchimento */}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Digite um termo para autopreenchimento (ex: Troca de sensor magnético de parada)..."
+                        value={novaSugestaoTexto}
+                        onChange={(e) => setNovaSugestaoTexto(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddSugestao();
+                          }
+                        }}
+                        className="flex-1 text-xs bg-white border border-amber-200 rounded-xl px-3 py-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddSugestao}
+                        disabled={!novaSugestaoTexto.trim()}
+                        className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl transition cursor-pointer disabled:opacity-50 shrink-0"
+                      >
+                        + Adicionar Sugestão
+                      </button>
+                    </div>
+
+                    {/* Chips com as sugestões cadastradas */}
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      {(itensPlanejamento.sugestoesOutrosServicos || []).map((sugestao, sIdx) => (
+                        <span
+                          key={sIdx}
+                          className="inline-flex items-center gap-1.5 bg-white border border-amber-300 text-slate-800 text-xs font-semibold px-3 py-1.5 rounded-full shadow-2xs hover:bg-amber-50/50 transition"
+                        >
+                          <span>{sugestao}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteSugestao(sIdx)}
+                            className="text-slate-400 hover:text-rose-600 font-bold ml-1 rounded-full p-0.5 transition cursor-pointer"
+                            title="Remover sugestão"
+                          >
+                            ✕
+                          </button>
+                        </span>
+                      ))}
+                      {(itensPlanejamento.sugestoesOutrosServicos || []).length === 0 && (
+                        <p className="text-xs text-slate-400 italic">
+                          Nenhuma sugestão cadastrada. O campo &quot;Outro&quot; aceitará digitação livre.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* SEÇÃO 5.2: RISCOS POTENCIAIS IDENTIFICADOS */}
+            <div className="space-y-4 pt-4 border-t border-slate-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-3">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <span>⚡</span> 5.2 Riscos Potenciais Identificados
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Riscos operacionais preliminares selecionáveis na etapa 1 da APR.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">
+                    <input
+                      type="checkbox"
+                      checked={itensPlanejamento.permiteOutroRisco}
+                      onChange={() => handleTogglePermiteOutro('permiteOutroRisco')}
+                      className="rounded text-orange-500 focus:ring-orange-500 w-3.5 h-3.5"
+                    />
+                    <span>Permitir &quot;Outro&quot; em Riscos</span>
+                  </label>
+                  <span className="text-xs font-mono font-bold bg-amber-100 text-amber-800 px-2.5 py-1 rounded-lg">
+                    {itensPlanejamento.riscosPotenciais.length} riscos
+                  </span>
+                </div>
+              </div>
+
+              {/* Adicionar Novo Risco */}
+              <div className="flex flex-col sm:flex-row gap-2.5 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                <input
+                  type="text"
+                  placeholder="Nome do novo risco (ex: Trabalho em espaço confinado)..."
+                  value={novoRiscoTexto}
+                  onChange={(e) => setNovoRiscoTexto(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddRisco();
+                    }
+                  }}
+                  className="flex-1 text-xs bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddRisco}
+                  disabled={!novoRiscoTexto.trim()}
+                  className="btn-tke-orange px-4 py-2 text-xs font-bold shrink-0 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <span>+</span>
+                  <span>Adicionar Risco</span>
+                </button>
+              </div>
+
+              {/* Grid de Riscos */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                {itensPlanejamento.riscosPotenciais.map((risco, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-2 p-2.5 bg-white border border-slate-200 rounded-xl hover:border-amber-300 transition group"
+                  >
+                    <span className="w-6 h-6 rounded-md bg-amber-50 text-amber-800 font-bold text-[11px] flex items-center justify-center shrink-0 border border-amber-200/50">
+                      {idx + 1}
+                    </span>
+                    <input
+                      type="text"
+                      value={risco}
+                      onChange={(e) => handleUpdateRisco(idx, e.target.value)}
+                      className="w-full text-xs text-slate-800 font-medium bg-transparent border border-transparent hover:border-slate-200 focus:border-orange-500 rounded px-1.5 py-1 focus:bg-white focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteRisco(idx)}
+                      className="text-slate-300 hover:text-rose-600 p-1 rounded transition opacity-60 group-hover:opacity-100 cursor-pointer shrink-0"
+                      title="Excluir risco"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* SEÇÕES 4, 5.4 E 3: SELECTS DE EQUIPAMENTO, CLASSIFICAÇÃO E MÃO DE OBRA */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-4 border-t border-slate-200">
+              {/* 4. TIPO DE EQUIPAMENTO */}
+              <div className="bg-slate-50/60 border border-slate-200 rounded-2xl p-4 space-y-3.5">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>🛗</span> 4. Tipo de Equipamento
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Opções disponíveis no seletor de equipamento.
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Nova opção..."
+                    value={novoTipoEquipTexto}
+                    onChange={(e) => setNovoTipoEquipTexto(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddTipoEquipamento();
+                      }
+                    }}
+                    className="flex-1 text-xs bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddTipoEquipamento}
+                    disabled={!novoTipoEquipTexto.trim()}
+                    className="btn-tke-orange px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer disabled:opacity-50"
+                  >
+                    +
+                  </button>
+                </div>
+
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {itensPlanejamento.tiposEquipamento.map((op, idx) => (
+                    <div
+                      key={op.id || idx}
+                      className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-200 text-xs"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={op.ativo}
+                        onChange={() => handleToggleTipoEquipamentoAtivo(idx)}
+                        className="rounded text-orange-500 focus:ring-orange-500 w-3.5 h-3.5"
+                        title="Ativo / Inativo"
+                      />
+                      <input
+                        type="text"
+                        value={op.label}
+                        onChange={(e) => handleUpdateTipoEquipamento(idx, e.target.value)}
+                        className={`flex-1 text-xs bg-transparent border-none focus:outline-none ${
+                          !op.ativo ? 'line-through text-slate-400' : 'text-slate-800 font-medium'
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTipoEquipamento(idx)}
+                        className="text-slate-300 hover:text-rose-600 p-0.5 cursor-pointer"
+                        title="Remover"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 5.4 CLASSIFICAÇÃO DO REPARO */}
+              <div className="bg-slate-50/60 border border-slate-200 rounded-2xl p-4 space-y-3.5">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>🏷️</span> 5.4 Classificação do Reparo
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Categorias operacionais do reparo.
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Nova classificação..."
+                    value={novaClassificacaoTexto}
+                    onChange={(e) => setNovaClassificacaoTexto(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddClassificacao();
+                      }
+                    }}
+                    className="flex-1 text-xs bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddClassificacao}
+                    disabled={!novaClassificacaoTexto.trim()}
+                    className="btn-tke-orange px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer disabled:opacity-50"
+                  >
+                    +
+                  </button>
+                </div>
+
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {itensPlanejamento.classificacoesReparo.map((op, idx) => (
+                    <div
+                      key={op.id || idx}
+                      className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-200 text-xs"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={op.ativo}
+                        onChange={() => handleToggleClassificacaoAtivo(idx)}
+                        className="rounded text-orange-500 focus:ring-orange-500 w-3.5 h-3.5"
+                        title="Ativo / Inativo"
+                      />
+                      <input
+                        type="text"
+                        value={op.label}
+                        onChange={(e) => handleUpdateClassificacao(idx, e.target.value)}
+                        className={`flex-1 text-xs bg-transparent border-none focus:outline-none ${
+                          !op.ativo ? 'line-through text-slate-400' : 'text-slate-800 font-medium'
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteClassificacao(idx)}
+                        className="text-slate-300 hover:text-rose-600 p-0.5 cursor-pointer"
+                        title="Remover"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 3. MÃO DE OBRA */}
+              <div className="bg-slate-50/60 border border-slate-200 rounded-2xl p-4 space-y-3.5">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>👷</span> 3. Opções de Mão de Obra
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Modalidades de execução da equipe técnica.
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Nova modalidade..."
+                    value={novaMaoDeObraTexto}
+                    onChange={(e) => setNovaMaoDeObraTexto(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddMaoDeObra();
+                      }
+                    }}
+                    className="flex-1 text-xs bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddMaoDeObra}
+                    disabled={!novaMaoDeObraTexto.trim()}
+                    className="btn-tke-orange px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer disabled:opacity-50"
+                  >
+                    +
+                  </button>
+                </div>
+
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {itensPlanejamento.opcoesMaoDeObra.map((op, idx) => (
+                    <div
+                      key={op.id || idx}
+                      className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-200 text-xs"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={op.ativo}
+                        onChange={() => {
+                          setItensPlanejamento((prev) => {
+                            const copy = [...prev.opcoesMaoDeObra];
+                            copy[idx] = { ...copy[idx], ativo: !copy[idx].ativo };
+                            return { ...prev, opcoesMaoDeObra: copy };
+                          });
+                        }}
+                        className="rounded text-orange-500 focus:ring-orange-500 w-3.5 h-3.5"
+                        title="Ativo / Inativo"
+                      />
+                      <input
+                        type="text"
+                        value={op.label}
+                        onChange={(e) => handleUpdateMaoDeObra(idx, e.target.value)}
+                        className={`flex-1 text-xs bg-transparent border-none focus:outline-none ${
+                          !op.ativo ? 'line-through text-slate-400' : 'text-slate-800 font-medium'
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteMaoDeObra(idx)}
+                        className="text-slate-300 hover:text-rose-600 p-0.5 cursor-pointer"
+                        title="Remover"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* CONTEÚDO DA ABA 1: RISCOS & PERGUNTAS */}
         {activeTab === 'riscos' && (

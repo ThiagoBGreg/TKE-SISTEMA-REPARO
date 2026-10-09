@@ -30,9 +30,9 @@ export const ptReparoSchema = z.object({
   // 1 - 4: DADOS CADASTRAIS & EQUIPAMENTO
   contratoOrcamento: z.string().min(1, 'Número do Contrato/Orçamento é obrigatório'),
   equipamento: z.string().min(1, 'Identificação do Equipamento é obrigatória'),
-  tipoMaoDeObra: z.enum(['TKE', 'CONTRATADA']),
+  tipoMaoDeObra: z.string().min(1, 'Tipo de mão de obra é obrigatório'),
   empresaContratada: z.string().optional(),
-  tipoEquipamento: z.enum(['COM_CASA_DE_MAQUINAS', 'SEM_CASA_DE_MAQUINAS']),
+  tipoEquipamento: z.string().min(1, 'Tipo de equipamento é obrigatório'),
 
   // 5: PLANEJAMENTO DAS ATIVIDADES
   servicosRealizados: z.array(z.string()).min(1, 'Selecione ao menos um serviço a ser realizado'),
@@ -41,7 +41,7 @@ export const ptReparoSchema = z.object({
   riscosOutros: z.string().optional(),
   tipoReparo: z.enum(['SUSPENSAO_TRACAO', 'OUTROS']),
   tipoReparoOutros: z.string().optional(),
-  classificacaoReparo: z.enum(['ROTINEIRO', 'NAO_ROTINEIRO']),
+  classificacaoReparo: z.string().min(1, 'Classificação do reparo é obrigatória'),
   trabalhoEmAltura: z.boolean(),
   tipoSupervisaoAltura: z
     .enum(['BASICA', 'DIRETA', 'PT'])

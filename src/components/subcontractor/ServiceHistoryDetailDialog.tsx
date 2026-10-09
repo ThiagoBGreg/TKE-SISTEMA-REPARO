@@ -175,7 +175,7 @@ export function ServiceHistoryDetailDialog({
                     </div>
                   </div>
 
-                  <div className="pt-2">
+                  <div className="pt-2 flex flex-wrap items-center gap-2">
                     <a
                       href={`/api/pt/${order.permissaoTrabalho.id}/pdf`}
                       target="_blank"
@@ -184,6 +184,16 @@ export function ServiceHistoryDetailDialog({
                     >
                       📄 Baixar PDF Oficial Assinado da APR
                     </a>
+
+                    {order.status !== 'CONCLUIDA' && order.permissaoTrabalho.status !== 'FINALIZADA' && (
+                      <Link
+                        href={`/dashboard/reparo/pt?editPtId=${order.permissaoTrabalho.id}`}
+                        className="inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition"
+                      >
+                        <span>✏️</span>
+                        <span>Editar APR em Andamento</span>
+                      </Link>
+                    )}
                   </div>
                 </div>
               ) : (

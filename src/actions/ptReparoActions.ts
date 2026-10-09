@@ -547,6 +547,127 @@ export async function updatePtReparoAction(
 }
 
 /**
+ * Atualiza integralmente uma Permissão de Trabalho em andamento (Edição completa do formulário)
+ */
+export async function updatePtReparoFullAction(
+  id: string,
+  data: PtReparoFormData
+): Promise<SubmitPtReparoResult> {
+  try {
+    // 1. Validação estrita via Zod
+    const validation = ptReparoSchema.safeParse(data);
+    if (!validation.success) {
+      const fieldErrors = validation.error.flatten().fieldErrors;
+      return {
+        success: false,
+        error: 'Existem campos obrigatórios não preenchidos ou inválidos.',
+        issues: fieldErrors,
+      };
+    }
+
+    const validatedData = validation.data;
+    const user = await getSessionUser();
+    const { isSuperAdmin } = await import('@/lib/permissions');
+    const isAdmin = isSuperAdmin(user);
+
+    // 2. Busca a PT existente no banco
+    const [existing] = await db
+      .select()
+      .from(workPermits)
+      .where(eq(workPermits.id, id))
+      .limit(1);
+
+    if (!existing) {
+      return { success: false, error: 'Permissão de Trabalho não encontrada no sistema.' };
+    }
+
+    // 3. Validação de permissões: se não for admin, só pode editar se a PT ainda estiver em andamento
+    const isPtEmAndamento = existing.status !== 'FINALIZADA' && (existing.status as string) !== 'CONCLUIDO';
+    if (!isAdmin && !isPtEmAndamento) {
+      return {
+        success: false,
+        error: 'Esta APR já foi concluída/finalizada e não permite mais edições operacionais.',
+      };
+    }
+
+    // Se for subcontratado, verifica se a PT pertence a ele ou à sua OS
+    if (!isAdmin && user?.cargo === 'SUBCONTRATADO' && user.id) {
+      let isAuthorized = existing.criadoPorId === user.id;
+      if (!isAuthorized && existing.serviceOrderId) {
+        const [order] = await db
+          .select({ subcontratadoId: serviceOrders.subcontratadoId })
+          .from(serviceOrders)
+          .where(eq(serviceOrders.id, existing.serviceOrderId))
+          .limit(1);
+        if (order?.subcontratadoId === user.id) {
+          isAuthorized = true;
+        }
+      }
+      if (!isAuthorized) {
+        return {
+          success: false,
+          error: 'Acesso negado: Você só pode editar as próprias APRs em andamento.',
+        };
+      }
+    }
+
+    // 4. Preserva eventuais anexos e cartas de conclusão já existentes caso não venham no payload
+    const mergedDadosCompletos: PtReparoFormData = {
+      ...validatedData,
+      cartaConclusao: validatedData.cartaConclusao || (existing.dadosCompletos as any)?.cartaConclusao,
+    };
+
+    // 5. Atualiza o registro no Neon
+    await db
+      .update(workPermits)
+      .set({
+        contratoOrcamento: validatedData.contratoOrcamento,
+        equipamento: validatedData.equipamento,
+        tipoMaoDeObra: validatedData.tipoMaoDeObra,
+        tipoEquipamento: validatedData.tipoEquipamento,
+        classificacaoReparo: validatedData.classificacaoReparo,
+        trabalhoEmAltura: validatedData.trabalhoEmAltura,
+        assinaturaSupervisao: validatedData.assinaturaSupervisao || null,
+        assinaturaInicio: validatedData.inicioServico.emitenteAssinatura,
+        assinaturaTermino: validatedData.terminoServico?.emitenteAssinatura || existing.assinaturaTermino,
+        dadosCompletos: mergedDadosCompletos,
+        updatedAt: new Date(),
+      })
+      .where(eq(workPermits.id, id));
+
+    // 6. Registra no histórico da OS se houver OS vinculada
+    if (existing.serviceOrderId) {
+      try {
+        await db.insert(serviceOrderHistory).values({
+          serviceOrderId: existing.serviceOrderId,
+          alteradoPorId: user?.id || null,
+          acao: 'EDICAO_PT',
+          descricao: `APR em andamento (${existing.codigo}) foi editada e atualizada no sistema por ${user?.nome || 'Usuário'}.`,
+        });
+      } catch (histErr) {
+        console.warn('[updatePtReparoFullAction] Aviso ao gravar histórico:', histErr);
+      }
+    }
+
+    revalidatePath('/dashboard/reparo/pt');
+    revalidatePath('/dashboard/reparo');
+    revalidatePath('/dashboard/subcontratado/historico');
+
+    return {
+      success: true,
+      workPermitId: existing.id,
+      codigo: existing.codigo,
+    };
+  } catch (error) {
+    console.error('[updatePtReparoFullAction] Erro ao atualizar PT:', error);
+    return {
+      success: false,
+      error: 'Erro interno ao atualizar os dados da Permissão de Trabalho.',
+    };
+  }
+}
+
+/**
  * Exclui uma Permissão de Trabalho (Somente Administrador)
  */
 export async function deletePtReparoAction(id: string) {
@@ -743,13 +864,26 @@ export async function anexarCartaConclusaoDirectAction(formData: FormData) {
     const isDataUri = driveViewUrl.startsWith('data:');
     const apiPublicUrl = `/api/pt/${permit.codigo}/carta-conclusao`;
 
+    const fotoBase64Raw = (formData.get('fotoBase64') as string) || '';
+    const observacoes = (formData.get('observacoes') as string) || '';
+    const tecnicoNome = (formData.get('tecnicoNome') as string) || '';
+
+    const { resolveImageToDataUri } = await import('@/lib/pdfImageResolver');
+    let resolvedImageBase64 = await resolveImageToDataUri(fotoBase64Raw);
+    if (!resolvedImageBase64 && driveViewUrl) {
+      resolvedImageBase64 = await resolveImageToDataUri(driveViewUrl);
+    }
+
     const cartaObj = {
       id: attachmentId || `carta_${Date.now()}`,
       fileName: file.name,
       driveViewUrl: isDataUri ? apiPublicUrl : driveViewUrl,
       driveDownloadUrl: isDataUri ? apiPublicUrl : (driveDownloadUrl || driveViewUrl),
       enviadoEm: new Date().toISOString(),
-      rawBase64: isDataUri ? driveViewUrl : undefined,
+      rawBase64: resolvedImageBase64 || (isDataUri ? driveViewUrl : undefined),
+      tecnicoNome: tecnicoNome || (permit.dadosCompletos as any)?.terminoServico?.emitenteAssinatura?.nome || '',
+      dataHoraTermino: new Date().toISOString(),
+      observacoes: observacoes || (permit.dadosCompletos as any)?.terminoServico?.observacoesGerais || '',
     };
 
     // 3. Atualiza os dados estruturados da PT com a carta de conclusão

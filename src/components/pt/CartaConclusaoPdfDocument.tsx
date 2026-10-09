@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
   attachedImage: {
     width: '100%',
     height: '100%',
-    objectFit: 'fill',
+    objectFit: 'contain',
   },
   footerContainer: {
     marginTop: 4,

@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { PtReparoWizard } from '@/components/pt/PtReparoWizard';
 import { SignaturePad } from '@/components/pt/SignaturePad';
 import {
@@ -43,15 +44,37 @@ interface PtManagementViewProps {
 }
 
 export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = false }: PtManagementViewProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<'LIST' | 'CREATE'>('LIST');
   const [permits, setPermits] = useState<WorkPermitItem[]>(initialPermits);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'EM_ANDAMENTO' | 'CONCLUIDO'>('ALL');
 
+  // Estado para Edição Integral da APR em Andamento via Wizard
+  const [editingPermitInWizard, setEditingPermitInWizard] = useState<WorkPermitItem | null>(null);
+
   // Modais de Visualização e Administração
   const [viewingPermit, setViewingPermit] = useState<WorkPermitItem | null>(null);
   const [editingPermit, setEditingPermit] = useState<WorkPermitItem | null>(null);
   const [deletingPermitId, setDeletingPermitId] = useState<string | null>(null);
+
+  // Detecta parâmetro editPtId na URL para abrir automaticamente em modo de edição
+  useEffect(() => {
+    const editPtId = searchParams.get('editPtId') || searchParams.get('editPt');
+    if (editPtId) {
+      const found = permits.find((p) => p.id === editPtId || p.codigo === editPtId);
+      if (found) {
+        setEditingPermitInWizard(found);
+        setActiveTab('CREATE');
+      }
+    }
+  }, [searchParams, permits]);
+
+  const handleStartEditPt = (permit: WorkPermitItem) => {
+    setEditingPermitInWizard(permit);
+    setActiveTab('CREATE');
+  };
 
   // Modais de Visualização e Compartilhamento da Carta de Conclusão
   const [previewingCarta, setPreviewingCarta] = useState<{
@@ -370,44 +393,20 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
     setUploadCartaErro(null);
 
     try {
-      let finalFile: File = uploadCartaFotoFile!;
-
-      // Se temos o preview da foto em base64, geramos o PDF oficial TKE com cabeçalho auditável
-      if (uploadCartaFotoPreview) {
-        try {
-          const pdfRes = await fetch('/api/pt/carta-conclusao/pdf', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              codigoPT: uploadingCartaPermit.codigo,
-              contratoOrcamento: uploadingCartaPermit.contratoOrcamento,
-              equipamento: uploadingCartaPermit.equipamento,
-              tecnicoNome: uploadCartaTecnicoNome || 'Técnico de Reparo TKE',
-              dataHoraTermino: new Date().toISOString(),
-              observacoes: uploadCartaObservacoes,
-              fotoBase64: uploadCartaFotoPreview,
-            }),
-          });
-
-          if (pdfRes.ok) {
-            const blob = await pdfRes.blob();
-            finalFile = new File(
-              [blob],
-              `Carta_Conclusao_${uploadingCartaPermit.codigo}.pdf`,
-              { type: 'application/pdf' }
-            );
-          }
-        } catch (pdfErr) {
-          console.warn('Aviso: enviando imagem diretamente após falha na compilação do PDF:', pdfErr);
-        }
-      }
-
-      // Envia via Server Action
+      // Envia via Server Action preservando a imagem original da carta de conclusão
       const formData = new FormData();
       formData.append('workPermitId', uploadingCartaPermit.id);
-      formData.append('file', finalFile);
+      if (uploadCartaFotoFile) {
+        formData.append('file', uploadCartaFotoFile);
+      }
+      if (uploadCartaFotoPreview) {
+        formData.append('fotoBase64', uploadCartaFotoPreview);
+      }
       if (uploadCartaObservacoes) {
         formData.append('observacoes', uploadCartaObservacoes);
+      }
+      if (uploadCartaTecnicoNome) {
+        formData.append('tecnicoNome', uploadCartaTecnicoNome);
       }
 
       const res = await anexarCartaConclusaoDirectAction(formData);
@@ -522,27 +521,28 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
           );
         }
 
-        // Se houver carta de conclusão em PDF gerada, anexa à Ordem de Serviço
-        if (cartaPdfBlob && concludingPermit.serviceOrderId) {
+        // Se houver carta de conclusão anexada no formulário de término
+        if ((cartaFotoFile || cartaFotoPreview) && concludingPermit) {
           try {
-            const pdfFile = new File(
-              [cartaPdfBlob],
-              `Carta_Conclusao_${concludingPermit.codigo}.pdf`,
-              { type: 'application/pdf' }
-            );
             const uploadFormData = new FormData();
-            uploadFormData.append('serviceOrderId', concludingPermit.serviceOrderId);
-            uploadFormData.append('category', 'CARTA_CONCLUSAO');
-            uploadFormData.append('files', pdfFile);
-            const uploadRes = await uploadAttachmentsAction(uploadFormData);
-            if (uploadRes.success && uploadRes.attachments && uploadRes.attachments.length > 0) {
-              const uploadedCarta = uploadRes.attachments[0];
-              const novaCarta = {
-                id: uploadedCarta.id,
-                fileName: uploadedCarta.fileName,
-                driveViewUrl: uploadedCarta.driveViewUrl,
-                driveDownloadUrl: uploadedCarta.driveDownloadUrl || null,
-              };
+            uploadFormData.append('workPermitId', concludingPermit.id);
+            if (cartaFotoFile) {
+              uploadFormData.append('file', cartaFotoFile);
+              uploadFormData.append('files', cartaFotoFile);
+            }
+            if (cartaFotoPreview) {
+              uploadFormData.append('fotoBase64', cartaFotoPreview);
+            }
+            if (terminoNome) {
+              uploadFormData.append('tecnicoNome', terminoNome);
+            }
+            if (terminoObservacoes) {
+              uploadFormData.append('observacoes', terminoObservacoes);
+            }
+
+            const resCarta = await anexarCartaConclusaoDirectAction(uploadFormData);
+            if (resCarta.success && resCarta.carta) {
+              const novaCarta = resCarta.carta;
               setPermits((prev) =>
                 prev.map((p) =>
                   p.id === concludingPermit.id ? { ...p, cartaConclusao: novaCarta } : p
@@ -553,7 +553,7 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
               }
             }
           } catch (anexoErr) {
-            console.warn('[handleConcluirTermino] Aviso ao anexar carta à OS:', anexoErr);
+            console.warn('[handleConcluirTermino] Aviso ao anexar carta de conclusão:', anexoErr);
           }
         }
 
@@ -975,7 +975,7 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
                               <button
                                 type="button"
                                 onClick={() => handleOpenTerminoModal(permit)}
-                                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1.5 rounded-lg transition text-xs border border-emerald-300 shadow-2xs inline-flex items-center gap-1"
+                                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1.5 rounded-lg transition text-xs border border-emerald-300 shadow-2xs inline-flex items-center gap-1 cursor-pointer"
                                 title="Preencher Término do Serviço de Reparo e Mudar Status para Concluído"
                               >
                                 <span>🏁</span>
@@ -983,12 +983,25 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
                               </button>
                             )}
 
+                            {/* BOTÃO PARA EDITAR APR EM ANDAMENTO */}
+                            {!isConcluido && (
+                              <button
+                                type="button"
+                                onClick={() => handleStartEditPt(permit)}
+                                className="bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold px-2.5 py-1.5 rounded-lg transition text-xs border border-amber-300 shadow-2xs inline-flex items-center gap-1 cursor-pointer"
+                                title="Editar APR em Andamento (Fazer alterações nas etapas, checklists, membros ou registros)"
+                              >
+                                <span>✏️</span>
+                                <span>Editar APR</span>
+                              </button>
+                            )}
+
                             {/* Visualizar */}
                             <button
                               type="button"
                               onClick={() => setViewingPermit(permit)}
-                              className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold px-2.5 py-1.5 rounded-lg transition text-xs"
-                              title="Visualizar Detalhes da APT"
+                              className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold px-2.5 py-1.5 rounded-lg transition text-xs cursor-pointer"
+                              title="Visualizar Detalhes da APR"
                             >
                               👁️ Ver
                             </button>
@@ -998,10 +1011,10 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
                               <button
                                 type="button"
                                 onClick={() => setEditingPermit({ ...permit })}
-                                className="bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold px-2.5 py-1.5 rounded-lg transition text-xs border border-blue-200"
-                                title="Editar Permissão de Trabalho"
+                                className="bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold px-2.5 py-1.5 rounded-lg transition text-xs border border-blue-200 cursor-pointer"
+                                title="Editar Dados Rápidos da Permissão de Trabalho"
                               >
-                                ✏️ Editar
+                                ⚙️ Dados
                               </button>
                             )}
 
@@ -1010,7 +1023,7 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
                               <button
                                 type="button"
                                 onClick={() => setDeletingPermitId(permit.id)}
-                                className="bg-red-50 hover:bg-red-100 text-red-700 font-semibold px-2.5 py-1.5 rounded-lg transition text-xs border border-red-200"
+                                className="bg-red-50 hover:bg-red-100 text-red-700 font-semibold px-2.5 py-1.5 rounded-lg transition text-xs border border-red-200 cursor-pointer"
                                 title="Excluir Permissão de Trabalho"
                               >
                                 🗑️ Excluir
@@ -1028,26 +1041,47 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
         </div>
       )}
 
-      {/* ABA 2: FORMULÁRIO WIZARD (EM BRANCO) */}
+      {/* ABA 2: FORMULÁRIO WIZARD (EMITIR OU EDITAR APR) */}
       {activeTab === 'CREATE' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between bg-slate-50 border border-slate-200 p-4 rounded-xl">
             <span className="text-xs text-slate-600">
-              Preencha todos os campos da Análise Preliminar de Risco e Permissão de Trabalho. Todos os campos iniciam em branco.
+              {editingPermitInWizard
+                ? `Editando Permissão de Trabalho ${editingPermitInWizard.codigo} em andamento. Altere os campos e salve.`
+                : 'Preencha todos os campos da Análise Preliminar de Risco e Permissão de Trabalho.'}
             </span>
             <button
               type="button"
-              onClick={() => setActiveTab('LIST')}
-              className="text-xs font-bold text-slate-700 hover:text-black underline"
+              onClick={() => {
+                setEditingPermitInWizard(null);
+                setActiveTab('LIST');
+              }}
+              className="text-xs font-bold text-slate-700 hover:text-black underline cursor-pointer"
             >
               ← Voltar para Permissões Salvas
             </button>
           </div>
 
           <PtReparoWizard
-            serviceOrderId=""
-            defaultContrato=""
-            defaultEquipamento=""
+            initialData={editingPermitInWizard ? editingPermitInWizard.dadosCompletos : null}
+            editingPermitId={editingPermitInWizard ? editingPermitInWizard.id : null}
+            editingCodigo={editingPermitInWizard ? editingPermitInWizard.codigo : null}
+            serviceOrderId={editingPermitInWizard?.serviceOrderId || ''}
+            defaultContrato={editingPermitInWizard?.contratoOrcamento || ''}
+            defaultEquipamento={editingPermitInWizard?.equipamento || ''}
+            onCancelEdit={() => {
+              setEditingPermitInWizard(null);
+              setActiveTab('LIST');
+            }}
+            onSuccessSubmit={(updatedId, updatedCodigo) => {
+              setActionMessage({
+                type: 'success',
+                text: `APR ${updatedCodigo} atualizada com sucesso no banco de dados!`,
+              });
+              setEditingPermitInWizard(null);
+              setActiveTab('LIST');
+              router.refresh();
+            }}
           />
         </div>
       )}
@@ -1482,10 +1516,24 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
                     📥 Baixar Carta
                   </a>
                 )}
+                {viewingPermit.status !== 'FINALIZADA' && viewingPermit.status !== 'CONCLUIDO' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const p = viewingPermit;
+                      setViewingPermit(null);
+                      handleStartEditPt(p);
+                    }}
+                    className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs px-4 py-2 rounded-xl transition shadow-xs flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>✏️</span>
+                    <span>Editar APR em Andamento</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setViewingPermit(null)}
-                  className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold text-xs px-4 py-2 rounded-xl transition"
+                  className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold text-xs px-4 py-2 rounded-xl transition cursor-pointer"
                 >
                   Fechar
                 </button>

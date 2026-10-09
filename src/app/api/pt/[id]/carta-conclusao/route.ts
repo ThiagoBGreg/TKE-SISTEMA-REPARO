@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { workPermits } from '@/db/schema';
-import { eq, or } from 'drizzle-orm';
+import { workPermits, serviceOrderAttachments } from '@/db/schema';
+import { eq, or, and, desc } from 'drizzle-orm';
 import fs from 'fs';
 import path from 'path';
 
@@ -29,7 +29,37 @@ export async function GET(
     }
 
     const permit = permits[0];
-    const carta = permit.dadosCompletos?.cartaConclusao;
+    let carta = permit.dadosCompletos?.cartaConclusao;
+
+    // Fallback caso não esteja em dadosCompletos mas exista anexo na OS vinculada
+    if (!carta && permit.serviceOrderId) {
+      try {
+        const [att] = await db
+          .select()
+          .from(serviceOrderAttachments)
+          .where(
+            and(
+              eq(serviceOrderAttachments.serviceOrderId, permit.serviceOrderId),
+              eq(serviceOrderAttachments.category, 'CARTA_CONCLUSAO')
+            )
+          )
+          .orderBy(desc(serviceOrderAttachments.createdAt))
+          .limit(1);
+
+        if (att) {
+          carta = {
+            id: att.id,
+            fileName: att.fileName,
+            driveViewUrl: att.driveViewUrl,
+            driveDownloadUrl: att.driveDownloadUrl || att.driveViewUrl,
+            enviadoEm: att.createdAt ? new Date(att.createdAt).toISOString() : new Date().toISOString(),
+            rawBase64: att.driveViewUrl.startsWith('data:') ? att.driveViewUrl : undefined,
+          } as any;
+        }
+      } catch (attErr) {
+        console.warn('[API Carta Conclusao] Erro no fallback de anexo da OS:', attErr);
+      }
+    }
 
     if (!carta) {
       return new NextResponse('Nenhuma carta de conclusão foi anexada para esta PT.', { status: 404 });

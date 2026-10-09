@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { renderToBuffer } from '@react-pdf/renderer';
-import { eq, or, and } from 'drizzle-orm';
+import { eq, or, and, desc } from 'drizzle-orm';
 import React from 'react';
 import { db } from '@/db';
 import { workPermits, serviceOrders, serviceOrderAttachments } from '@/db/schema';
 import { RelatorioConclusaoUnificadoPdfDocument } from '@/components/pt/RelatorioConclusaoUnificadoPdfDocument';
 import type { FotoServicoItem } from '@/actions/fotoServicoActions';
+import { resolveImageToDataUri } from '@/lib/pdfImageResolver';
 
 export const dynamic = 'force-dynamic';
 
@@ -119,9 +120,18 @@ export async function GET(
         mapaFotos.set(f.id, f);
       }
     });
-    const fotosServico = Array.from(mapaFotos.values());
+    const rawFotos = Array.from(mapaFotos.values());
+    const fotosServico: FotoServicoItem[] = [];
+    for (const f of rawFotos) {
+      const srcOriginal = f.driveViewUrl || (f as any).rawBase64 || f.driveDownloadUrl || '';
+      const resolvedSrc = await resolveImageToDataUri(srcOriginal);
+      fotosServico.push({
+        ...f,
+        driveViewUrl: resolvedSrc || f.driveViewUrl,
+      });
+    }
 
-    // 4. Coleta carta de conclusão
+    // 4. Coleta e resolução robusta da Carta de Conclusão
     let cartaConclusaoData: {
       fotoBase64?: string;
       tecnicoNome?: string;
@@ -130,20 +140,16 @@ export async function GET(
     } | null = null;
 
     const cartaRaw = (permit.dadosCompletos as any)?.cartaConclusao;
-    if (cartaRaw) {
-      cartaConclusaoData = {
-        fotoBase64: cartaRaw.rawBase64 || cartaRaw.driveViewUrl || '',
-        tecnicoNome: cartaRaw.tecnicoNome || (permit.dadosCompletos as any)?.terminoServico?.emitenteAssinatura?.nome || '',
-        dataHoraTermino: cartaRaw.dataHoraTermino || (permit.dadosCompletos as any)?.terminoServico?.dataHoraTermino || '',
-        observacoes: cartaRaw.observacoes || (permit.dadosCompletos as any)?.terminoServico?.observacoesGerais || '',
-      };
-    } else if (permit.serviceOrderId) {
-      // Tenta buscar no serviceOrderAttachments
+    let cartaAtt: any = null;
+
+    if (permit.serviceOrderId) {
       try {
-        const [cartaAtt] = await db
+        const atts = await db
           .select({
             id: serviceOrderAttachments.id,
+            fileName: serviceOrderAttachments.fileName,
             driveViewUrl: serviceOrderAttachments.driveViewUrl,
+            driveDownloadUrl: serviceOrderAttachments.driveDownloadUrl,
             createdAt: serviceOrderAttachments.createdAt,
           })
           .from(serviceOrderAttachments)
@@ -153,18 +159,91 @@ export async function GET(
               eq(serviceOrderAttachments.category, 'CARTA_CONCLUSAO')
             )
           )
+          .orderBy(desc(serviceOrderAttachments.createdAt))
           .limit(1);
 
-        if (cartaAtt) {
-          cartaConclusaoData = {
-            fotoBase64: cartaAtt.driveViewUrl,
-            tecnicoNome: (permit.dadosCompletos as any)?.terminoServico?.emitenteAssinatura?.nome || '',
-            dataHoraTermino: (permit.dadosCompletos as any)?.terminoServico?.dataHoraTermino || '',
-            observacoes: (permit.dadosCompletos as any)?.terminoServico?.observacoesGerais || '',
-          };
+        if (atts && atts.length > 0) {
+          cartaAtt = atts[0];
         }
       } catch (cartaErr) {
         console.warn('[RelatorioConclusao API] Erro ao carregar carta dos anexos:', cartaErr);
+      }
+    }
+
+    // Identifica todas as fontes de imagem potenciais da carta em ordem de prioridade
+    const fontesCandidatas: string[] = [
+      cartaRaw?.rawBase64,
+      cartaRaw?.driveViewUrl,
+      cartaRaw?.driveDownloadUrl,
+      cartaAtt?.driveViewUrl,
+      cartaAtt?.driveDownloadUrl,
+    ].filter((s): s is string => typeof s === 'string' && s.trim().length > 0);
+
+    let fotoCartaResolvida: string | null = null;
+    for (const fonte of fontesCandidatas) {
+      const res = await resolveImageToDataUri(fonte);
+      if (res) {
+        fotoCartaResolvida = res;
+        break;
+      }
+    }
+
+    const hasCartaInfo = Boolean(cartaRaw || cartaAtt || fotoCartaResolvida);
+
+    if (hasCartaInfo) {
+      const fallbackFoto =
+        cartaRaw?.rawBase64 ||
+        cartaRaw?.driveViewUrl ||
+        cartaAtt?.driveViewUrl ||
+        '';
+
+      cartaConclusaoData = {
+        fotoBase64: fotoCartaResolvida || fallbackFoto,
+        tecnicoNome:
+          cartaRaw?.tecnicoNome ||
+          (permit.dadosCompletos as any)?.terminoServico?.emitenteAssinatura?.nome ||
+          '',
+        dataHoraTermino:
+          cartaRaw?.dataHoraTermino ||
+          (permit.dadosCompletos as any)?.terminoServico?.dataHoraTermino ||
+          '',
+        observacoes:
+          cartaRaw?.observacoes ||
+          (permit.dadosCompletos as any)?.terminoServico?.observacoesGerais ||
+          '',
+      };
+
+      // Se a PT não possuía a carta estruturada em dadosCompletos mas encontramos nos anexos da OS,
+      // sincronizamos de volta para a PT para acelerar acessos futuros
+      if (!cartaRaw && cartaAtt && fotoCartaResolvida) {
+        try {
+          const updatedCartaObj = {
+            id: cartaAtt.id,
+            fileName: cartaAtt.fileName || `Carta_Conclusao_${permit.codigo}.jpg`,
+            driveViewUrl: `/api/pt/${permit.codigo}/carta-conclusao`,
+            driveDownloadUrl: `/api/pt/${permit.codigo}/carta-conclusao`,
+            enviadoEm: cartaAtt.createdAt
+              ? new Date(cartaAtt.createdAt).toISOString()
+              : new Date().toISOString(),
+            rawBase64: fotoCartaResolvida,
+            tecnicoNome: cartaConclusaoData.tecnicoNome,
+            dataHoraTermino: cartaConclusaoData.dataHoraTermino,
+            observacoes: cartaConclusaoData.observacoes,
+          };
+
+          await db
+            .update(workPermits)
+            .set({
+              dadosCompletos: {
+                ...permit.dadosCompletos,
+                cartaConclusao: updatedCartaObj,
+              } as any,
+              updatedAt: new Date(),
+            })
+            .where(eq(workPermits.id, permit.id));
+        } catch (syncErr) {
+          console.warn('[RelatorioConclusao API] Aviso ao sincronizar carta na PT:', syncErr);
+        }
       }
     }
 
