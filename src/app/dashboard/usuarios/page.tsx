@@ -11,6 +11,18 @@ import {
   UpdateUserData,
 } from '@/actions/authActions';
 import { useRBAC } from '@/hooks/useRBAC';
+import { isThiagoDev } from '@/lib/permissions';
+
+export const APP_MENUS = [
+  { href: '/dashboard', label: 'Visão Geral', icon: '📊', desc: 'Resumo e métricas gerais' },
+  { href: '/dashboard/reparo', label: 'SOLICITAÇÃO DE SERVIÇOS', icon: '📋', desc: 'Ordens e solicitações de reparo' },
+  { href: '/dashboard/reparo/pt', label: 'Permissões (PT / APR)', icon: '🛡️', desc: 'Permissões de trabalho e APR' },
+  { href: '/dashboard/reparo/acompanhamento', label: 'Acompanhamento Serviços', icon: '📍', desc: 'Monitoramento em tempo real' },
+  { href: '/dashboard/osh', label: 'Segurança (OSH)', icon: '🦺', desc: 'Inspeções e validação de segurança' },
+  { href: '/dashboard/dlog', label: 'Logística (DLOG)', icon: '🚚', desc: 'Despacho de peças e rotas' },
+  { href: '/dashboard/subcontratado/historico', label: 'Portal do Prestador', icon: '💼', desc: 'Execução de serviços terceirizados' },
+  { href: '/dashboard/pagamentos', label: 'Pagamentos Subcontratados', icon: '💳', desc: 'Financeiro e liquidação de terceiros' },
+] as const;
 
 interface UserItem {
   id: string;
@@ -23,6 +35,7 @@ interface UserItem {
   cargo: string;
   status: 'ATIVO' | 'PENDENTE' | 'BLOQUEADO' | string;
   isAdmin?: boolean | null;
+  allowedMenus?: string[] | null;
   createdAt: Date | string;
 }
 
@@ -54,6 +67,7 @@ export default function UsuariosPage() {
     cargo: string;
     status: 'ATIVO' | 'PENDENTE' | 'BLOQUEADO';
     novaSenha: string;
+    allowedMenus: string[];
   }>({
     nome: '',
     email: '',
@@ -64,6 +78,7 @@ export default function UsuariosPage() {
     cargo: '',
     status: 'ATIVO',
     novaSenha: '',
+    allowedMenus: APP_MENUS.map((m) => m.href),
   });
 
   const [isNewUserModalOpen, setIsNewUserModalOpen] = useState(false);
@@ -77,6 +92,7 @@ export default function UsuariosPage() {
     departamento: 'REPARO' as (typeof DEPARTAMENTOS)[number],
     cargo: 'Técnico de Manutenção',
     status: 'ATIVO' as 'ATIVO' | 'PENDENTE' | 'BLOQUEADO',
+    allowedMenus: APP_MENUS.map((m) => m.href) as string[],
   });
 
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
@@ -162,6 +178,11 @@ export default function UsuariosPage() {
   // Abrir Modal de Edição
   const handleOpenEdit = (userToEdit: UserItem) => {
     setEditingUser(userToEdit);
+    const userAllowedMenus =
+      userToEdit.allowedMenus && Array.isArray(userToEdit.allowedMenus) && userToEdit.allowedMenus.length > 0
+        ? userToEdit.allowedMenus
+        : APP_MENUS.map((m) => m.href);
+
     setEditFormData({
       nome: userToEdit.nome,
       email: userToEdit.email,
@@ -172,6 +193,7 @@ export default function UsuariosPage() {
       cargo: userToEdit.cargo || '',
       status: (userToEdit.status as 'ATIVO' | 'PENDENTE' | 'BLOQUEADO') || 'ATIVO',
       novaSenha: '',
+      allowedMenus: userAllowedMenus,
     });
   };
 
@@ -192,6 +214,7 @@ export default function UsuariosPage() {
         cargo: editFormData.cargo,
         status: editFormData.status,
         novaSenha: editFormData.novaSenha ? editFormData.novaSenha : undefined,
+        allowedMenus: editFormData.allowedMenus,
       };
 
       const res = await updateUserByAdminAction(payload);
@@ -219,6 +242,7 @@ export default function UsuariosPage() {
         documento: newUserFormData.documento || undefined,
         empresa: newUserFormData.empresa || undefined,
         status: newUserFormData.status,
+        allowedMenus: newUserFormData.allowedMenus,
       });
 
       if (res.success) {
@@ -234,6 +258,7 @@ export default function UsuariosPage() {
           departamento: 'REPARO',
           cargo: 'Técnico de Manutenção',
           status: 'ATIVO',
+          allowedMenus: APP_MENUS.map((m) => m.href) as string[],
         });
         loadData();
       } else {
@@ -255,6 +280,30 @@ export default function UsuariosPage() {
       }
     });
   };
+
+  if (user && !isThiagoDev(user)) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center p-4">
+        <div className="bg-white border border-slate-200 rounded-3xl p-8 max-w-md w-full text-center shadow-lg space-y-4">
+          <div className="w-16 h-16 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center text-3xl mx-auto border border-rose-100">
+            🔒
+          </div>
+          <h2 className="text-xl font-black text-slate-900 tracking-tight">
+            Acesso Restrito ao Desenvolvedor
+          </h2>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            O menu de Gestão de Cadastros é de uso e visualização exclusiva do Desenvolvedor Thiago Gregorio.
+          </p>
+          <a
+            href="/dashboard"
+            className="inline-block px-5 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition shadow-xs"
+          >
+            Voltar ao Painel Principal
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
@@ -437,7 +486,9 @@ export default function UsuariosPage() {
         ) : (
           <div className="divide-y divide-slate-100">
             {filteredUsers.map((colab) => {
+              const isUserDev = colab.cargo === 'DEV' || isThiagoDev(colab as any);
               const isMasterAdmin =
+                isUserDev ||
                 colab.isAdmin ||
                 colab.email === 'thiagogregorio1990@gmail.com' ||
                 colab.nome.trim().toLowerCase() === 'thiago gregorio';
@@ -476,11 +527,15 @@ export default function UsuariosPage() {
                     <div className="space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm font-bold text-slate-900">{colab.nome}</span>
-                        {isMasterAdmin && (
+                        {isUserDev ? (
+                          <span className="text-[10px] font-black tracking-wider bg-gradient-to-r from-purple-700 via-pink-600 to-orange-500 text-white px-2.5 py-0.5 rounded-md uppercase shadow-xs flex items-center gap-1">
+                            👑 DEV
+                          </span>
+                        ) : isMasterAdmin ? (
                           <span className="text-[10px] font-black tracking-wider bg-orange-100 text-orange-800 border border-orange-200 px-2 py-0.5 rounded-md uppercase">
                             👑 Admin
                           </span>
-                        )}
+                        ) : null}
                         <span className="text-[10px] font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-mono">
                           {colab.departamento}
                         </span>
@@ -512,7 +567,15 @@ export default function UsuariosPage() {
                           ✉️ <strong className="text-slate-600">E-mail:</strong> {colab.email}
                         </span>
                         <span>
-                          👔 <strong className="text-slate-600">Cargo:</strong> {colab.cargo}
+                          👔 <strong className="text-slate-600">Cargo:</strong> {isUserDev ? 'DEV' : colab.cargo}
+                        </span>
+                        <span>
+                          🧭 <strong className="text-slate-600">Menus Visíveis:</strong>{' '}
+                          {isUserDev
+                            ? 'Acesso Mestre Total'
+                            : colab.allowedMenus && colab.allowedMenus.length > 0
+                            ? `${colab.allowedMenus.length} de ${APP_MENUS.length} menus`
+                            : 'Todos (Padrão)'}
                         </span>
                         {colab.empresa && (
                           <span>
@@ -761,6 +824,88 @@ export default function UsuariosPage() {
                     Preencha apenas caso queira trocar a senha deste colaborador (mínimo 6 caracteres).
                   </p>
                 </div>
+
+                {/* Seleção de Menus Permitidos */}
+                <div className="sm:col-span-2 pt-3 border-t border-slate-200/80 space-y-2.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-800 uppercase tracking-tight">
+                        🧭 Menus Visíveis na Barra Lateral *
+                      </label>
+                      <p className="text-[10px] text-slate-500">
+                        Marque quais menus este colaborador poderá visualizar e acessar no sistema:
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditFormData({
+                            ...editFormData,
+                            allowedMenus: APP_MENUS.map((m) => m.href),
+                          })
+                        }
+                        className="text-[10px] font-bold text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 px-2 py-1 rounded-lg border border-orange-200 transition cursor-pointer"
+                      >
+                        ✓ Marcar Todos
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditFormData({
+                            ...editFormData,
+                            allowedMenus: [],
+                          })
+                        }
+                        className="text-[10px] font-bold text-slate-600 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-lg transition cursor-pointer"
+                      >
+                        ✕ Desmarcar
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50/90 p-3 rounded-xl border border-slate-200">
+                    {APP_MENUS.map((menu) => {
+                      const isChecked = editFormData.allowedMenus.includes(menu.href);
+                      return (
+                        <label
+                          key={menu.href}
+                          className={`flex items-start gap-2.5 p-2 rounded-lg border text-xs cursor-pointer transition select-none ${
+                            isChecked
+                              ? 'bg-white border-orange-400 shadow-xs text-slate-900 font-semibold'
+                              : 'bg-white/60 border-slate-200 text-slate-400 hover:border-slate-300'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {
+                              const next = isChecked
+                                ? editFormData.allowedMenus.filter((h) => h !== menu.href)
+                                : [...editFormData.allowedMenus, menu.href];
+                              setEditFormData({ ...editFormData, allowedMenus: next });
+                            }}
+                            className="mt-0.5 rounded text-orange-600 focus:ring-orange-500"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span>{menu.icon}</span>
+                              <span className="text-[11px] font-bold leading-tight">{menu.label}</span>
+                            </div>
+                            <div className="text-[10px] text-slate-400 truncate mt-0.5">{menu.desc}</div>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+
+                  <div className="p-2 rounded-lg bg-amber-50/80 border border-amber-200 text-[10px] text-amber-900 flex items-center gap-2">
+                    <span className="text-sm">🔒</span>
+                    <span>
+                      <strong>Acesso Restrito:</strong> Os menus <em>Gestão de Cadastros</em> e <em>Configurações da APR</em> são de visualização e uso exclusivo do Desenvolvedor Thiago Gregorio e não podem ser atribuídos a outros colaboradores.
+                    </span>
+                  </div>
+                </div>
               </div>
 
               {/* Botões do Rodapé */}
@@ -963,6 +1108,88 @@ export default function UsuariosPage() {
                   <p className="text-[10px] text-slate-400 mt-1">
                     Nome da empresa parceira ou razão social do prestador terceirizado/subcontratado.
                   </p>
+                </div>
+
+                {/* Seleção de Menus Permitidos */}
+                <div className="sm:col-span-2 pt-3 border-t border-slate-200/80 space-y-2.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-800 uppercase tracking-tight">
+                        🧭 Menus Visíveis na Barra Lateral *
+                      </label>
+                      <p className="text-[10px] text-slate-500">
+                        Marque quais menus este colaborador poderá visualizar e acessar no sistema:
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setNewUserFormData({
+                            ...newUserFormData,
+                            allowedMenus: APP_MENUS.map((m) => m.href),
+                          })
+                        }
+                        className="text-[10px] font-bold text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 px-2 py-1 rounded-lg border border-orange-200 transition cursor-pointer"
+                      >
+                        ✓ Marcar Todos
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setNewUserFormData({
+                            ...newUserFormData,
+                            allowedMenus: [],
+                          })
+                        }
+                        className="text-[10px] font-bold text-slate-600 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-lg transition cursor-pointer"
+                      >
+                        ✕ Desmarcar
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50/90 p-3 rounded-xl border border-slate-200">
+                    {APP_MENUS.map((menu) => {
+                      const isChecked = newUserFormData.allowedMenus.includes(menu.href);
+                      return (
+                        <label
+                          key={menu.href}
+                          className={`flex items-start gap-2.5 p-2 rounded-lg border text-xs cursor-pointer transition select-none ${
+                            isChecked
+                              ? 'bg-white border-orange-400 shadow-xs text-slate-900 font-semibold'
+                              : 'bg-white/60 border-slate-200 text-slate-400 hover:border-slate-300'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {
+                              const next = isChecked
+                                ? newUserFormData.allowedMenus.filter((h) => h !== menu.href)
+                                : [...newUserFormData.allowedMenus, menu.href];
+                              setNewUserFormData({ ...newUserFormData, allowedMenus: next });
+                            }}
+                            className="mt-0.5 rounded text-orange-600 focus:ring-orange-500"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span>{menu.icon}</span>
+                              <span className="text-[11px] font-bold leading-tight">{menu.label}</span>
+                            </div>
+                            <div className="text-[10px] text-slate-400 truncate mt-0.5">{menu.desc}</div>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+
+                  <div className="p-2 rounded-lg bg-amber-50/80 border border-amber-200 text-[10px] text-amber-900 flex items-center gap-2">
+                    <span className="text-sm">🔒</span>
+                    <span>
+                      <strong>Acesso Restrito:</strong> Os menus <em>Gestão de Cadastros</em> e <em>Configurações da APR</em> são de visualização e uso exclusivo do Desenvolvedor Thiago Gregorio e não podem ser atribuídos a outros colaboradores.
+                    </span>
+                  </div>
                 </div>
               </div>
 

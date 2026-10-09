@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { AuthUser } from '@/types/auth';
 import { RBACProvider } from '@/hooks/useRBAC';
-import { isSuperAdmin } from '@/lib/permissions';
+import { isSuperAdmin, isThiagoDev } from '@/lib/permissions';
 import { getCurrentUserAction } from '@/actions/authActions';
 
 const NAV_ITEMS = [
@@ -122,9 +122,9 @@ export default function DashboardLayout({
         setUser({
           id: '00000000-0000-0000-0000-000000000001',
           nome: 'Thiago Gregorio',
-          email: 'thiago.gregorio@tke.com',
+          email: 'thiago.gregorio@tkelevator.com',
           departamento: 'ADMINISTRATIVO',
-          cargo: 'ADMINISTRATIVO',
+          cargo: 'DEV',
           status: 'ATIVO',
           isAdmin: true,
         });
@@ -183,7 +183,7 @@ export default function DashboardLayout({
                     TKE Reparos
                   </span>
                   <span className="text-[10px] text-orange-400 block -mt-1 font-mono uppercase font-semibold">
-                    {isSuperAdmin(user) ? 'Move Beyond • Admin' : `${user?.departamento || 'Sistema'} • TKE`}
+                    {isThiagoDev(user) ? 'Move Beyond • DEV' : isSuperAdmin(user) ? 'Move Beyond • Admin' : `${user?.departamento || 'Sistema'} • TKE`}
                   </span>
                 </div>
               </Link>
@@ -201,9 +201,28 @@ export default function DashboardLayout({
 
             {/* Menu Links */}
             <nav className="space-y-1.5 overflow-y-auto max-h-[calc(100vh-220px)]">
-              {NAV_ITEMS.filter(
-                (item) => isSuperAdmin(user) || !user || item.departments.includes(user.departamento)
-              ).map((item) => {
+              {NAV_ITEMS.filter((item) => {
+                const isDevUser = isThiagoDev(user);
+
+                // 1. Configurações da APR e Gestão de Cadastros: SOMENTE Thiago Gregorio (Dev) pode ver!
+                if (item.href === '/dashboard/apr-config' || item.href === '/dashboard/usuarios') {
+                  return isDevUser;
+                }
+
+                // 2. Thiago Gregorio Dev tem acesso a todos os menus disponíveis
+                if (isDevUser) {
+                  return true;
+                }
+
+                // 3. Menus explicitamente autorizados na Gestão de Cadastros (allowedMenus)
+                if (user?.allowedMenus && Array.isArray(user.allowedMenus) && user.allowedMenus.length > 0) {
+                  return user.allowedMenus.includes(item.href);
+                }
+
+                // 4. Fallback padrão por departamento do colaborador
+                if (!user) return true;
+                return item.departments.includes(user.departamento);
+              }).map((item) => {
                 const isActive = pathname === item.href;
                 return (
                   <Link
@@ -236,7 +255,7 @@ export default function DashboardLayout({
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" title="Online" />
                 </div>
                 <div className="text-[10px] text-orange-400 font-bold truncate uppercase tracking-tight">
-                  {user?.cargo ? `${user.cargo} • ${user.departamento}` : 'CONECTADO'}
+                  {isThiagoDev(user) ? 'DEV • TKE MESTRE' : user?.cargo ? `${user.cargo} • ${user.departamento}` : 'CONECTADO'}
                 </div>
               </div>
             </div>

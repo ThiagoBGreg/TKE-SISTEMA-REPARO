@@ -133,6 +133,15 @@ export const PERMISSIONS_MATRIX: Record<
       PAGAMENTOS_SUBCONTRATADOS: ['VIEW', 'CREATE', 'EDIT', 'PROCESS_PAYMENT'],
       RELATORIOS_AUDITORIA: ['VIEW'],
     },
+    DEV: {
+      ORDENS_SERVICO: ['VIEW', 'CREATE', 'EDIT', 'DELETE', 'ASSIGN_TECHNICAL', 'VALIDATE_TECHNICAL'],
+      OSH_SEGURANCA: ['VIEW', 'CREATE', 'EDIT', 'DELETE', 'APPROVE_OSH'],
+      DLOG_LOGISTICA: ['VIEW', 'CREATE', 'EDIT', 'ASSIGN_LOGISTICS', 'DISPATCH_DRIVER'],
+      PAGAMENTOS_SUBCONTRATADOS: ['VIEW', 'CREATE', 'EDIT', 'PROCESS_PAYMENT'],
+      SERVICOS_COMERCIAIS: ['VIEW', 'CREATE', 'EDIT', 'DELETE'],
+      GESTAO_USUARIOS: ['VIEW', 'CREATE', 'EDIT'],
+      RELATORIOS_AUDITORIA: ['VIEW'],
+    },
   },
 };
 
@@ -178,7 +187,7 @@ export const ROUTE_RULES: RouteRule[] = [
     pattern: /^\/dashboard\/pagamentos/,
     allowedDepartments: ['ADMINISTRATIVO', 'REPARO'],
     allowedRoles: {
-      ADMINISTRATIVO: ['ADMINISTRATIVO', 'PAGAMENTO_SUBCONTRATADO'],
+      ADMINISTRATIVO: ['ADMINISTRATIVO', 'PAGAMENTO_SUBCONTRATADO', 'DEV'],
       REPARO: ['GESTOR'],
     },
     requiredPermission: { resource: 'PAGAMENTOS_SUBCONTRATADOS', action: 'VIEW' },
@@ -198,13 +207,21 @@ export const ROUTE_RULES: RouteRule[] = [
     requiredPermission: { resource: 'ORDENS_SERVICO', action: 'VIEW' },
   },
 
-  // Gestão de Usuários e Acessos
+  // Configurações da APR (Uso Exclusivo do Desenvolvedor Thiago Gregorio)
+  {
+    pattern: /^\/dashboard\/apr-config/,
+    allowedDepartments: ['ADMINISTRATIVO'],
+    allowedRoles: {
+      ADMINISTRATIVO: ['DEV'],
+    },
+  },
+
+  // Gestão de Usuários e Acessos (Uso Exclusivo do Desenvolvedor Thiago Gregorio)
   {
     pattern: /^\/dashboard\/usuarios/,
-    allowedDepartments: ['ADMINISTRATIVO', 'REPARO'],
+    allowedDepartments: ['ADMINISTRATIVO'],
     allowedRoles: {
-      ADMINISTRATIVO: ['ADMINISTRATIVO'],
-      REPARO: ['GESTOR'],
+      ADMINISTRATIVO: ['DEV'],
     },
     requiredPermission: { resource: 'GESTAO_USUARIOS', action: 'VIEW' },
   },
@@ -215,18 +232,31 @@ export const ROUTE_RULES: RouteRule[] = [
    ========================================================================== */
 
 /**
+ * Identifica se o usuário é o Desenvolvedor Thiago Gregorio (Dev / Acesso Mestre)
+ */
+export function isThiagoDev(user: AuthUser | null | undefined): boolean {
+  if (!user) return false;
+  if (user.cargo === 'DEV') return true;
+  const nome = user.nome?.trim().toLowerCase();
+  const email = user.email?.trim().toLowerCase();
+  return (
+    email === 'thiago.gregorio@tkelevator.com' ||
+    email === 'thiago.gregorio@tke.com' ||
+    email === 'thiagogregorio1990@gmail.com' ||
+    nome === 'thiago gregorio' ||
+    nome === 'thiago' ||
+    user.id === '00000000-0000-0000-0000-000000000001'
+  );
+}
+
+/**
  * Identifica se o usuário é o Administrador Geral (Thiago Gregorio / isAdmin)
  */
 export function isSuperAdmin(user: AuthUser | null | undefined): boolean {
   if (!user) return false;
+  if (isThiagoDev(user)) return true;
   if (user.isAdmin) return true;
-  const nome = user.nome?.trim().toLowerCase();
-  const email = user.email?.trim().toLowerCase();
-  return (
-    email === 'thiago.gregorio@tke.com' ||
-    nome === 'thiago gregorio' ||
-    nome === 'thiago'
-  );
+  return false;
 }
 
 /**
@@ -239,7 +269,9 @@ export function hasPermission(
 ): boolean {
   if (!user || user.status !== 'ATIVO') return false;
 
-  // Administrador Geral (Thiago Gregorio) tem acesso total a tudo
+  // Desenvolvedor Thiago Gregorio tem acesso total irrestrito
+  if (isThiagoDev(user)) return true;
+
   if (isSuperAdmin(user)) return true;
 
   const departmentPermissions = PERMISSIONS_MATRIX[user.departamento];
@@ -260,21 +292,46 @@ export function hasPermission(
 export function canAccessRoute(pathname: string, user: AuthUser | null | undefined): boolean {
   if (!user || user.status !== 'ATIVO') return false;
 
-  // Administrador Geral (Thiago Gregorio) tem acesso irrestrito a todas as rotas
+  // 1. REGRA MANDATÓRIA: Somente Thiago Gregorio Dev tem acesso a Configurações da APR e Gestão de Cadastros
+  const isAprConfigRoute = pathname.startsWith('/dashboard/apr-config');
+  const isUsuariosRoute = pathname.startsWith('/dashboard/usuarios');
+
+  if (isAprConfigRoute || isUsuariosRoute) {
+    return isThiagoDev(user);
+  }
+
+  // 2. Thiago Gregorio (Dev) tem acesso irrestrito a todas as rotas
+  if (isThiagoDev(user)) return true;
+
+  // 3. Controle por Menus Customizados (allowedMenus individual do usuário)
+  if (user.allowedMenus && Array.isArray(user.allowedMenus) && user.allowedMenus.length > 0) {
+    // Verifica se a rota solicitada pertence a um dos menus autorizados
+    const isMenuAllowed = user.allowedMenus.some((menu) => {
+      if (menu === '/dashboard') {
+        return pathname === '/dashboard';
+      }
+      return pathname === menu || pathname.startsWith(menu + '/');
+    });
+
+    if (!isMenuAllowed) {
+      return false;
+    }
+  }
+
   if (isSuperAdmin(user)) return true;
 
-  // Busca se a rota atual possui uma regra de restrição específica
+  // 4. Busca se a rota atual possui uma regra de restrição específica por departamento/cargo
   const matchingRule = ROUTE_RULES.find((rule) => rule.pattern.test(pathname));
 
   // Se for uma rota geral (ex: /dashboard raiz), permite usuários ativos
   if (!matchingRule) return true;
 
-  // 1. Checa departamento
+  // Checa departamento
   if (matchingRule.allowedDepartments && !matchingRule.allowedDepartments.includes(user.departamento)) {
     return false;
   }
 
-  // 2. Checa cargo específico do departamento
+  // Checa cargo específico do departamento
   if (matchingRule.allowedRoles) {
     const allowedRolesForDept = matchingRule.allowedRoles[user.departamento];
     if (allowedRolesForDept && !allowedRolesForDept.includes(user.cargo)) {
@@ -282,7 +339,7 @@ export function canAccessRoute(pathname: string, user: AuthUser | null | undefin
     }
   }
 
-  // 3. Checa permissão granular exigida
+  // Checa permissão granular exigida
   if (matchingRule.requiredPermission) {
     return hasPermission(
       user,

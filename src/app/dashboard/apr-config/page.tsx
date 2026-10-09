@@ -20,6 +20,7 @@ import type {
   AprOpcaoConfig,
 } from '@/db/schema';
 import { useRBAC } from '@/hooks/useRBAC';
+import { isThiagoDev } from '@/lib/permissions';
 
 export default function AprConfigPage() {
   const { user } = useRBAC();
@@ -441,6 +442,30 @@ export default function AprConfigPage() {
   };
 
   const currentCategory = categoriasRisco.find((c) => c.id === activeCategoryTab);
+
+  if (user && !isThiagoDev(user)) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center p-4">
+        <div className="bg-white border border-slate-200 rounded-3xl p-8 max-w-md w-full text-center shadow-lg space-y-4">
+          <div className="w-16 h-16 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center text-3xl mx-auto border border-rose-100">
+            🔒
+          </div>
+          <h2 className="text-xl font-black text-slate-900 tracking-tight">
+            Acesso Restrito ao Desenvolvedor
+          </h2>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            As Configurações de APR são de uso exclusivo do desenvolvedor Thiago Gregorio. Os demais usuários não possuem acesso a esta funcionalidade.
+          </p>
+          <a
+            href="/dashboard"
+            className="inline-block px-5 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition shadow-xs"
+          >
+            Voltar ao Painel Principal
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-20">

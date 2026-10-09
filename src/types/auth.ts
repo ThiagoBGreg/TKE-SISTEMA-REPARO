@@ -11,6 +11,7 @@ export interface AuthUser {
   cargo: UserRole;
   status: UserStatus;
   isAdmin?: boolean;
+  allowedMenus?: string[] | null;
 }
 
 /**

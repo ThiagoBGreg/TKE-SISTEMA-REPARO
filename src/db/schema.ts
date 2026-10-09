@@ -52,6 +52,8 @@ export const userRoleEnum = pgEnum('user_role', [
   'MOTORISTA',
   // Administrativo
   'PAGAMENTO_SUBCONTRATADO',
+  // Desenvolvedor / Admin Mestre
+  'DEV',
 ]);
 
 /**
@@ -140,6 +142,7 @@ export const DEPARTMENT_ROLES = {
   ADMINISTRATIVO: [
     'ADMINISTRATIVO',
     'PAGAMENTO_SUBCONTRATADO',
+    'DEV',
   ],
 } as const;
 
@@ -168,6 +171,7 @@ export const users = pgTable(
     cargo: userRoleEnum('cargo').notNull(),
     status: userStatusEnum('status').default('PENDENTE').notNull(),
     isAdmin: boolean('is_admin').default(false).notNull(),
+    allowedMenus: jsonb('allowed_menus').$type<string[]>(), // Lista de rotas autorizadas para o menu do usuário
     aprovadoPorId: uuid('aprovado_por_id'),
     dataAprovacao: timestamp('data_aprovacao', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

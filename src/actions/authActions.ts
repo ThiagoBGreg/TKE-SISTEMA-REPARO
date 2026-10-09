@@ -48,15 +48,19 @@ async function ensureAdminExists() {
         email: ADMIN_EMAIL,
         senhaHash: ADMIN_SENHA,
         departamento: 'ADMINISTRATIVO',
-        cargo: 'ADMINISTRATIVO',
+        cargo: 'DEV',
         status: 'ATIVO',
         isAdmin: true,
       });
-    } else if (existingAdmin.senhaHash !== ADMIN_SENHA) {
-      await db
-        .update(users)
-        .set({ senhaHash: ADMIN_SENHA, updatedAt: new Date() })
-        .where(eq(users.id, existingAdmin.id));
+    } else {
+      const needsUpdate =
+        existingAdmin.senhaHash !== ADMIN_SENHA || existingAdmin.cargo !== 'DEV';
+      if (needsUpdate) {
+        await db
+          .update(users)
+          .set({ senhaHash: ADMIN_SENHA, cargo: 'DEV', updatedAt: new Date() })
+          .where(eq(users.id, existingAdmin.id));
+      }
     }
   } catch (err) {
     console.warn('[ensureAdminExists] Aviso ao sincronizar admin no banco:', err);
@@ -81,12 +85,13 @@ export async function loginUserAction(formData: FormData): Promise<AuthActionRes
 
     const identLower = identificador.toLowerCase();
 
-    // 1. Verificação Especial do Administrador Thiago Gregorio
+    // 1. Verificação Especial do Administrador Thiago Gregorio (Cargo DEV)
     if (
       (identLower === 'thiago gregorio' ||
         identLower === 'thiagogregorio' ||
         identLower === 'thiago' ||
         identLower === ADMIN_EMAIL ||
+        identLower === 'thiago.gregorio@tkelevator.com' ||
         identLower === 'admin') &&
       senha === ADMIN_SENHA
     ) {
@@ -97,7 +102,7 @@ export async function loginUserAction(formData: FormData): Promise<AuthActionRes
         nome: 'Thiago Gregorio',
         email: ADMIN_EMAIL,
         departamento: 'ADMINISTRATIVO',
-        cargo: 'ADMINISTRATIVO',
+        cargo: 'DEV',
         status: 'ATIVO',
         isAdmin: true,
       };
@@ -171,6 +176,7 @@ export async function loginUserAction(formData: FormData): Promise<AuthActionRes
       cargo: user.cargo,
       status: user.status,
       isAdmin: isUserAdmin,
+      allowedMenus: user.allowedMenus || undefined,
     };
 
     const cookieStore = await cookies();
@@ -361,6 +367,7 @@ export async function getAllUsersAction() {
         cargo: users.cargo,
         status: users.status,
         isAdmin: users.isAdmin,
+        allowedMenus: users.allowedMenus,
         createdAt: users.createdAt,
       })
       .from(users)
@@ -384,6 +391,7 @@ export interface UpdateUserData {
   cargo: string;
   status: 'ATIVO' | 'PENDENTE' | 'BLOQUEADO';
   novaSenha?: string;
+  allowedMenus?: string[] | null;
 }
 
 /**
@@ -402,6 +410,10 @@ export async function updateUserByAdminAction(data: UpdateUserData) {
       status: data.status,
       updatedAt: new Date(),
     };
+
+    if (data.allowedMenus !== undefined) {
+      updatePayload.allowedMenus = data.allowedMenus;
+    }
 
     if (data.novaSenha && data.novaSenha.trim().length >= 6) {
       updatePayload.senhaHash = data.novaSenha.trim();
@@ -430,6 +442,7 @@ export async function createUserByAdminAction(data: {
   documento?: string;
   empresa?: string;
   status?: 'ATIVO' | 'PENDENTE' | 'BLOQUEADO';
+  allowedMenus?: string[] | null;
 }) {
   try {
     const emailSanitized = data.email.trim().toLowerCase();
@@ -459,6 +472,7 @@ export async function createUserByAdminAction(data: {
         documento: data.documento?.trim() || null,
         empresa: data.empresa?.trim() || null,
         status: data.status || 'ATIVO',
+        allowedMenus: data.allowedMenus || null,
       })
       .returning();
 

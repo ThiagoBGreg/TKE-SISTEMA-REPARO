@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { canAccessRoute, isSuperAdmin } from './lib/permissions';
+import { canAccessRoute, isSuperAdmin, isThiagoDev } from './lib/permissions';
 import { AuthUser } from './types/auth';
 
 /**
@@ -64,8 +64,19 @@ export function middleware(request: NextRequest) {
     return response;
   }
 
-  // 5. Superadministrador (Thiago Gregorio): Acesso total irrestrito a todas as rotas e módulos
-  if (isSuperAdmin(user)) {
+  // 5. Exclusividade estrita: Configurações de APR e Gestão de Cadastros são de acesso exclusivo do Dev Thiago Gregorio
+  const isAprConfigRoute = pathname.startsWith('/dashboard/apr-config');
+  const isUsuariosRoute = pathname.startsWith('/dashboard/usuarios');
+  if (isAprConfigRoute || isUsuariosRoute) {
+    if (!isThiagoDev(user)) {
+      const forbiddenUrl = new URL('/dashboard/acesso-negado', request.url);
+      forbiddenUrl.searchParams.set('modulo', pathname);
+      return NextResponse.rewrite(forbiddenUrl, { status: 403 });
+    }
+  }
+
+  // 6. Thiago Gregorio (Dev): Acesso total irrestrito a todas as rotas e módulos
+  if (isThiagoDev(user) || isSuperAdmin(user)) {
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set('x-user-id', user.id);
     requestHeaders.set('x-user-department', user.departamento);
