@@ -12,6 +12,7 @@ import {
   anexarCartaConclusaoDirectAction,
 } from '@/actions/ptReparoActions';
 import { uploadAttachmentsAction } from '@/actions/attachmentActions';
+import { CartaConclusaoDigitalModal } from '@/components/pt/CartaConclusaoDigitalModal';
 import type { DigitalSignature, PtReparoFormData } from '@/lib/validations/ptReparoSchema';
 
 export interface WorkPermitItem {
@@ -87,6 +88,9 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
     carta: { id: string; fileName: string; driveViewUrl: string; driveDownloadUrl: string | null };
   } | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
+
+  // Modal de Carta de Conclusão Digital (Importar PDF e Assinar Digitalmente com Cliente)
+  const [digitalCartaPermit, setDigitalCartaPermit] = useState<WorkPermitItem | null>(null);
 
   // Modal de Envio Direto de Carta de Conclusão (para PTs concluídas ou atalho direto)
   const [uploadingCartaPermit, setUploadingCartaPermit] = useState<WorkPermitItem | null>(null);
@@ -795,6 +799,9 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
                     {filteredPermits.map((permit) => {
                       const isConcluido =
                         permit.status === 'CONCLUIDO' || permit.status === 'FINALIZADA';
+                      const isEmAndamento =
+                        permit.status === 'EM_ANDAMENTO' || (permit.status as string) === 'EM_EXECUCAO';
+                      const isHabilitadoParaCarta = isConcluido || isEmAndamento;
                       const qtdFotos = permit.totalFotos || ((permit.dadosCompletos as any)?.fotosServico?.length || 0);
 
                       return (
@@ -872,7 +879,7 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
                             </Link>
                           </td>
 
-                          {/* CAMPO DE CARTA DE CONCLUSÃO (VISUALIZAR, BAIXAR E COMPARTILHAR) */}
+                          {/* CAMPO DE CARTA DE CONCLUSÃO (DIGITAL, VISUALIZAR, BAIXAR E COMPARTILHAR) */}
                           <td className="py-3.5 px-4 text-center whitespace-nowrap">
                             {permit.cartaConclusao ? (
                               <div className="inline-flex items-center gap-1.5 justify-center flex-wrap">
@@ -919,27 +926,52 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
                                   <span>📲</span>
                                   <span>Compartilhar</span>
                                 </button>
+
+                                {/* 4. Botão Carta Digital (Reassinar / Atualizar com o Cliente) */}
+                                {isHabilitadoParaCarta && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setDigitalCartaPermit(permit)}
+                                    className="inline-flex items-center gap-1 bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold text-xs px-2 py-1.5 rounded-lg border border-orange-200 transition shadow-2xs hover:scale-102"
+                                    title="Editar ou assinar novamente a Carta de Conclusão Digital com o Cliente"
+                                  >
+                                    <span>📄</span>
+                                    <span>Digital</span>
+                                  </button>
+                                )}
                               </div>
-                            ) : isConcluido ? (
-                              <button
-                                type="button"
-                                onClick={() => setUploadingCartaPermit(permit)}
-                                className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-700 hover:text-white bg-orange-50 hover:bg-orange-600 border border-orange-200 hover:border-orange-600 px-3 py-1.5 rounded-lg transition shadow-2xs hover:shadow-xs"
-                                title="Anexar Carta de Conclusão / Aceite do Cliente"
-                              >
-                                <span>📎</span>
-                                <span>+ Enviar Carta</span>
-                              </button>
+                            ) : isHabilitadoParaCarta ? (
+                              <div className="inline-flex items-center gap-1.5 justify-center flex-wrap">
+                                {/* Botão Principal: Carta Digital com Cliente */}
+                                <button
+                                  type="button"
+                                  onClick={() => setDigitalCartaPermit(permit)}
+                                  className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 px-3 py-1.5 rounded-lg shadow-2xs hover:shadow-xs transition hover:scale-102 active:scale-98"
+                                  title="Importar PDF da Carta ou usar modelo TKE e assinar digitalmente com o cliente"
+                                >
+                                  <span>📄</span>
+                                  <span>+ Carta Digital</span>
+                                </button>
+
+                                {/* Botão Secundário: Foto Tradicional em Papel */}
+                                <button
+                                  type="button"
+                                  onClick={() => setUploadingCartaPermit(permit)}
+                                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-300 px-2 py-1.5 rounded-lg transition"
+                                  title="Anexar foto em papel da carta assinada"
+                                >
+                                  <span>📷</span>
+                                  <span>Foto</span>
+                                </button>
+                              </div>
                             ) : (
-                              <button
-                                type="button"
-                                onClick={() => setUploadingCartaPermit(permit)}
-                                className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-orange-600 bg-slate-50 hover:bg-orange-50 border border-dashed border-slate-300 hover:border-orange-300 px-2.5 py-1.5 rounded-lg transition"
-                                title="Anexar Carta de Conclusão para esta PT"
+                              <span
+                                className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-lg cursor-not-allowed"
+                                title="A Carta de Conclusão Digital só pode ser assinada quando a APR estiver em andamento ou concluída."
                               >
-                                <span>📎</span>
-                                <span>+ Enviar Carta</span>
-                              </button>
+                                <span>🔒</span>
+                                <span>Carta Bloqueada</span>
+                              </span>
                             )}
                           </td>
 
@@ -1450,36 +1482,52 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
                         <span>Baixar</span>
                       </a>
 
-                      {/* Compartilhar Carta */}
+                      {/* Reassinar / Carta Digital */}
                       <button
                         type="button"
-                        onClick={() =>
-                          setSharingCarta({
-                            permit: viewingPermit,
-                            carta: viewingPermit.cartaConclusao!,
-                          })
-                        }
-                        className="inline-flex items-center gap-1 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs px-3 py-1.5 rounded-lg border border-purple-200 transition shadow-2xs hover:scale-102"
-                        title="Compartilhar via WhatsApp, Link ou Celular"
+                        onClick={() => setDigitalCartaPermit(viewingPermit)}
+                        className="inline-flex items-center gap-1 bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold text-xs px-3 py-1.5 rounded-lg border border-orange-200 transition shadow-2xs hover:scale-102"
+                        title="Abrir ou atualizar Carta de Conclusão Digital com o Cliente"
                       >
-                        <span>📲</span>
-                        <span>Compartilhar</span>
+                        <span>📄</span>
+                        <span>Carta Digital</span>
                       </button>
                     </div>
                   </div>
                 ) : (
-                  (viewingPermit.status === 'CONCLUIDO' || viewingPermit.status === 'FINALIZADA') && (
-                    <div className="mt-3 pt-3 border-t border-emerald-200/60 flex items-center justify-between bg-white/70 p-3 rounded-xl border border-dashed border-slate-300">
-                      <span className="text-xs text-slate-500">
-                        Nenhuma Carta de Conclusão anexada para esta PT.
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setUploadingCartaPermit(viewingPermit)}
-                        className="text-xs font-bold text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 px-3 py-1 rounded-lg border border-orange-200 transition"
-                      >
-                        + Anexar Carta Agora
-                      </button>
+                  (viewingPermit.status === 'CONCLUIDO' ||
+                    viewingPermit.status === 'FINALIZADA' ||
+                    viewingPermit.status === 'EM_ANDAMENTO' ||
+                    (viewingPermit.status as string) === 'EM_EXECUCAO') ? (
+                    <div className="mt-3 pt-3 border-t border-emerald-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white/80 p-3 rounded-xl border border-dashed border-orange-300">
+                      <div>
+                        <span className="font-bold text-slate-800 text-xs block">
+                          Nenhuma Carta de Conclusão anexada para esta PT.
+                        </span>
+                        <span className="text-[11px] text-slate-500 block">
+                          Você pode importar o arquivo PDF e colher a assinatura digital com o cliente.
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => setDigitalCartaPermit(viewingPermit)}
+                          className="text-xs font-bold text-white bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 px-3.5 py-1.5 rounded-lg shadow-2xs hover:shadow-xs transition"
+                        >
+                          📄 + Carta Digital (PDF)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setUploadingCartaPermit(viewingPermit)}
+                          className="text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 rounded-lg border border-slate-300 transition"
+                        >
+                          📷 Foto Papel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-3 pt-3 border-t border-slate-200 flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-slate-400 text-xs">
+                      <span>🔒 Carta de Conclusão Digital disponível somente quando a APR estiver em andamento ou concluída.</span>
                     </div>
                   )
                 )}
@@ -2425,6 +2473,28 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
             </form>
           </div>
         </div>
+      )}
+
+      {/* MODAL 4: CARTA DE CONCLUSÃO DIGITAL (IMPORTAÇÃO DE PDF E ASSINATURA DIGITAL COM CLIENTE) */}
+      {digitalCartaPermit && (
+        <CartaConclusaoDigitalModal
+          permit={digitalCartaPermit}
+          onClose={() => setDigitalCartaPermit(null)}
+          onSuccess={(novaCarta) => {
+            setPermits((prev) =>
+              prev.map((p) =>
+                p.id === digitalCartaPermit.id ? { ...p, cartaConclusao: novaCarta } : p
+              )
+            );
+            if (viewingPermit && viewingPermit.id === digitalCartaPermit.id) {
+              setViewingPermit((prev) => (prev ? { ...prev, cartaConclusao: novaCarta } : null));
+            }
+            setActionMessage({
+              type: 'success',
+              text: `Carta de Conclusão Digital assinada com sucesso para a PT ${digitalCartaPermit.codigo}!`,
+            });
+          }}
+        />
       )}
     </div>
   );

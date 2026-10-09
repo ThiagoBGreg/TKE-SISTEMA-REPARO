@@ -248,7 +248,7 @@ export async function GET(
     }
 
     // 5. Renderiza o Dossiê Completo para PDF Buffer
-    const pdfBuffer = await renderToBuffer(
+    const renderedPdfBuffer = await renderToBuffer(
       React.createElement(RelatorioConclusaoUnificadoPdfDocument, {
         data: permit.dadosCompletos,
         codigoPT: permit.codigo,
@@ -257,9 +257,36 @@ export async function GET(
       }) as any
     );
 
+    let finalBuffer: Buffer = Buffer.from(renderedPdfBuffer);
+
+    // Se a Carta de Conclusão for um PDF Digital, mescla suas páginas vetoriais originais no relatório
+    const rawCartaData = (cartaRaw?.rawBase64 || '') as string;
+    if (rawCartaData.startsWith('data:application/pdf')) {
+      try {
+        const { PDFDocument } = await import('pdf-lib');
+        const base64Pdf = rawCartaData.split(';base64,')[1];
+        const cartaPdfBytes = Buffer.from(base64Pdf, 'base64');
+
+        const unificadoDoc = await PDFDocument.load(finalBuffer);
+        const cartaDoc = await PDFDocument.load(cartaPdfBytes);
+
+        // Copia as páginas da Carta de Conclusão Digital e as insere logo após a APR (índice 2)
+        const copiedPages = await unificadoDoc.copyPages(cartaDoc, cartaDoc.getPageIndices());
+        let insertIndex = Math.min(2, unificadoDoc.getPageCount());
+        for (const page of copiedPages) {
+          unificadoDoc.insertPage(insertIndex, page);
+          insertIndex++;
+        }
+
+        finalBuffer = Buffer.from(await unificadoDoc.save());
+      } catch (mergeErr) {
+        console.warn('[RelatorioConclusao API] Aviso ao mesclar PDF da Carta Digital:', mergeErr);
+      }
+    }
+
     const safeCodigo = permit.codigo.replace(/[^a-zA-Z0-9_-]/g, '_');
 
-    return new NextResponse(pdfBuffer as unknown as BodyInit, {
+    return new NextResponse(finalBuffer as unknown as BodyInit, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `inline; filename="Relatorio_Conclusao_PT_${safeCodigo}.pdf"`,

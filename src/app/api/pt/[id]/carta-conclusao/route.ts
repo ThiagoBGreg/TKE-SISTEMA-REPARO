@@ -17,11 +17,19 @@ export async function GET(
       return new NextResponse('Identificador da PT não informado.', { status: 400 });
     }
 
-    // Busca por ID (UUID) ou pelo Código público (ex: "PT-2026-3067")
+    const decodedId = decodeURIComponent(id).trim();
+    // Busca por ID (UUID) ou pelo Código público (ex: "PT-2026-3067" ou "PT 2026 3067")
     const permits = await db
       .select()
       .from(workPermits)
-      .where(or(eq(workPermits.id, id), eq(workPermits.codigo, id)))
+      .where(
+        or(
+          eq(workPermits.id, decodedId),
+          eq(workPermits.codigo, decodedId),
+          eq(workPermits.codigo, decodedId.replace(/-/g, ' ')),
+          eq(workPermits.codigo, decodedId.replace(/\s+/g, '-'))
+        )
+      )
       .limit(1);
 
     if (!permits || permits.length === 0) {

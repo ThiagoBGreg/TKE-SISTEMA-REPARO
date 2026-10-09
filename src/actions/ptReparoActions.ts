@@ -911,3 +911,187 @@ export async function anexarCartaConclusaoDirectAction(formData: FormData) {
     return { success: false, error: 'Erro interno ao processar o envio da carta de conclusão.' };
   }
 }
+
+/**
+ * Server Action para importar Carta de Conclusão Digital (PDF) e colher o preenchimento
+ * do Termo de Ciência e Recebimento com a assinatura digital do cliente.
+ * REGRA OBRIGATÓRIA: Disponível SOMENTE quando a APR estiver em andamento ou concluída.
+ */
+export async function salvarCartaConclusaoDigitalAction(formData: FormData) {
+  try {
+    const workPermitId = formData.get('workPermitId') as string;
+    const nomeCliente = (formData.get('nomeCliente') as string) || '';
+    const cpfCliente = (formData.get('cpfCliente') as string) || '';
+    const funcaoCliente = (formData.get('funcaoCliente') as string) || '';
+    const dataRecebimento = (formData.get('dataRecebimento') as string) || new Date().toLocaleDateString('pt-BR');
+    const telefoneCliente = (formData.get('telefoneCliente') as string) || '';
+    const assinaturaClienteBase64 = (formData.get('assinaturaClienteBase64') as string) || '';
+    const tecnicoNome = (formData.get('tecnicoNome') as string) || '';
+    const observacoes = (formData.get('observacoes') as string) || '';
+    const pdfFile = formData.get('pdfFile') as File | null;
+
+    if (!workPermitId) {
+      return { success: false, error: 'Identificador da PT não informado.' };
+    }
+
+    if (!nomeCliente || nomeCliente.trim().length === 0) {
+      return { success: false, error: 'O Nome Completo do cliente/responsável é obrigatório.' };
+    }
+
+    if (!assinaturaClienteBase64 || !assinaturaClienteBase64.includes('base64')) {
+      return { success: false, error: 'A Assinatura Digital do cliente é obrigatória.' };
+    }
+
+    const [permit] = await db
+      .select()
+      .from(workPermits)
+      .where(eq(workPermits.id, workPermitId))
+      .limit(1);
+
+    if (!permit) {
+      return { success: false, error: 'Permissão de Trabalho não encontrada.' };
+    }
+
+    // REGRA DE NEGÓCIO: Somente em serviços que a APR já estiver em andamento ou concluída
+    const status = permit.status as string;
+    const isEmAndamento = status === 'EM_ANDAMENTO' || status === 'EM_EXECUCAO';
+    const isConcluido = status === 'CONCLUIDO' || status === 'FINALIZADA';
+
+    if (!isEmAndamento && !isConcluido) {
+      return {
+        success: false,
+        error: 'A Carta de Conclusão Digital só pode ser emitida e assinada em serviços cuja APR já estiver em andamento ou concluída.',
+      };
+    }
+
+    // Processa o buffer do PDF importado (se enviado)
+    let pdfOriginalBuffer: Buffer | undefined = undefined;
+    let fileName = `Carta_Conclusao_Digital_${permit.codigo}.pdf`;
+
+    if (pdfFile && typeof pdfFile.arrayBuffer === 'function' && pdfFile.size > 0) {
+      const arrayBuffer = await pdfFile.arrayBuffer();
+      pdfOriginalBuffer = Buffer.from(arrayBuffer);
+      fileName = pdfFile.name.endsWith('.pdf') ? pdfFile.name : `${pdfFile.name}.pdf`;
+    }
+
+    // Importa dinamicamente a biblioteca de geração de PDF digital
+    const { gerarCartaConclusaoDigitalPdf } = await import('@/lib/cartaConclusaoDigital');
+
+    const finalPdfBuffer = await gerarCartaConclusaoDigitalPdf({
+      codigoPT: permit.codigo,
+      contratoOrcamento: permit.contratoOrcamento,
+      equipamento: permit.equipamento,
+      orcamento: (permit.dadosCompletos as any)?.ordemServico?.orcamento || permit.contratoOrcamento,
+      servicoDescricao:
+        (permit.dadosCompletos as any)?.dadosGerais?.servicosExecutados ||
+        permit.classificacaoReparo ||
+        'SERVIÇOS DE REPARO E MANUTENÇÃO',
+      nomeCliente: nomeCliente.trim(),
+      cpfCliente: cpfCliente.trim(),
+      funcaoCliente: funcaoCliente.trim(),
+      dataRecebimento: dataRecebimento.trim(),
+      telefoneCliente: telefoneCliente.trim(),
+      assinaturaClienteBase64,
+      tecnicoNome: tecnicoNome || (permit.dadosCompletos as any)?.terminoServico?.emitenteAssinatura?.nome || '',
+      observacoes,
+      pdfOriginalBuffer,
+    });
+
+    let attachmentId = '';
+    let driveViewUrl = '';
+    let driveDownloadUrl: string | null = null;
+
+    // 1. Tenta vincular como anexo da OS se existir
+    if (permit.serviceOrderId) {
+      try {
+        const { uploadAttachmentsAction } = await import('@/actions/attachmentActions');
+        const pdfBlob = new Blob([new Uint8Array(finalPdfBuffer)], { type: 'application/pdf' });
+        const finalFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+        const uploadFormData = new FormData();
+        uploadFormData.append('serviceOrderId', permit.serviceOrderId);
+        uploadFormData.append('category', 'CARTA_CONCLUSAO');
+        uploadFormData.append('files', finalFile);
+
+        const uploadRes = await uploadAttachmentsAction(uploadFormData);
+        if (uploadRes.success && uploadRes.attachments && uploadRes.attachments.length > 0) {
+          const att = uploadRes.attachments[0];
+          attachmentId = att.id;
+          driveViewUrl = att.driveViewUrl;
+          driveDownloadUrl = att.driveDownloadUrl || null;
+        }
+      } catch (osErr) {
+        console.warn('[salvarCartaConclusaoDigitalAction] Falha no upload da OS, usando armazenamento resiliente:', osErr);
+      }
+    }
+
+    // 2. Se não conseguiu pela OS, tenta upload no Google Drive
+    if (!driveViewUrl) {
+      try {
+        const { uploadFileToDrive, getOrCreateFolder } = await import('@/lib/google-drive');
+        const targetFolderId = await getOrCreateFolder('CARTAS_CONCLUSAO');
+        const driveUpload = await uploadFileToDrive({
+          buffer: finalPdfBuffer,
+          fileName,
+          mimeType: 'application/pdf',
+          targetFolderId,
+        });
+        attachmentId = driveUpload.fileId;
+        driveViewUrl = driveUpload.webViewLink;
+        driveDownloadUrl = driveUpload.webContentLink || null;
+      } catch (driveErr) {
+        console.warn('[salvarCartaConclusaoDigitalAction] Falha no Drive, usando armazenamento Base64 inline:', driveErr);
+      }
+    }
+
+    const apiPublicUrl = `/api/pt/${permit.codigo}/carta-conclusao`;
+    const finalBase64DataUri = `data:application/pdf;base64,${finalPdfBuffer.toString('base64')}`;
+
+    const cartaObj = {
+      id: attachmentId || `carta_digital_${Date.now()}`,
+      fileName,
+      driveViewUrl: driveViewUrl || apiPublicUrl,
+      driveDownloadUrl: driveDownloadUrl || apiPublicUrl,
+      enviadoEm: new Date().toISOString(),
+      rawBase64: finalBase64DataUri,
+      tipo: 'DIGITAL',
+      clienteNome: nomeCliente.trim(),
+      clienteCpf: cpfCliente.trim(),
+      clienteFuncao: funcaoCliente.trim(),
+      clienteData: dataRecebimento.trim(),
+      clienteTelefone: telefoneCliente.trim(),
+      clienteAssinatura: assinaturaClienteBase64,
+      tecnicoNome: tecnicoNome || (permit.dadosCompletos as any)?.terminoServico?.emitenteAssinatura?.nome || '',
+      dataHoraTermino: new Date().toISOString(),
+      observacoes: observacoes || (permit.dadosCompletos as any)?.terminoServico?.observacoesGerais || '',
+    };
+
+    // 3. Atualiza os dados da PT com a nova carta
+    const updatedDados = {
+      ...permit.dadosCompletos,
+      cartaConclusao: cartaObj,
+    };
+
+    await db
+      .update(workPermits)
+      .set({
+        dadosCompletos: updatedDados as any,
+        updatedAt: new Date(),
+      })
+      .where(eq(workPermits.id, workPermitId));
+
+    revalidatePath('/dashboard/reparo/pt');
+
+    return {
+      success: true,
+      carta: cartaObj,
+    };
+  } catch (error: any) {
+    console.error('[salvarCartaConclusaoDigitalAction] Erro ao salvar Carta Digital:', error);
+    return {
+      success: false,
+      error: error?.message || 'Erro interno ao processar e assinar a Carta de Conclusão Digital.',
+    };
+  }
+}
+
