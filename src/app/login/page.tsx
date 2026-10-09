@@ -93,12 +93,6 @@ function LoginFormContent() {
     setRegDocumento('');
   };
 
-  const handlePreFillAdmin = () => {
-    setLoginIdentificador('Thiago Gregorio');
-    setLoginSenha('Thiago200189');
-    setLoginError(null);
-  };
-
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4 selection:bg-orange-500 selection:text-white relative overflow-hidden">
       {/* Luz ambiente de fundo */}
@@ -286,23 +280,6 @@ function LoginFormContent() {
                   ) : (
                     <span>Entrar no Sistema →</span>
                   )}
-                </button>
-              </div>
-
-              {/* Botão de Preenchimento Rápido para Admin Thiago Gregorio */}
-              <div className="pt-2 border-t border-slate-800/80">
-                <button
-                  type="button"
-                  onClick={handlePreFillAdmin}
-                  className="w-full p-2.5 rounded-xl border border-orange-500/30 bg-orange-500/5 hover:bg-orange-500/15 text-orange-300 text-xs font-semibold transition-all duration-200 flex items-center justify-between group hover:border-orange-500/50"
-                >
-                  <span className="flex items-center gap-2">
-                    <span className="text-sm">👑</span>
-                    <span>Acesso Rápido Admin: Thiago Gregorio</span>
-                  </span>
-                  <span className="text-[10px] bg-gradient-to-r from-tke-purple to-tke-orange text-white px-2 py-0.5 rounded-md font-bold shadow-xs group-hover:scale-105 transition-transform">
-                    Preencher
-                  </span>
                 </button>
               </div>
             </form>

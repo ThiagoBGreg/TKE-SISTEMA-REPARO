@@ -73,7 +73,7 @@ export async function submitPtReparoAction(
               id: ADMIN_ID,
               nome: 'Thiago Gregorio',
               email: 'thiago.gregorio@tke.com',
-              senhaHash: 'Thiago200189',
+              senhaHash: 'ManuLinda',
               departamento: 'ADMINISTRATIVO',
               cargo: 'ADMINISTRATIVO',
               status: 'ATIVO',

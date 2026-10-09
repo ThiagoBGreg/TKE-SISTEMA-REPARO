@@ -13,7 +13,7 @@ import { AuthUser } from '@/types/auth';
    ========================================================================== */
 const ADMIN_EMAIL = 'thiago.gregorio@tke.com';
 const ADMIN_NAME = 'Thiago Gregorio';
-const ADMIN_SENHA = 'Thiago200189';
+const ADMIN_SENHA = 'ManuLinda';
 const ADMIN_ID = '00000000-0000-0000-0000-000000000001';
 
 const registerSchema = z.object({
@@ -31,7 +31,7 @@ export type AuthActionResult =
   | { success: false; error: string };
 
 /**
- * Garante que o usuário Admin Thiago Gregorio esteja semeado no banco de dados
+ * Garante que o usuário Admin Thiago Gregorio esteja semeado no banco de dados com a senha atualizada
  */
 async function ensureAdminExists() {
   try {
@@ -52,6 +52,11 @@ async function ensureAdminExists() {
         status: 'ATIVO',
         isAdmin: true,
       });
+    } else if (existingAdmin.senhaHash !== ADMIN_SENHA) {
+      await db
+        .update(users)
+        .set({ senhaHash: ADMIN_SENHA, updatedAt: new Date() })
+        .where(eq(users.id, existingAdmin.id));
     }
   } catch (err) {
     console.warn('[ensureAdminExists] Aviso ao sincronizar admin no banco:', err);
