@@ -911,20 +911,20 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
                                   <span>Baixar</span>
                                 </a>
 
-                                {/* 3. Botão Compartilhar Carta */}
+                                {/* 3. Botão Enviar Foto da Carta Manual (Substitui Compartilhar) */}
                                 <button
                                   type="button"
-                                  onClick={() =>
-                                    setSharingCarta({
-                                      permit,
-                                      carta: permit.cartaConclusao!,
-                                    })
-                                  }
-                                  className="inline-flex items-center gap-1 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs px-2.5 py-1.5 rounded-lg border border-purple-200 transition shadow-2xs hover:scale-102 active:scale-98"
-                                  title="Compartilhar via WhatsApp, Copiar Link ou Celular"
+                                  onClick={() => {
+                                    setUploadingCartaPermit(permit);
+                                    setUploadCartaFotoFile(null);
+                                    setUploadCartaFotoPreview(null);
+                                    setUploadCartaErro(null);
+                                  }}
+                                  className="inline-flex items-center gap-1 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs px-2.5 py-1.5 rounded-lg border border-amber-300 transition shadow-2xs hover:scale-102 active:scale-98"
+                                  title="Enviar ou atualizar foto da carta manual física preenchida em papel"
                                 >
-                                  <span>📲</span>
-                                  <span>Compartilhar</span>
+                                  <span>📷</span>
+                                  <span>Carta Manual</span>
                                 </button>
 
                                 {/* 4. Botão Carta Digital (Reassinar / Atualizar com o Cliente) */}
@@ -953,15 +953,20 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
                                   <span>+ Carta Digital</span>
                                 </button>
 
-                                {/* Botão Secundário: Foto Tradicional em Papel */}
+                                {/* Botão Secundário: Enviar Foto da Carta Manual */}
                                 <button
                                   type="button"
-                                  onClick={() => setUploadingCartaPermit(permit)}
-                                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-300 px-2 py-1.5 rounded-lg transition"
-                                  title="Anexar foto em papel da carta assinada"
+                                  onClick={() => {
+                                    setUploadingCartaPermit(permit);
+                                    setUploadCartaFotoFile(null);
+                                    setUploadCartaFotoPreview(null);
+                                    setUploadCartaErro(null);
+                                  }}
+                                  className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-300 px-2.5 py-1.5 rounded-lg transition hover:scale-102"
+                                  title="Tirar foto ou enviar arquivo da carta manual preenchida no papel"
                                 >
                                   <span>📷</span>
-                                  <span>Foto</span>
+                                  <span>Carta Manual</span>
                                 </button>
                               </div>
                             ) : (

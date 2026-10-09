@@ -10,45 +10,23 @@ import {
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 24,
+    paddingTop: 28,
     paddingBottom: 20,
-    paddingHorizontal: 36,
+    paddingHorizontal: 48,
     fontSize: 8,
     fontFamily: 'Helvetica',
     color: '#000000',
     backgroundColor: '#ffffff',
   },
-  topHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  destinatarioCol: {
-    width: '60%',
-  },
-  destinatarioTitle: {
-    fontSize: 8,
-    fontFamily: 'Helvetica-Bold',
-    marginBottom: 2,
-  },
-  destinatarioNome: {
-    fontSize: 8,
-    fontFamily: 'Helvetica-Bold',
-    marginBottom: 1,
-  },
-  destinatarioText: {
-    fontSize: 7.5,
-    marginBottom: 1,
-  },
-  tkeCol: {
-    width: '38%',
+  // Topo direito: Apenas logo e informações da TKE
+  tkeHeaderContainer: {
     alignItems: 'flex-end',
+    marginBottom: 6,
   },
   tkeLogoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 3,
+    marginBottom: 2,
   },
   tkeLogoT: {
     fontSize: 22,
@@ -63,16 +41,38 @@ const styles = StyleSheet.create({
     letterSpacing: -1,
   },
   tkeEmpresaText: {
-    fontSize: 7,
+    fontSize: 7.5,
     fontFamily: 'Helvetica-Bold',
     textAlign: 'right',
     marginTop: 1,
+    color: '#000000',
   },
   tkeInfoText: {
-    fontSize: 6.5,
+    fontSize: 7,
     textAlign: 'right',
-    color: '#333333',
+    color: '#000000',
     marginTop: 1,
+  },
+  // Destinatário AO(a): Fica abaixo do bloco da TKE, isolado à esquerda
+  destinatarioContainer: {
+    marginTop: 12,
+    marginBottom: 14,
+    alignItems: 'flex-start',
+  },
+  destinatarioTitle: {
+    fontSize: 8,
+    fontFamily: 'Helvetica-Bold',
+    marginBottom: 1.5,
+  },
+  destinatarioNome: {
+    fontSize: 8,
+    fontFamily: 'Helvetica-Bold',
+    marginBottom: 1,
+  },
+  destinatarioText: {
+    fontSize: 7.5,
+    marginBottom: 1,
+    color: '#000000',
   },
   docTitle: {
     fontSize: 9,
@@ -148,11 +148,11 @@ const styles = StyleSheet.create({
   garantiaText: {
     fontSize: 8,
     marginTop: 6,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   cordialmenteText: {
     fontSize: 8,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   tkeAssinaturaLinha: {
     width: 240,
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
   },
   tkeAssinaturaNome: {
     fontSize: 7.5,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   termoBox: {
     borderWidth: 0.8,
@@ -179,24 +179,29 @@ const styles = StyleSheet.create({
   },
   termoFieldRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 5,
+    alignItems: 'flex-end',
+    marginBottom: 4.5,
+    minHeight: 12,
   },
   termoLabel: {
     fontSize: 7.5,
     fontFamily: 'Helvetica-Bold',
     marginRight: 4,
   },
-  termoValue: {
-    fontSize: 7.5,
-    fontFamily: 'Helvetica-Bold',
-    color: '#000000',
+  termoValueContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
     borderBottomWidth: 0.6,
     borderBottomColor: '#000000',
     paddingBottom: 0.5,
-    flex: 1,
   },
-  termoUnderline: {
+  termoValueText: {
+    fontSize: 7.5,
+    fontFamily: 'Helvetica-Bold',
+    color: '#000000',
+  },
+  termoUnderlineOnly: {
     flex: 1,
     borderBottomWidth: 0.6,
     borderBottomColor: '#000000',
@@ -204,8 +209,8 @@ const styles = StyleSheet.create({
   },
   assinaturaRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
+    alignItems: 'flex-end',
+    marginBottom: 3,
     minHeight: 28,
   },
   assinaturaImage: {
@@ -284,50 +289,46 @@ export function ModeloCartaConclusaoDigitalPage(props: ModeloCartaConclusaoDigit
 
   return (
     <Page size="A4" style={styles.page}>
-      {/* 1. TOPO: Destinatário à esquerda | Logo e Dados TKE à direita */}
-      <View style={styles.topHeaderRow}>
-        {/* Esquerda: Destinatário */}
-        <View style={styles.destinatarioCol}>
-          <Text style={styles.destinatarioTitle}>AO(a)</Text>
-          <Text style={styles.destinatarioNome}>{clienteNome.toUpperCase()}</Text>
-          {clienteEndereco ? <Text style={styles.destinatarioText}>{clienteEndereco.toUpperCase()}</Text> : null}
-          {clienteCidadeUf ? <Text style={styles.destinatarioText}>{clienteCidadeUf.toUpperCase()}</Text> : null}
-          <Text style={styles.destinatarioText}>FILIAL: {filial}</Text>
-        </View>
-
-        {/* Direita: Logo TKE e Filial */}
-        <View style={styles.tkeCol}>
-          {logoSrc ? (
-            <Image src={logoSrc} style={{ width: 62, height: 26, objectFit: 'contain', marginBottom: 2 }} />
-          ) : (
-            <View style={styles.tkeLogoContainer}>
-              <Text style={styles.tkeLogoT}>T</Text>
-              <Text style={styles.tkeLogoKE}>KE</Text>
-            </View>
-          )}
-          <Text style={styles.tkeEmpresaText}>TKELEVADORES S.A.</Text>
-          <Text style={styles.tkeInfoText}>CNPJ: {tkeCnpj}</Text>
-          <Text style={styles.tkeInfoText}>{tkeEndereco}</Text>
-          <Text style={styles.tkeInfoText}>{tkeCidadeUf}</Text>
-        </View>
+      {/* 1. TOPO DIREITO: Logo e Dados Oficiais da TKE */}
+      <View style={styles.tkeHeaderContainer}>
+        {logoSrc ? (
+          <Image src={logoSrc} style={{ width: 56, height: 26, objectFit: 'contain', marginBottom: 2 }} />
+        ) : (
+          <View style={styles.tkeLogoContainer}>
+            <Text style={styles.tkeLogoT}>T</Text>
+            <Text style={styles.tkeLogoKE}>KE</Text>
+          </View>
+        )}
+        <Text style={styles.tkeEmpresaText}>TKELEVADORES S.A.</Text>
+        <Text style={styles.tkeInfoText}>CNPJ: {tkeCnpj}</Text>
+        <Text style={styles.tkeInfoText}>{tkeEndereco}</Text>
+        <Text style={styles.tkeInfoText}>{tkeCidadeUf}</Text>
       </View>
 
-      {/* 2. TÍTULO OFICIAL CENTRALIZADO */}
+      {/* 2. DESTINATÁRIO AO(a): Fica abaixo do bloco da TKE, isolado à esquerda */}
+      <View style={styles.destinatarioContainer}>
+        <Text style={styles.destinatarioTitle}>AO(a)</Text>
+        <Text style={styles.destinatarioNome}>{clienteNome.toUpperCase()}</Text>
+        {clienteEndereco ? <Text style={styles.destinatarioText}>{clienteEndereco.toUpperCase()}</Text> : null}
+        {clienteCidadeUf ? <Text style={styles.destinatarioText}>{clienteCidadeUf.toUpperCase()}</Text> : null}
+        <Text style={styles.destinatarioText}>FILIAL: {filial}</Text>
+      </View>
+
+      {/* 3. TÍTULO OFICIAL CENTRALIZADO */}
       <Text style={styles.docTitle}>TERMO DE CONCLUSÃO DE REPARO:</Text>
 
-      {/* 3. TEXTOS DO TERMO */}
+      {/* 4. TEXTOS DO TERMO */}
       <Text style={{ ...styles.paragraph, marginBottom: 4 }}>
-        Referente ao Contrato TKE sob o Nº: <Text style={{ fontFamily: 'Helvetica-Bold' }}>{contratoNumero}</Text>
+        Referente ao Contrato TKE sob o Nº: {contratoNumero}
       </Text>
 
       <Text style={styles.paragraph}>
         Comunicamos a Vossa Senhoria a conclusão dos serviços executados no(s) equipamento(s){' '}
-        <Text style={{ fontFamily: 'Helvetica-Bold' }}>{equipamentosTexto}</Text>, referente ao orçamento de
-        reparo sob o nº <Text style={{ fontFamily: 'Helvetica-Bold' }}>{orcamentoNumero}</Text>. Informamos também
-        que o equipamento foi entregue em perfeitas condições de uso, sendo realizados os seguintes serviços:
+        {equipamentosTexto}, referente ao orçamento de reparo sob o nº {orcamentoNumero}. Informamos também que
+        o equipamento foi entregue em perfeitas condições de uso, sendo realizados os seguintes serviços:
       </Text>
 
-      {/* 4. TABELA DE SERVIÇOS EXECUTADOS */}
+      {/* 5. TABELA OFICIAL DE SERVIÇOS EXECUTADOS */}
       <View style={styles.table}>
         <View style={styles.tableHeaderRow}>
           <View style={styles.tableHeaderColEquip}>
@@ -364,7 +365,7 @@ export function ModeloCartaConclusaoDigitalPage(props: ModeloCartaConclusaoDigit
         )}
       </View>
 
-      {/* 5. GARANTIA E ASSINATURA DA TKE */}
+      {/* 6. GARANTIA E ASSINATURA DA TKE */}
       <Text style={styles.garantiaText}>
         O prazo de garantia da prestação de serviços e das peças utilizadas começa a contar da data deste termo.
       </Text>
@@ -374,68 +375,58 @@ export function ModeloCartaConclusaoDigitalPage(props: ModeloCartaConclusaoDigit
       <View style={styles.tkeAssinaturaLinha} />
       <Text style={styles.tkeAssinaturaNome}>TK Elevadores Brasil Ltda</Text>
 
-      {/* 6. QUADRO OFICIAL: TERMO DE CIÊNCIA E RECEBIMENTO */}
+      {/* 7. QUADRO OFICIAL: TERMO DE CIÊNCIA E RECEBIMENTO */}
       <View style={styles.termoBox}>
         <Text style={styles.termoTitle}>TERMO DE CIÊNCIA E RECEBIMENTO:</Text>
 
         {/* NOME COMPLETO */}
         <View style={styles.termoFieldRow}>
           <Text style={styles.termoLabel}>NOME COMPLETO:</Text>
-          {termoNome ? (
-            <Text style={styles.termoValue}>{termoNome.toUpperCase()}</Text>
-          ) : (
-            <View style={styles.termoUnderline} />
-          )}
+          <View style={styles.termoValueContainer}>
+            <Text style={styles.termoValueText}>{termoNome ? termoNome.toUpperCase() : ''}</Text>
+          </View>
         </View>
 
         {/* CPF */}
         <View style={styles.termoFieldRow}>
           <Text style={styles.termoLabel}>CPF:</Text>
-          {termoCpf ? (
-            <Text style={{ ...styles.termoValue, maxWidth: 220 }}>{termoCpf}</Text>
-          ) : (
-            <View style={{ ...styles.termoUnderline, maxWidth: 220 }} />
-          )}
+          <View style={{ ...styles.termoValueContainer, maxWidth: 220 }}>
+            <Text style={styles.termoValueText}>{termoCpf || ''}</Text>
+          </View>
         </View>
 
         {/* FUNÇÃO */}
         <View style={styles.termoFieldRow}>
           <Text style={styles.termoLabel}>FUNÇÃO:</Text>
-          {termoFuncao ? (
-            <Text style={{ ...styles.termoValue, maxWidth: 240 }}>{termoFuncao.toUpperCase()}</Text>
-          ) : (
-            <View style={{ ...styles.termoUnderline, maxWidth: 240 }} />
-          )}
+          <View style={{ ...styles.termoValueContainer, maxWidth: 240 }}>
+            <Text style={styles.termoValueText}>{termoFuncao ? termoFuncao.toUpperCase() : ''}</Text>
+          </View>
         </View>
 
         {/* DATA */}
         <View style={styles.termoFieldRow}>
           <Text style={styles.termoLabel}>DATA:</Text>
-          {termoData ? (
-            <Text style={{ ...styles.termoValue, maxWidth: 120 }}>{termoData}</Text>
-          ) : (
-            <View style={{ ...styles.termoUnderline, maxWidth: 120 }} />
-          )}
+          <View style={{ ...styles.termoValueContainer, maxWidth: 120 }}>
+            <Text style={styles.termoValueText}>{termoData || '___ / ___ / ______'}</Text>
+          </View>
         </View>
 
         {/* TELEFONE */}
         <View style={styles.termoFieldRow}>
           <Text style={styles.termoLabel}>TELEFONE:</Text>
-          {termoTelefone ? (
-            <Text style={{ ...styles.termoValue, maxWidth: 200 }}>{termoTelefone}</Text>
-          ) : (
-            <View style={{ ...styles.termoUnderline, maxWidth: 200 }} />
-          )}
+          <View style={{ ...styles.termoValueContainer, maxWidth: 200 }}>
+            <Text style={styles.termoValueText}>{termoTelefone || ''}</Text>
+          </View>
         </View>
 
         {/* ASSINATURA */}
         <View style={styles.assinaturaRow}>
           <Text style={styles.termoLabel}>ASSINATURA:</Text>
-          {termoAssinaturaBase64 ? (
-            <Image src={termoAssinaturaBase64} style={styles.assinaturaImage} />
-          ) : (
-            <View style={styles.termoUnderline} />
-          )}
+          <View style={{ ...styles.termoValueContainer, maxWidth: 240, minHeight: 28 }}>
+            {termoAssinaturaBase64 ? (
+              <Image src={termoAssinaturaBase64} style={styles.assinaturaImage} />
+            ) : null}
+          </View>
         </View>
 
         {/* TEXTO DE RODAPÉ LEGAL OFICIAL (15 DIAS) */}
