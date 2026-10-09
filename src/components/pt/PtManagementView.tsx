@@ -10,6 +10,7 @@ import {
   updatePtReparoAction,
   concluirTerminoPtReparoAction,
   anexarCartaConclusaoDirectAction,
+  getPtReparosAction,
 } from '@/actions/ptReparoActions';
 import { uploadAttachmentsAction } from '@/actions/attachmentActions';
 import { CartaConclusaoDigitalModal } from '@/components/pt/CartaConclusaoDigitalModal';
@@ -51,6 +52,115 @@ export function PtManagementView({ initialPermits, isAdmin, isSubcontratado = fa
   const [permits, setPermits] = useState<WorkPermitItem[]>(initialPermits);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'EM_ANDAMENTO' | 'CONCLUIDO'>('ALL');
+
+  // Sincroniza lista local quando as props do servidor forem atualizadas
+  useEffect(() => {
+    if (initialPermits) {
+      setPermits(initialPermits);
+    }
+  }, [initialPermits]);
+
+  // Busca e sincroniza permissões atualizadas diretamente do banco Neon
+  const carregarPermitsAtualizados = async () => {
+    try {
+      const res = await getPtReparosAction();
+      if (res && res.success && Array.isArray(res.permits)) {
+        setPermits(res.permits as any);
+        return res.permits;
+      }
+    } catch (err) {
+      console.error('[PtManagementView] Erro ao sincronizar permissões:', err);
+    }
+    return null;
+  };
+
+  // Pop-up e barra de carregamento de 3 segundos para "Gerando APR"
+  const [gerandoAprState, setGerandoAprState] = useState<{
+    ativo: boolean;
+    progresso: number;
+    codigo: string;
+    etapaTexto: string;
+  } | null>(null);
+  const gerandoAprTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Limpa o timer caso o componente desmonte
+  useEffect(() => {
+    return () => {
+      if (gerandoAprTimerRef.current) {
+        clearInterval(gerandoAprTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleAprSalvaComSucesso = (updatedId: string, updatedCodigo: string) => {
+    // 1. Reseta filtros para a nova APR ficar imediatamente visível no topo
+    setSearchTerm('');
+    setStatusFilter('ALL');
+
+    // 2. Abre o Pop-up "Gerando APR" iniciando em 0%
+    setGerandoAprState({
+      ativo: true,
+      progresso: 0,
+      codigo: updatedCodigo || 'PT-NOVA',
+      etapaTexto: 'Iniciando validação e consolidação dos dados de segurança...',
+    });
+
+    // 3. Dispara a busca atualizada das APRs no banco Neon em background imediatamente
+    carregarPermitsAtualizados();
+
+    // 4. Temporizador de exatamente 3 segundos (3000ms)
+    if (gerandoAprTimerRef.current) {
+      clearInterval(gerandoAprTimerRef.current);
+    }
+
+    const duracaoTotalMs = 3000;
+    const intervaloMs = 30; // 100 ticks suaves
+    const totalPassos = duracaoTotalMs / intervaloMs;
+    let passo = 0;
+
+    gerandoAprTimerRef.current = setInterval(() => {
+      passo++;
+      const percentual = Math.min(Math.round((passo / totalPassos) * 100), 100);
+
+      let etapa = 'Iniciando validação e consolidação dos dados de segurança...';
+      if (percentual >= 25 && percentual < 55) {
+        etapa = 'Estruturando itens de segurança e riscos da APR...';
+      } else if (percentual >= 55 && percentual < 85) {
+        etapa = 'Processando assinaturas digitais e permissão de trabalho...';
+      } else if (percentual >= 85) {
+        etapa = 'Sincronizando registros no banco de dados Neon...';
+      }
+
+      setGerandoAprState((prev) => (prev ? { ...prev, progresso: percentual, etapaTexto: etapa } : null));
+
+      if (passo >= totalPassos) {
+        if (gerandoAprTimerRef.current) {
+          clearInterval(gerandoAprTimerRef.current);
+          gerandoAprTimerRef.current = null;
+        }
+
+        // Ao completar os 3 segundos:
+        setTimeout(async () => {
+          // Garante a lista atualizada com busca final
+          await carregarPermitsAtualizados();
+
+          // Fecha o pop-up, finaliza edição e navega para lista
+          setGerandoAprState(null);
+          setEditingPermitInWizard(null);
+          setActiveTab('LIST');
+
+          // Alerta verde de confirmação
+          setActionMessage({
+            type: 'success',
+            text: `APR ${updatedCodigo} gerada e atualizada com sucesso no banco de dados!`,
+          });
+
+          // Revalida dados de rotas do Next.js
+          router.refresh();
+        }, 150);
+      }
+    }, intervaloMs);
+  };
 
   // Estado para Edição Integral da APR em Andamento via Wizard
   const [editingPermitInWizard, setEditingPermitInWizard] = useState<WorkPermitItem | null>(null);
@@ -1111,13 +1221,7 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
               setActiveTab('LIST');
             }}
             onSuccessSubmit={(updatedId, updatedCodigo) => {
-              setActionMessage({
-                type: 'success',
-                text: `APR ${updatedCodigo} atualizada com sucesso no banco de dados!`,
-              });
-              setEditingPermitInWizard(null);
-              setActiveTab('LIST');
-              router.refresh();
+              handleAprSalvaComSucesso(updatedId, updatedCodigo);
             }}
           />
         </div>
@@ -2500,6 +2604,94 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
             });
           }}
         />
+      )}
+
+      {/* POP-UP MODAL: GERANDO APR (BARRA DE CARREGAMENTO DE 3 SEGUNDOS E ATUALIZAÇÃO AUTOMÁTICA) */}
+      {gerandoAprState && gerandoAprState.ativo && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div
+            className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-md w-full p-6 sm:p-8 text-center relative overflow-hidden animate-in zoom-in-95 duration-200"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-gerando-apr-titulo"
+          >
+            {/* Faixa Superior Gradiente TKE */}
+            <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-red-600 via-rose-500 to-amber-500" />
+
+            {/* Ícone Estilizado com Animação */}
+            <div className="relative w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-red-600 to-orange-500 opacity-20 blur-md animate-pulse" />
+              <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-tr from-red-600 via-rose-600 to-orange-500 text-white flex items-center justify-center shadow-lg shadow-red-500/30">
+                <svg
+                  className="w-8 h-8 animate-bounce"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+              </div>
+            </div>
+
+            {/* Título Oficial Exigido: "Gerando APR" */}
+            <h3
+              id="modal-gerando-apr-titulo"
+              className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight"
+            >
+              Gerando APR
+            </h3>
+
+            {/* Código da APR */}
+            {gerandoAprState.codigo && (
+              <div className="mt-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-orange-50 text-orange-700 border border-orange-200 shadow-2xs">
+                  <span>📄</span>
+                  <span>{gerandoAprState.codigo}</span>
+                </span>
+              </div>
+            )}
+
+            {/* Mensagem da Etapa Atual */}
+            <p className="text-xs sm:text-sm text-slate-500 mt-3 min-h-[36px] flex items-center justify-center px-2">
+              {gerandoAprState.etapaTexto}
+            </p>
+
+            {/* Barra de Carregamento (Tempo de 3 Segundos) */}
+            <div className="mt-5 mb-2">
+              <div className="w-full bg-slate-100 rounded-full h-4 p-0.5 border border-slate-200/80 overflow-hidden shadow-inner relative">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-red-600 via-rose-500 to-amber-500 shadow-sm relative overflow-hidden transition-all duration-75 ease-linear"
+                  style={{ width: `${gerandoAprState.progresso}%` }}
+                >
+                  {/* Brilho Shimmer animado */}
+                  <div className="absolute inset-0 bg-white/25 animate-pulse" />
+                </div>
+              </div>
+
+              {/* Informações de Progresso e Tempo */}
+              <div className="flex items-center justify-between text-xs mt-2 px-1 text-slate-500 font-semibold">
+                <span className="text-red-600 font-black tracking-wide">
+                  {gerandoAprState.progresso}%
+                </span>
+                <span className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                  <span>Sincronizando (3s)...</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Rodapé Informativo */}
+            <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-center gap-1.5 text-[11px] text-slate-400 font-medium">
+              <span>🛡️</span>
+              <span>Gravando no banco Neon com auditoria oficial TKE</span>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
