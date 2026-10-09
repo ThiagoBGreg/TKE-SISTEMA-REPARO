@@ -1,6 +1,12 @@
-import fs from 'fs';
 import path from 'path';
+import fs from 'fs';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { renderToBuffer } from '@react-pdf/renderer';
+import React from 'react';
+import {
+  ModeloCartaConclusaoDigitalPdfDocument,
+  type ServicoItemModelo,
+} from '@/components/pt/ModeloCartaConclusaoDigitalPdfDocument';
 
 export interface TermoCienciaRecebimentoData {
   nomeCliente: string;
@@ -19,6 +25,16 @@ export interface GerarCartaConclusaoOptions extends TermoCienciaRecebimentoData 
   equipamento: string;
   orcamento?: string;
   servicoDescricao?: string;
+  // Campos detalhados editáveis do Modelo Digital TKE
+  tkeCnpj?: string;
+  tkeEndereco?: string;
+  tkeCidadeUf?: string;
+  clienteNome?: string;
+  clienteEndereco?: string;
+  clienteCidadeUf?: string;
+  filial?: string;
+  servicos?: ServicoItemModelo[];
+  // PDF original para o caso de importação direta
   pdfOriginalBuffer?: Buffer;
 }
 
@@ -56,6 +72,14 @@ export async function gerarCartaConclusaoDigitalPdf(
     equipamento,
     orcamento,
     servicoDescricao,
+    tkeCnpj,
+    tkeEndereco,
+    tkeCidadeUf,
+    clienteNome,
+    clienteEndereco,
+    clienteCidadeUf,
+    filial,
+    servicos,
     nomeCliente,
     cpfCliente,
     funcaoCliente,
@@ -65,456 +89,160 @@ export async function gerarCartaConclusaoDigitalPdf(
     pdfOriginalBuffer,
   } = options;
 
-  let pdfDoc: PDFDocument;
-  let isModeloOficial = false;
-
-  // 1. Carrega o PDF original importado ou o modelo padrão oficial da raiz
+  // --------------------------------------------------------------------------
+  // CASO 1: IMPORTAÇÃO DE ARQUIVO PDF (O USUÁRIO SUBIU SEU PRÓPRIO PDF)
+  // REGRA CRUCIAL: O PREENCHIMENTO DEVE PERMANECER NA PÁGINA ORIGINAL!
+  // NUNCA CRIA OUTRO DOCUMENTO OU NOVA PÁGINA!
+  // --------------------------------------------------------------------------
   if (pdfOriginalBuffer && pdfOriginalBuffer.length > 0) {
-    try {
-      pdfDoc = await PDFDocument.load(pdfOriginalBuffer);
-      // Se tiver 1 página e dimensões padrão A4, trata como modelo oficial ou compatível
-      if (pdfDoc.getPageCount() === 1) {
-        const { width, height } = pdfDoc.getPages()[0].getSize();
-        if (Math.abs(width - 595.32) < 5 && Math.abs(height - 841.92) < 5) {
-          isModeloOficial = true;
+    const pdfDoc = await PDFDocument.load(pdfOriginalBuffer);
+    const pages = pdfDoc.getPages();
+    // Usa a página existente (a última página ou a primeira se tiver apenas 1)
+    const targetPage = pages[pages.length - 1];
+    const { width, height } = targetPage.getSize();
+
+    const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+    // Incorpora assinatura se fornecida
+    let assinaturaImage: any = null;
+    if (assinaturaClienteBase64 && assinaturaClienteBase64.includes('base64')) {
+      try {
+        const sigBuffer = dataUriToBuffer(assinaturaClienteBase64);
+        if (sigBuffer.length > 0) {
+          assinaturaImage = await pdfDoc.embedPng(sigBuffer);
         }
+      } catch (err) {
+        console.warn('[cartaConclusaoDigital] Erro ao incorporar assinatura PNG na importação:', err);
       }
-    } catch (err) {
-      console.warn('[cartaConclusaoDigital] Erro ao carregar PDF fornecido, usando modelo padrão:', err);
-      const defaultTemplatePath = path.join(process.cwd(), 'MODELO CARTA DE CONCLUSÃO DIGITAL.pdf');
-      const defaultBytes = fs.readFileSync(defaultTemplatePath);
-      pdfDoc = await PDFDocument.load(defaultBytes);
-      isModeloOficial = true;
-    }
-  } else {
-    const defaultTemplatePath = path.join(process.cwd(), 'MODELO CARTA DE CONCLUSÃO DIGITAL.pdf');
-    const defaultBytes = fs.readFileSync(defaultTemplatePath);
-    pdfDoc = await PDFDocument.load(defaultBytes);
-    isModeloOficial = true;
-  }
-
-  const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  const pages = pdfDoc.getPages();
-
-  // Incorpora a imagem de assinatura do cliente se fornecida
-  let assinaturaImage: any = null;
-  if (assinaturaClienteBase64 && assinaturaClienteBase64.includes('base64')) {
-    try {
-      const sigBuffer = dataUriToBuffer(assinaturaClienteBase64);
-      if (sigBuffer.length > 0) {
-        assinaturaImage = await pdfDoc.embedPng(sigBuffer);
-      }
-    } catch (sigErr) {
-      console.warn('[cartaConclusaoDigital] Erro ao incorporar assinatura PNG:', sigErr);
-    }
-  }
-
-  if (isModeloOficial) {
-    // ------------------------------------------------------------------------
-    // CENÁRIO A: MODELO OFICIAL TKE (1 Página A4)
-    // Coordenadas calibradas exatamente sobre o layout do documento TKE
-    // ------------------------------------------------------------------------
-    const page = pages[0];
-
-    // Carimbo do código da PT no topo direito para rastreabilidade
-    if (codigoPT) {
-      page.drawText(`PT: ${sanitizePdfText(codigoPT)}`, {
-        x: 430,
-        y: 818,
-        size: 9,
-        font: helveticaBold,
-        color: rgb(0.9, 0.35, 0.05), // Laranja TKE
-      });
     }
 
-    // Se estiver usando o template padrão, atualizamos os dados do serviço
-    // cobrindo eventuais dados de exemplo do modelo com caixas brancas
-    if (!pdfOriginalBuffer) {
-      // 1. Contrato sob o Nº
-      if (contratoOrcamento) {
-        page.drawRectangle({
-          x: 270,
-          y: 642,
-          width: 120,
-          height: 16,
-          color: rgb(1, 1, 1),
-        });
-        page.drawText(sanitizePdfText(contratoOrcamento), {
-          x: 272,
-          y: 646,
-          size: 10,
-          font: helveticaBold,
-          color: rgb(0.1, 0.1, 0.1),
-        });
-      }
+    // Coordenadas calculadas relativas ao padrão A4 (595.32 x 841.92) ou proporcionais
+    const scaleX = width / 595.32;
+    const scaleY = height / 841.92;
 
-      // 2. Equipamento e Orçamento no parágrafo
-      page.drawRectangle({
-        x: 100,
-        y: 615,
-        width: 420,
-        height: 24,
-        color: rgb(1, 1, 1),
-      });
-      const orcNum = orcamento || contratoOrcamento || 'N/A';
-      const eqNum = equipamento || 'Elevador';
-      page.drawText(
-        sanitizePdfText(`equipamento(s) ${eqNum}, referente ao orcamento de reparo sob o no ${orcNum}.`),
-        {
-          x: 106,
-          y: 622,
-          size: 9.5,
-          font: helvetica,
-          color: rgb(0.1, 0.1, 0.1),
-        }
-      );
-
-      // 3. Tabela: Equipamento | Serviço Executado
-      page.drawRectangle({
-        x: 107,
-        y: 560,
-        width: 400,
-        height: 14,
-        color: rgb(1, 1, 1),
-      });
-      page.drawText(sanitizePdfText(eqNum), {
-        x: 110,
-        y: 563,
-        size: 8,
-        font: helveticaBold,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-      const descrServ = servicoDescricao || 'SERVICOS ESPECIALIZADOS DE REPARO / MANUTENCAO';
-      page.drawText(sanitizePdfText(descrServ).slice(0, 55), {
-        x: 195,
-        y: 563,
-        size: 8,
-        font: helveticaBold,
-        color: rgb(0.1, 0.1, 0.1),
-      });
-    }
-
-    // ------------------------------------------------------------------------
-    // PREENCHIMENTO DO TERMO DE CIÊNCIA E RECEBIMENTO
-    // ------------------------------------------------------------------------
-    // NOME COMPLETO: linha em y=371.81
+    // Carimba NOME COMPLETO sobre a linha correspondente
     if (nomeCliente) {
-      page.drawText(sanitizePdfText(nomeCliente).toUpperCase(), {
-        x: 215,
-        y: 372,
-        size: 9.5,
-        font: helveticaBold,
+      targetPage.drawText(sanitizePdfText(nomeCliente).toUpperCase(), {
+        x: 212 * scaleX,
+        y: 374 * scaleY,
+        size: 9.5 * Math.min(scaleX, scaleY),
+        font: fontBold,
         color: rgb(0.05, 0.1, 0.2),
       });
     }
 
-    // CPF: linha em y=344.21
+    // Carimba CPF sobre a linha correspondente
     if (cpfCliente) {
-      page.drawText(sanitizePdfText(cpfCliente), {
-        x: 160,
-        y: 345,
-        size: 9.5,
-        font: helveticaBold,
+      targetPage.drawText(sanitizePdfText(cpfCliente), {
+        x: 160 * scaleX,
+        y: 346 * scaleY,
+        size: 9.5 * Math.min(scaleX, scaleY),
+        font: fontBold,
         color: rgb(0.05, 0.1, 0.2),
       });
     }
 
-    // FUNÇÃO: linha em y=316.61
+    // Carimba FUNÇÃO sobre a linha correspondente
     if (funcaoCliente) {
-      page.drawText(sanitizePdfText(funcaoCliente).toUpperCase(), {
-        x: 185,
-        y: 317,
-        size: 9.5,
-        font: helveticaBold,
+      targetPage.drawText(sanitizePdfText(funcaoCliente).toUpperCase(), {
+        x: 180 * scaleX,
+        y: 318 * scaleY,
+        size: 9.5 * Math.min(scaleX, scaleY),
+        font: fontBold,
         color: rgb(0.05, 0.1, 0.2),
       });
     }
 
-    // DATA: linha em y=289.01
+    // Carimba DATA sobre a linha correspondente
     if (dataRecebimento) {
-      page.drawText(sanitizePdfText(dataRecebimento), {
-        x: 175,
-        y: 290,
-        size: 9.5,
-        font: helveticaBold,
+      targetPage.drawText(sanitizePdfText(dataRecebimento), {
+        x: 168 * scaleX,
+        y: 291 * scaleY,
+        size: 9.5 * Math.min(scaleX, scaleY),
+        font: fontBold,
         color: rgb(0.05, 0.1, 0.2),
       });
     }
 
-    // TELEFONE: linha em y=261.41
+    // Carimba TELEFONE sobre a linha correspondente
     if (telefoneCliente) {
-      page.drawText(sanitizePdfText(telefoneCliente), {
-        x: 195,
-        y: 262,
-        size: 9.5,
-        font: helveticaBold,
+      targetPage.drawText(sanitizePdfText(telefoneCliente), {
+        x: 185 * scaleX,
+        y: 263 * scaleY,
+        size: 9.5 * Math.min(scaleX, scaleY),
+        font: fontBold,
         color: rgb(0.05, 0.1, 0.2),
       });
     }
 
-    // ASSINATURA: linha em y=233.81
+    // Carimba ASSINATURA sobre a linha correspondente
     if (assinaturaImage) {
-      page.drawImage(assinaturaImage, {
-        x: 190,
-        y: 228,
-        width: 170,
-        height: 38,
-      });
-    }
-  } else {
-    // ------------------------------------------------------------------------
-    // CENÁRIO B: PDF IMPORTADO CUSTOMIZADO OU COM MÚLTIPLAS PÁGINAS
-    // Adiciona uma página anexa com o Termo Oficial de Ciência e Recebimento
-    // ------------------------------------------------------------------------
-    const page = pdfDoc.addPage([595.32, 841.92]); // A4 padrão
-    const { width, height } = page.getSize();
-
-    // Topo com cabeçalho TKE
-    page.drawText('TK ELEVADORES BRASIL LTDA', {
-      x: 50,
-      y: height - 50,
-      size: 14,
-      font: helveticaBold,
-      color: rgb(0.05, 0.1, 0.2),
-    });
-    page.drawText(`CARTA DE CONCLUSAO DIGITAL • PT: ${sanitizePdfText(codigoPT)}`, {
-      x: 50,
-      y: height - 68,
-      size: 9,
-      font: helveticaBold,
-      color: rgb(0.9, 0.35, 0.05),
-    });
-
-    // Resumo do Serviço
-    page.drawRectangle({
-      x: 50,
-      y: height - 145,
-      width: width - 100,
-      height: 65,
-      borderWidth: 1,
-      borderColor: rgb(0.8, 0.85, 0.9),
-      color: rgb(0.97, 0.98, 1),
-    });
-
-    page.drawText('DADOS DO SERVICO EXECUTADO:', {
-      x: 60,
-      y: height - 95,
-      size: 8,
-      font: helveticaBold,
-      color: rgb(0.3, 0.4, 0.5),
-    });
-    page.drawText(`CONTRATO / ORCAMENTO: ${sanitizePdfText(contratoOrcamento)}`, {
-      x: 60,
-      y: height - 110,
-      size: 9,
-      font: helveticaBold,
-      color: rgb(0.1, 0.1, 0.1),
-    });
-    page.drawText(`EQUIPAMENTO: ${sanitizePdfText(equipamento)}`, {
-      x: 320,
-      y: height - 110,
-      size: 9,
-      font: helveticaBold,
-      color: rgb(0.1, 0.1, 0.1),
-    });
-    page.drawText(`DESCRICAO: ${sanitizePdfText(servicoDescricao || 'Servicos de Reparo Concluidos')}`, {
-      x: 60,
-      y: height - 128,
-      size: 8.5,
-      font: helvetica,
-      color: rgb(0.2, 0.2, 0.2),
-    });
-
-    // Quadro Oficial: TERMO DE CIÊNCIA E RECEBIMENTO
-    const boxY = height - 440;
-    const boxHeight = 265;
-    const boxWidth = width - 100;
-
-    page.drawRectangle({
-      x: 50,
-      y: boxY,
-      width: boxWidth,
-      height: boxHeight,
-      borderWidth: 1.5,
-      borderColor: rgb(0.1, 0.1, 0.1),
-      color: rgb(1, 1, 1),
-    });
-
-    page.drawText('TERMO DE CIENCIA E RECEBIMENTO:', {
-      x: 65,
-      y: boxY + boxHeight - 25,
-      size: 11,
-      font: helveticaBold,
-      color: rgb(0.1, 0.1, 0.1),
-    });
-
-    // Linha NOME COMPLETO
-    page.drawText('NOME COMPLETO:', {
-      x: 65,
-      y: boxY + boxHeight - 60,
-      size: 9.5,
-      font: helveticaBold,
-      color: rgb(0.1, 0.1, 0.1),
-    });
-    page.drawLine({
-      start: { x: 175, y: boxY + boxHeight - 62 },
-      end: { x: 50 + boxWidth - 25, y: boxY + boxHeight - 62 },
-      thickness: 0.8,
-      color: rgb(0.1, 0.1, 0.1),
-    });
-    if (nomeCliente) {
-      page.drawText(sanitizePdfText(nomeCliente).toUpperCase(), {
-        x: 180,
-        y: boxY + boxHeight - 59,
-        size: 9.5,
-        font: helveticaBold,
-        color: rgb(0.05, 0.1, 0.2),
+      targetPage.drawImage(assinaturaImage, {
+        x: 195 * scaleX,
+        y: 228 * scaleY,
+        width: 160 * scaleX,
+        height: 36 * scaleY,
       });
     }
 
-    // Linha CPF
-    page.drawText('CPF:', {
-      x: 65,
-      y: boxY + boxHeight - 95,
-      size: 9.5,
-      font: helveticaBold,
-      color: rgb(0.1, 0.1, 0.1),
-    });
-    page.drawLine({
-      start: { x: 105, y: boxY + boxHeight - 97 },
-      end: { x: 340, y: boxY + boxHeight - 97 },
-      thickness: 0.8,
-      color: rgb(0.1, 0.1, 0.1),
-    });
-    if (cpfCliente) {
-      page.drawText(sanitizePdfText(cpfCliente), {
-        x: 110,
-        y: boxY + boxHeight - 94,
-        size: 9.5,
-        font: helveticaBold,
-        color: rgb(0.05, 0.1, 0.2),
-      });
-    }
-
-    // Linha FUNÇÃO
-    page.drawText('FUNCAO:', {
-      x: 65,
-      y: boxY + boxHeight - 130,
-      size: 9.5,
-      font: helveticaBold,
-      color: rgb(0.1, 0.1, 0.1),
-    });
-    page.drawLine({
-      start: { x: 130, y: boxY + boxHeight - 132 },
-      end: { x: 380, y: boxY + boxHeight - 132 },
-      thickness: 0.8,
-      color: rgb(0.1, 0.1, 0.1),
-    });
-    if (funcaoCliente) {
-      page.drawText(sanitizePdfText(funcaoCliente).toUpperCase(), {
-        x: 135,
-        y: boxY + boxHeight - 129,
-        size: 9.5,
-        font: helveticaBold,
-        color: rgb(0.05, 0.1, 0.2),
-      });
-    }
-
-    // Linha DATA
-    page.drawText('DATA:', {
-      x: 65,
-      y: boxY + boxHeight - 165,
-      size: 9.5,
-      font: helveticaBold,
-      color: rgb(0.1, 0.1, 0.1),
-    });
-    page.drawLine({
-      start: { x: 115, y: boxY + boxHeight - 167 },
-      end: { x: 230, y: boxY + boxHeight - 167 },
-      thickness: 0.8,
-      color: rgb(0.1, 0.1, 0.1),
-    });
-    if (dataRecebimento) {
-      page.drawText(sanitizePdfText(dataRecebimento), {
-        x: 120,
-        y: boxY + boxHeight - 164,
-        size: 9.5,
-        font: helveticaBold,
-        color: rgb(0.05, 0.1, 0.2),
-      });
-    }
-
-    // Linha TELEFONE
-    page.drawText('TELEFONE:', {
-      x: 65,
-      y: boxY + boxHeight - 200,
-      size: 9.5,
-      font: helveticaBold,
-      color: rgb(0.1, 0.1, 0.1),
-    });
-    page.drawLine({
-      start: { x: 140, y: boxY + boxHeight - 202 },
-      end: { x: 380, y: boxY + boxHeight - 202 },
-      thickness: 0.8,
-      color: rgb(0.1, 0.1, 0.1),
-    });
-    if (telefoneCliente) {
-      page.drawText(sanitizePdfText(telefoneCliente), {
-        x: 145,
-        y: boxY + boxHeight - 199,
-        size: 9.5,
-        font: helveticaBold,
-        color: rgb(0.05, 0.1, 0.2),
-      });
-    }
-
-    // Linha ASSINATURA
-    page.drawText('ASSINATURA:', {
-      x: 65,
-      y: boxY + boxHeight - 235,
-      size: 9.5,
-      font: helveticaBold,
-      color: rgb(0.1, 0.1, 0.1),
-    });
-    page.drawLine({
-      start: { x: 155, y: boxY + boxHeight - 237 },
-      end: { x: 50 + boxWidth - 30, y: boxY + boxHeight - 237 },
-      thickness: 0.8,
-      color: rgb(0.1, 0.1, 0.1),
-    });
-    if (assinaturaImage) {
-      page.drawImage(assinaturaImage, {
-        x: 165,
-        y: boxY + boxHeight - 240,
-        width: 175,
-        height: 38,
-      });
-    }
-
-    // Texto de Rodapé Legal (15 dias)
-    page.drawText(
-      '*Na hipotese de ausencia de assinatura do presente termo, sem qualquer manifestacao em contrario, no prazo de',
-      {
-        x: 50,
-        y: boxY - 16,
-        size: 7.5,
-        font: helvetica,
-        color: rgb(0.2, 0.2, 0.2),
-      }
-    );
-    page.drawText(
-      '15 (quinze) dias, a contar da data da entrega deste, implica em aceitacao da conclusao dos servicos.',
-      {
-        x: 50,
-        y: boxY - 27,
-        size: 7.5,
-        font: helvetica,
-        color: rgb(0.2, 0.2, 0.2),
-      }
-    );
+    const modifiedPdfBytes = await pdfDoc.save();
+    return Buffer.from(modifiedPdfBytes);
   }
 
-  const modifiedPdfBytes = await pdfDoc.save();
-  return Buffer.from(modifiedPdfBytes);
+  // --------------------------------------------------------------------------
+  // CASO 2: MODELO DIGITAL TKE (GERAÇÃO COMPLETA EDITÁVEL IDÊNTICA À IMAGEM 1)
+  // Utiliza o componente React-PDF oficial que replica com 100% de precisão:
+  // - Topo direito com logo oficial TKE e dados da empresa
+  // - Topo esquerdo com destinatário
+  // - Título centralizado "TERMO DE CONCLUSÃO DE REPARO:"
+  // - Tabela oficial de equipamentos e serviços com todas as linhas configuradas
+  // - Termo de Ciência e Recebimento preenchido com a assinatura digital do cliente
+  // --------------------------------------------------------------------------
+  // Resolve o logo da TKE para Data URI para embutir no PDF
+  let logoDataUri: string | undefined = undefined;
+  try {
+    const logoFilePath = path.join(process.cwd(), 'public', 'images', 'tke-symbol.png');
+    if (fs.existsSync(logoFilePath)) {
+      const logoBuf = fs.readFileSync(logoFilePath);
+      logoDataUri = `data:image/png;base64,${logoBuf.toString('base64')}`;
+    }
+  } catch (err) {
+    console.warn('[cartaConclusaoDigital] Aviso ao ler logo TKE:', err);
+  }
+
+  // Monta a lista de serviços
+  const listaServicos: ServicoItemModelo[] =
+    servicos && servicos.length > 0
+      ? servicos
+      : [
+          {
+            equipamento: equipamento || 'Elevador',
+            servico: servicoDescricao || 'SERVIÇOS DE REPARO E MANUTENÇÃO',
+          },
+        ];
+
+  const renderedBuffer = await renderToBuffer(
+    React.createElement(ModeloCartaConclusaoDigitalPdfDocument, {
+      tkeCnpj: tkeCnpj || '90.347.840/0064-00',
+      tkeEndereco: tkeEndereco || 'AV ADOLFO PINHEIRO, 1000',
+      tkeCidadeUf: tkeCidadeUf || 'SANTO AMARO, SP',
+      clienteNome: (clienteNome || nomeCliente || 'CLIENTE').toUpperCase(),
+      clienteEndereco: clienteEndereco || '',
+      clienteCidadeUf: clienteCidadeUf || 'SAO PAULO - SP',
+      filial: filial || '5064',
+      contratoNumero: contratoOrcamento || '',
+      equipamentosTexto: equipamento || '',
+      orcamentoNumero: orcamento || contratoOrcamento || '',
+      servicos: listaServicos,
+      termoNome: nomeCliente || '',
+      termoCpf: cpfCliente || '',
+      termoFuncao: funcaoCliente || '',
+      termoData: dataRecebimento || '',
+      termoTelefone: telefoneCliente || '',
+      termoAssinaturaBase64: assinaturaClienteBase64 || '',
+      logoSrc: logoDataUri,
+    }) as any
+  );
+
+  return Buffer.from(renderedBuffer);
 }

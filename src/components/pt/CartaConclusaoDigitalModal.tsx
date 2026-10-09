@@ -29,6 +29,12 @@ interface WorkPermitBasic {
   } | null;
 }
 
+interface ServicoLinha {
+  id: string;
+  equipamento: string;
+  servico: string;
+}
+
 interface CartaConclusaoDigitalModalProps {
   permit: WorkPermitBasic;
   onClose: () => void;
@@ -40,15 +46,77 @@ export function CartaConclusaoDigitalModal({
   onClose,
   onSuccess,
 }: CartaConclusaoDigitalModalProps) {
-  // Modo de origem do PDF: 'UPLOAD' (importar arquivo do usuário) ou 'MODELO_PADRAO' (usar template oficial TKE)
+  // Modo de origem: 'UPLOAD' (importar arquivo PDF) ou 'MODELO_PADRAO' (editar informações no modelo oficial TKE)
   const [modoPdf, setModoPdf] = useState<'UPLOAD' | 'MODELO_PADRAO'>('MODELO_PADRAO');
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const pdfInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Informações Editáveis do Documento Modelo Oficial TKE
+  const [tkeCnpj, setTkeCnpj] = useState('90.347.840/0064-00');
+  const [tkeEndereco, setTkeEndereco] = useState('AV ADOLFO PINHEIRO, 1000');
+  const [tkeCidadeUf, setTkeCidadeUf] = useState('SANTO AMARO, SP');
+  const [filial, setFilial] = useState('5064');
+
+  const [clienteNomeDoc, setClienteNomeDoc] = useState(
+    permit.cartaConclusao?.clienteNome || 'AVENUES SAO PAULO EDUCACAO LTDA'
+  );
+  const [clienteEndereco, setClienteEndereco] = useState('RUA PEDRO AVANCINE 73 JARDIM PANORAMA');
+  const [clienteCidadeUf, setClienteCidadeUf] = useState('SAO PAULO - SP');
+
+  const [contratoNumero, setContratoNumero] = useState(permit.contratoOrcamento || '143488');
+  const [equipamentosTexto, setEquipamentosTexto] = useState(permit.equipamento || '143546, 143553');
+  const [orcamentoNumero, setOrcamentoNumero] = useState(
+    (permit.dadosCompletos as any)?.ordemServico?.orcamento || '75289/25'
+  );
+
+  // Tabela Dinâmica de Serviços Executados
+  const [servicosList, setServicosList] = useState<ServicoLinha[]>([
+    {
+      id: '1',
+      equipamento: permit.equipamento.split(',')[0]?.trim() || '143546',
+      servico: 'CABO DE TRAÇÃO 3/8, 1/2 e 5/8 1:1 - 5 LANCES-SUBSTITUIR',
+    },
+    {
+      id: '2',
+      equipamento: permit.equipamento.split(',')[0]?.trim() || '143546',
+      servico: 'POLIA TRACAO-SUBSTITUIR',
+    },
+    {
+      id: '3',
+      equipamento: permit.equipamento.split(',')[0]?.trim() || '143546',
+      servico: 'CABO TRACAO (*) ENCURTAR E EQUALIZAR',
+    },
+  ]);
+
+  const handleAddServico = () => {
+    const nextId = String(Date.now());
+    setServicosList((prev) => [
+      ...prev,
+      {
+        id: nextId,
+        equipamento: permit.equipamento.split(',')[0]?.trim() || '',
+        servico: '',
+      },
+    ]);
+  };
+
+  const handleRemoveServico = (id: string) => {
+    if (servicosList.length <= 1) return;
+    setServicosList((prev) => prev.filter((s) => s.id !== id));
+  };
+
+  const handleServicoChange = (id: string, field: 'equipamento' | 'servico', val: string) => {
+    setServicosList((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, [field]: val } : s))
+    );
+  };
+
   // Campos do TERMO DE CIÊNCIA E RECEBIMENTO
-  const [nomeCliente, setNomeCliente] = useState(permit.cartaConclusao?.clienteNome || '');
+  const [nomeCliente, setNomeCliente] = useState(
+    permit.cartaConclusao?.clienteNome || ''
+  );
   const [cpfCliente, setCpfCliente] = useState(permit.cartaConclusao?.clienteCpf || '');
-  const [funcaoCliente, setFuncaoCliente] = useState(permit.cartaConclusao?.clienteFuncao || '');
+  const [funcaoCliente, setFuncaoCliente] = useState(permit.cartaConclusao?.clienteFuncao || 'SINDICO');
   const [dataRecebimento, setDataRecebimento] = useState(
     permit.cartaConclusao?.clienteData || new Date().toLocaleDateString('pt-BR')
   );
@@ -74,6 +142,7 @@ export function CartaConclusaoDigitalModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [erroMsg, setErroMsg] = useState<string | null>(null);
   const [sucessoCarta, setSucessoCarta] = useState<any | null>(null);
+  const [visualizandoPreviewModal, setVisualizandoPreviewModal] = useState(false);
 
   // Formatação de CPF
   const handleCpfChange = (val: string) => {
@@ -119,10 +188,9 @@ export function CartaConclusaoDigitalModal({
 
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    ctx.strokeStyle = '#0f172a'; // Preto/Slate escuro
+    ctx.strokeStyle = '#0f172a';
     ctx.lineWidth = 2.5;
 
-    // Se já tinha assinatura prévia, desenha no canvas
     if (assinaturaBase64 && !hasDrawn) {
       const img = new Image();
       img.onload = () => {
@@ -133,7 +201,6 @@ export function CartaConclusaoDigitalModal({
     }
   }, [assinaturaBase64]);
 
-  // Auxiliares de coordenadas para Touch e Mouse
   const getCoordinates = (
     e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
   ) => {
@@ -214,7 +281,7 @@ export function CartaConclusaoDigitalModal({
     setErroMsg(null);
 
     if (!nomeCliente.trim()) {
-      setErroMsg('Por favor, informe o Nome Completo do cliente ou responsável.');
+      setErroMsg('Por favor, informe o Nome Completo do cliente ou responsável no Termo.');
       return;
     }
 
@@ -244,6 +311,27 @@ export function CartaConclusaoDigitalModal({
 
       if (modoPdf === 'UPLOAD' && pdfFile) {
         formData.append('pdfFile', pdfFile);
+      } else {
+        // Envia todos os campos editáveis do Modelo Digital TKE
+        formData.append('tkeCnpj', tkeCnpj.trim());
+        formData.append('tkeEndereco', tkeEndereco.trim());
+        formData.append('tkeCidadeUf', tkeCidadeUf.trim());
+        formData.append('clienteNome', clienteNomeDoc.trim() || nomeCliente.trim());
+        formData.append('clienteEndereco', clienteEndereco.trim());
+        formData.append('clienteCidadeUf', clienteCidadeUf.trim());
+        formData.append('filial', filial.trim());
+        formData.append('contrato', contratoNumero.trim());
+        formData.append('equipamentos', equipamentosTexto.trim());
+        formData.append('orcamento', orcamentoNumero.trim());
+        formData.append(
+          'servicosJson',
+          JSON.stringify(
+            servicosList.map((s) => ({
+              equipamento: s.equipamento.trim(),
+              servico: s.servico.trim(),
+            }))
+          )
+        );
       }
 
       const res = await salvarCartaConclusaoDigitalAction(formData);
@@ -264,20 +352,20 @@ export function CartaConclusaoDigitalModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-2 sm:p-4 overflow-y-auto animate-in fade-in">
-      <div className="bg-white rounded-2xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl border border-slate-200 space-y-5 max-h-[94vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl max-w-3xl w-full p-4 sm:p-6 shadow-2xl border border-slate-200 space-y-5 max-h-[95vh] overflow-y-auto">
         {/* Cabeçalho */}
         <div className="flex items-start justify-between border-b border-slate-200 pb-3">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="text-xs font-black uppercase tracking-wider bg-orange-100 text-orange-800 px-2 py-0.5 rounded">
-                TKE • Carta Digital
+                TKE • Carta de Conclusão Digital
               </span>
               <span className="text-xs font-bold text-slate-500">
                 PT: <span className="text-slate-800 font-extrabold">{permit.codigo}</span>
               </span>
             </div>
             <h3 className="text-base sm:text-lg font-black text-slate-900 leading-tight">
-              Carta de Conclusão Digital • Assinatura com Cliente
+              Emissão & Assinatura Digital com o Cliente
             </h3>
             <p className="text-xs text-slate-500">
               Contrato: <span className="font-semibold text-slate-700">{permit.contratoOrcamento}</span> • Equipamento:{' '}
@@ -294,71 +382,96 @@ export function CartaConclusaoDigitalModal({
           </button>
         </div>
 
-        {/* TELA DE SUCESSO */}
+        {/* =========================================================================
+            TELA DE SUCESSO COM BOTÕES DE VISUALIZAR E BAIXAR
+            ========================================================================= */}
         {sucessoCarta ? (
-          <div className="space-y-4 py-4 text-center">
+          <div className="space-y-5 py-4 text-center">
             <div className="w-16 h-16 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mx-auto text-3xl font-black shadow-inner">
               ✓
             </div>
             <div className="space-y-1">
               <h4 className="text-lg font-black text-slate-900">
-                Carta de Conclusão Assinada com Sucesso!
+                Carta de Conclusão Digital Emitida com Sucesso!
               </h4>
               <p className="text-xs text-slate-600 max-w-md mx-auto">
-                O documento oficial da TKE foi carimbado com o Termo de Ciência e Recebimento e a assinatura digital do cliente.
+                O documento oficial no padrão TKE foi gerado com o Termo de Ciência e Recebimento e a assinatura digital do cliente.
               </p>
             </div>
 
-            {/* Ações Imediatas */}
-            <div className="flex flex-wrap items-center justify-center gap-2.5 pt-3">
-              {/* Baixar */}
+            {/* BOTÕES DE VISUALIZAR E BAIXAR (CONFORME SOLICITADO PELO USUÁRIO) */}
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              {/* 1. BOTÃO VISUALIZAR */}
+              <button
+                type="button"
+                onClick={() => setVisualizandoPreviewModal(!visualizandoPreviewModal)}
+                className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm px-5 py-2.5 rounded-xl shadow-xs transition hover:scale-102"
+              >
+                <span>👁️</span>
+                <span>{visualizandoPreviewModal ? 'Ocultar Visualização' : 'Visualizar Carta Digital'}</span>
+              </button>
+
+              {/* 2. BOTÃO BAIXAR */}
               <a
                 href={sucessoCarta.driveDownloadUrl || sucessoCarta.driveViewUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition"
+                className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm px-5 py-2.5 rounded-xl shadow-xs transition hover:scale-102"
               >
                 <span>📥</span>
-                <span>Baixar PDF Oficial</span>
+                <span>Baixar Carta Digital (PDF)</span>
               </a>
 
-              {/* Visualizar */}
-              <a
-                href={sucessoCarta.driveViewUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition"
-              >
-                <span>👁️</span>
-                <span>Visualizar Documento</span>
-              </a>
-
-              {/* WhatsApp */}
+              {/* 3. BOTÃO WHATSAPP */}
               <a
                 href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
                   `Olá! Segue a Carta de Conclusão Digital do serviço realizado no equipamento ${permit.equipamento} (Contrato: ${permit.contratoOrcamento}) com o Termo de Recebimento assinado:\n${window.location.origin}${sucessoCarta.driveViewUrl}`
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition"
+                className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl shadow-xs transition hover:scale-102"
               >
                 <span>🟢</span>
                 <span>Enviar no WhatsApp</span>
               </a>
             </div>
 
+            {/* Visualizador Iframe Integrado se o usuário clicar em Visualizar */}
+            {visualizandoPreviewModal && (
+              <div className="mt-4 border border-slate-300 rounded-xl overflow-hidden shadow-inner bg-slate-100">
+                <div className="p-2 bg-slate-200 text-xs font-bold text-slate-700 flex items-center justify-between">
+                  <span>Pré-visualização do PDF Oficial</span>
+                  <a
+                    href={sucessoCarta.driveViewUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline text-[11px]"
+                  >
+                    Abrir em nova aba ↗
+                  </a>
+                </div>
+                <iframe
+                  src={sucessoCarta.driveViewUrl}
+                  className="w-full h-96 sm:h-[480px] border-0 bg-white"
+                  title="Visualização da Carta de Conclusão Digital"
+                />
+              </div>
+            )}
+
             <div className="pt-4 border-t border-slate-100">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-6 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition"
+                className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition"
               >
                 Concluir e Voltar para a Tabela
               </button>
             </div>
           </div>
         ) : (
-          /* FORMULÁRIO DE PREENCHIMENTO E ASSINATURA */
+          /* =========================================================================
+              FORMULÁRIO DE EDIÇÃO E ASSINATURA
+              ========================================================================= */
           <form onSubmit={handleSubmit} className="space-y-5 text-xs">
             {erroMsg && (
               <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl flex items-center gap-2 text-xs">
@@ -367,56 +480,56 @@ export function CartaConclusaoDigitalModal({
               </div>
             )}
 
-            {/* SEÇÃO 1: ESCOLHA DA CARTA BASE (PDF) */}
-            <div className="space-y-2.5 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+            {/* SELEÇÃO DO MODO: MODELO DIGITAL TKE OU IMPORTAR PDF */}
+            <div className="space-y-2 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
               <label className="block font-bold text-slate-800 text-xs">
-                1. Selecione o Documento Base da Carta:
+                Selecione o Modo da Carta:
               </label>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {/* Opção A: Usar Modelo Padrão Digital TKE */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {/* 1. Usar Modelo Digital TKE (Permite editar todas as informações no mesmo layout) */}
                 <button
                   type="button"
                   onClick={() => setModoPdf('MODELO_PADRAO')}
-                  className={`p-3 rounded-xl border text-left transition flex items-start gap-2.5 ${
+                  className={`p-3.5 rounded-xl border text-left transition flex items-start gap-3 ${
                     modoPdf === 'MODELO_PADRAO'
-                      ? 'border-orange-500 bg-orange-50/70 text-orange-950 ring-2 ring-orange-400'
+                      ? 'border-orange-500 bg-orange-50/80 text-orange-950 ring-2 ring-orange-400 shadow-xs'
                       : 'border-slate-300 bg-white hover:bg-slate-50 text-slate-700'
                   }`}
                 >
-                  <span className="text-xl">🏢</span>
+                  <span className="text-2xl">🏢</span>
                   <div>
-                    <span className="font-bold text-xs block">Usar Modelo Digital TKE</span>
-                    <span className="text-[11px] text-slate-500 block">
-                      Modelo oficial TKE padrão com dados da PT pré-configurados
+                    <span className="font-extrabold text-xs block">Usar Modelo Digital TKE</span>
+                    <span className="text-[11px] text-slate-500 block leading-tight mt-0.5">
+                      Edite todas as informações de texto mantendo exatamente o mesmo modelo oficial.
                     </span>
                   </div>
                 </button>
 
-                {/* Opção B: Importar Arquivo PDF Customizado */}
+                {/* 2. Importar Arquivo PDF (Mantém a folha original e só carimba o termo) */}
                 <button
                   type="button"
                   onClick={() => {
                     setModoPdf('UPLOAD');
                     pdfInputRef.current?.click();
                   }}
-                  className={`p-3 rounded-xl border text-left transition flex items-start gap-2.5 ${
+                  className={`p-3.5 rounded-xl border text-left transition flex items-start gap-3 ${
                     modoPdf === 'UPLOAD'
-                      ? 'border-orange-500 bg-orange-50/70 text-orange-950 ring-2 ring-orange-400'
+                      ? 'border-orange-500 bg-orange-50/80 text-orange-950 ring-2 ring-orange-400 shadow-xs'
                       : 'border-slate-300 bg-white hover:bg-slate-50 text-slate-700'
                   }`}
                 >
-                  <span className="text-xl">📥</span>
+                  <span className="text-2xl">📥</span>
                   <div>
-                    <span className="font-bold text-xs block">Importar Arquivo PDF</span>
-                    <span className="text-[11px] text-slate-500 block">
-                      Subir o PDF da carta (ex: MODELO CARTA DE CONCLUSÃO DIGITAL.pdf)
+                    <span className="font-extrabold text-xs block">Importar Arquivo PDF</span>
+                    <span className="text-[11px] text-slate-500 block leading-tight mt-0.5">
+                      O preenchimento permanecerá na folha original sem criar outra página.
                     </span>
                   </div>
                 </button>
               </div>
 
-              {/* Input invisível para PDF */}
+              {/* Input oculto para upload de PDF */}
               <input
                 type="file"
                 accept="application/pdf"
@@ -432,12 +545,13 @@ export function CartaConclusaoDigitalModal({
                 }}
               />
 
-              {/* Detalhe do Arquivo PDF Importado */}
+              {/* Detalhes do Arquivo PDF Importado */}
               {modoPdf === 'UPLOAD' && (
-                <div className="pt-1">
+                <div className="pt-2">
                   {pdfFile ? (
-                    <div className="flex items-center justify-between p-2.5 bg-white border border-slate-300 rounded-lg text-xs">
-                      <span className="font-bold text-slate-800 flex items-center gap-1.5 truncate max-w-sm">
+                    <div className="flex items-center justify-between p-3 bg-white border border-emerald-300 rounded-xl text-xs">
+                      <span className="font-bold text-slate-800 flex items-center gap-2 truncate max-w-md">
+                        <span className="text-emerald-600 font-black">✓</span>
                         <span>📄</span>
                         <span className="truncate">{pdfFile.name}</span>
                         <span className="text-slate-400 font-normal">
@@ -447,23 +561,26 @@ export function CartaConclusaoDigitalModal({
                       <button
                         type="button"
                         onClick={() => pdfInputRef.current?.click()}
-                        className="text-orange-600 hover:underline font-bold text-[11px]"
+                        className="text-orange-600 hover:underline font-bold text-xs"
                       >
-                        Trocar PDF
+                        Trocar Arquivo
                       </button>
                     </div>
                   ) : (
-                    <div className="border border-dashed border-orange-300 bg-orange-50/40 p-3 rounded-lg text-center">
-                      <p className="text-xs text-orange-800 font-medium">
+                    <div className="border border-dashed border-orange-300 bg-orange-50/50 p-4 rounded-xl text-center space-y-2">
+                      <p className="text-xs text-orange-900 font-bold">
                         Nenhum PDF selecionado ainda.
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        O preenchimento do cliente e a assinatura serão aplicados diretamente sobre o quadro da folha original.
                       </p>
                       <button
                         type="button"
                         onClick={() => pdfInputRef.current?.click()}
-                        className="mt-1.5 inline-flex items-center gap-1 text-xs font-bold text-orange-700 bg-white border border-orange-300 px-3 py-1.5 rounded-lg shadow-2xs hover:bg-orange-50"
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-700 bg-white border border-orange-300 px-4 py-2 rounded-xl shadow-xs hover:bg-orange-50"
                       >
                         <span>📁</span>
-                        <span>Escolher Arquivo PDF</span>
+                        <span>Selecionar Arquivo PDF</span>
                       </button>
                     </div>
                   )}
@@ -471,14 +588,206 @@ export function CartaConclusaoDigitalModal({
               )}
             </div>
 
-            {/* SEÇÃO 2: TERMO DE CIÊNCIA E RECEBIMENTO (FIEL À IMAGEM 2) */}
+            {/* =====================================================================
+                PAINEL DE EDIÇÃO COMPLETA DO MODELO DIGITAL TKE
+                (MANTENDO EXATAMENTE O MESMO MODELO VISUAL DA IMAGEM 1)
+                ===================================================================== */}
+            {modoPdf === 'MODELO_PADRAO' && (
+              <div className="space-y-4 border border-orange-200 bg-amber-50/30 p-4 rounded-xl">
+                <div className="flex items-center justify-between border-b border-orange-200 pb-2">
+                  <h4 className="font-black text-slate-900 text-xs sm:text-sm uppercase tracking-wide flex items-center gap-1.5">
+                    <span>✏️</span>
+                    <span>Editar Informações do Modelo Oficial TKE</span>
+                  </h4>
+                  <span className="text-[10px] font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded">
+                    Layout Idêntico ao Modelo Oficial
+                  </span>
+                </div>
+
+                {/* 1. DADOS DA FILIAL TKE & DESTINATÁRIO */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Bloco TKE */}
+                  <div className="p-3 bg-white rounded-lg border border-slate-200 space-y-2">
+                    <span className="font-bold text-[11px] text-slate-800 uppercase block border-b border-slate-100 pb-1">
+                      Dados da Unidade TKE (Topo Direito)
+                    </span>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 block">CNPJ TKE:</label>
+                      <input
+                        type="text"
+                        value={tkeCnpj}
+                        onChange={(e) => setTkeCnpj(e.target.value)}
+                        className="w-full text-xs border border-slate-300 rounded px-2 py-1"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 block">Endereço da Unidade:</label>
+                      <input
+                        type="text"
+                        value={tkeEndereco}
+                        onChange={(e) => setTkeEndereco(e.target.value)}
+                        className="w-full text-xs border border-slate-300 rounded px-2 py-1"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-600 block">Cidade / UF:</label>
+                        <input
+                          type="text"
+                          value={tkeCidadeUf}
+                          onChange={(e) => setTkeCidadeUf(e.target.value)}
+                          className="w-full text-xs border border-slate-300 rounded px-2 py-1"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-600 block">Filial Nº:</label>
+                        <input
+                          type="text"
+                          value={filial}
+                          onChange={(e) => setFilial(e.target.value)}
+                          className="w-full text-xs border border-slate-300 rounded px-2 py-1"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bloco Cliente / Destinatário */}
+                  <div className="p-3 bg-white rounded-lg border border-slate-200 space-y-2">
+                    <span className="font-bold text-[11px] text-slate-800 uppercase block border-b border-slate-100 pb-1">
+                      Destinatário AO(a) (Topo Esquerdo)
+                    </span>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 block">Nome do Cliente / Edifício:</label>
+                      <input
+                        type="text"
+                        value={clienteNomeDoc}
+                        onChange={(e) => setClienteNomeDoc(e.target.value)}
+                        className="w-full text-xs border border-slate-300 rounded px-2 py-1 font-semibold"
+                        placeholder="Ex: AVENUES SAO PAULO EDUCACAO LTDA"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 block">Endereço do Local:</label>
+                      <input
+                        type="text"
+                        value={clienteEndereco}
+                        onChange={(e) => setClienteEndereco(e.target.value)}
+                        className="w-full text-xs border border-slate-300 rounded px-2 py-1"
+                        placeholder="Ex: RUA PEDRO AVANCINE 73 JARDIM PANORAMA"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 block">Cidade - UF:</label>
+                      <input
+                        type="text"
+                        value={clienteCidadeUf}
+                        onChange={(e) => setClienteCidadeUf(e.target.value)}
+                        className="w-full text-xs border border-slate-300 rounded px-2 py-1"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. DADOS DO CONTRATO E REPARO */}
+                <div className="p-3 bg-white rounded-lg border border-slate-200 space-y-2">
+                  <span className="font-bold text-[11px] text-slate-800 uppercase block border-b border-slate-100 pb-1">
+                    Informações do Reparo Concluído
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 block">Contrato TKE sob o Nº:</label>
+                      <input
+                        type="text"
+                        value={contratoNumero}
+                        onChange={(e) => setContratoNumero(e.target.value)}
+                        className="w-full text-xs border border-slate-300 rounded px-2 py-1 font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 block">Equipamento(s):</label>
+                      <input
+                        type="text"
+                        value={equipamentosTexto}
+                        onChange={(e) => setEquipamentosTexto(e.target.value)}
+                        className="w-full text-xs border border-slate-300 rounded px-2 py-1 font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 block">Orçamento de Reparo Nº:</label>
+                      <input
+                        type="text"
+                        value={orcamentoNumero}
+                        onChange={(e) => setOrcamentoNumero(e.target.value)}
+                        className="w-full text-xs border border-slate-300 rounded px-2 py-1 font-semibold"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. TABELA DE SERVIÇOS EXECUTADOS (COM ADIÇÃO/REMOÇÃO DE LINHAS) */}
+                <div className="p-3 bg-white rounded-lg border border-slate-200 space-y-2.5">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+                    <span className="font-bold text-[11px] text-slate-800 uppercase">
+                      Tabela de Serviços Executados
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleAddServico}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 px-2.5 py-1 rounded-lg transition"
+                    >
+                      <span>+</span>
+                      <span>Adicionar Linha de Serviço</span>
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {servicosList.map((item, idx) => (
+                      <div key={item.id} className="flex items-center gap-2">
+                        <div className="w-1/4">
+                          <input
+                            type="text"
+                            value={item.equipamento}
+                            onChange={(e) => handleServicoChange(item.id, 'equipamento', e.target.value)}
+                            placeholder="Equipamento"
+                            className="w-full text-xs border border-slate-300 rounded px-2 py-1 font-semibold"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <input
+                            type="text"
+                            value={item.servico}
+                            onChange={(e) => handleServicoChange(item.id, 'servico', e.target.value)}
+                            placeholder="Descrição do serviço executado"
+                            className="w-full text-xs border border-slate-300 rounded px-2 py-1 font-semibold"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveServico(item.id)}
+                          disabled={servicosList.length <= 1}
+                          className="text-red-500 hover:text-red-700 p-1 font-bold disabled:opacity-30"
+                          title="Remover linha"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* =====================================================================
+                QUADRO: TERMO DE CIÊNCIA E RECEBIMENTO
+                (IDÊNTICO À SEGUNDA IMAGEM E AO RODAPÉ DO MODELO OFICIAL)
+                ===================================================================== */}
             <div className="border-2 border-slate-800 rounded-xl p-4 sm:p-5 bg-white space-y-3.5 shadow-xs">
               <div className="border-b-2 border-slate-800 pb-2 flex items-center justify-between">
                 <h4 className="font-black text-slate-900 text-sm tracking-wide uppercase">
                   TERMO DE CIENCIA E RECEBIMENTO:
                 </h4>
                 <span className="text-[10px] font-bold text-slate-500 uppercase">
-                  Preenchimento com o Cliente
+                  Assinatura do Cliente / Responsável
                 </span>
               </div>
 
@@ -493,7 +802,7 @@ export function CartaConclusaoDigitalModal({
                     type="text"
                     value={nomeCliente}
                     onChange={(e) => setNomeCliente(e.target.value)}
-                    placeholder="Nome completo do responsável / recebedor"
+                    placeholder="Nome completo do responsável que assina"
                     className="w-full text-xs sm:text-sm font-semibold border-b-2 border-slate-400 focus:border-slate-900 py-1.5 px-2 bg-slate-50/70 focus:bg-white focus:outline-hidden transition"
                     required
                   />
@@ -562,7 +871,7 @@ export function CartaConclusaoDigitalModal({
               <div className="pt-2">
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block font-black text-slate-900">
-                    ASSINATURA DO CLIENTE: <span className="text-red-600">*</span>
+                    ASSINATURA: <span className="text-red-600">*</span>
                   </label>
                   {hasDrawn && (
                     <button
@@ -603,7 +912,7 @@ export function CartaConclusaoDigitalModal({
                 </div>
               </div>
 
-              {/* Nota Legal Oficial do Rodapé */}
+              {/* Texto de Rodapé Oficial dos 15 Dias */}
               <div className="pt-2 border-t border-slate-200">
                 <p className="text-[10px] sm:text-[11px] text-slate-600 italic leading-snug">
                   *Na hipótese de ausência de assinatura do presente termo, sem qualquer manifestação em contrário, no prazo de 15 (quinze) dias, a contar da data da entrega deste, implica em aceitação da conclusão dos serviços.
@@ -611,7 +920,7 @@ export function CartaConclusaoDigitalModal({
               </div>
             </div>
 
-            {/* SEÇÃO 3: DADOS DO TÉCNICO E OBSERVAÇÕES */}
+            {/* DADOS DO TÉCNICO E OBSERVAÇÕES */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
@@ -664,7 +973,7 @@ export function CartaConclusaoDigitalModal({
                 ) : (
                   <>
                     <span>✅</span>
-                    <span>Assinar Digitalmente e Salvar Carta</span>
+                    <span>Assinar Digitalmente e Concluir Carta</span>
                   </>
                 )}
               </button>

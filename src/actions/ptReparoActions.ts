@@ -930,6 +930,28 @@ export async function salvarCartaConclusaoDigitalAction(formData: FormData) {
     const observacoes = (formData.get('observacoes') as string) || '';
     const pdfFile = formData.get('pdfFile') as File | null;
 
+    // Campos adicionais editáveis do Modelo Digital TKE
+    const tkeCnpj = (formData.get('tkeCnpj') as string) || '';
+    const tkeEndereco = (formData.get('tkeEndereco') as string) || '';
+    const tkeCidadeUf = (formData.get('tkeCidadeUf') as string) || '';
+    const clienteNomeInput = (formData.get('clienteNome') as string) || '';
+    const clienteEndereco = (formData.get('clienteEndereco') as string) || '';
+    const clienteCidadeUf = (formData.get('clienteCidadeUf') as string) || '';
+    const filial = (formData.get('filial') as string) || '';
+    const orcamentoInput = (formData.get('orcamento') as string) || '';
+    const contratoInput = (formData.get('contrato') as string) || '';
+    const equipamentosInput = (formData.get('equipamentos') as string) || '';
+    const servicosJson = (formData.get('servicosJson') as string) || '';
+
+    let servicosList: any[] = [];
+    if (servicosJson) {
+      try {
+        servicosList = JSON.parse(servicosJson);
+      } catch (e) {
+        console.warn('[salvarCartaConclusaoDigitalAction] Falha ao fazer parse de servicosJson:', e);
+      }
+    }
+
     if (!workPermitId) {
       return { success: false, error: 'Identificador da PT não informado.' };
     }
@@ -979,13 +1001,21 @@ export async function salvarCartaConclusaoDigitalAction(formData: FormData) {
 
     const finalPdfBuffer = await gerarCartaConclusaoDigitalPdf({
       codigoPT: permit.codigo,
-      contratoOrcamento: permit.contratoOrcamento,
-      equipamento: permit.equipamento,
-      orcamento: (permit.dadosCompletos as any)?.ordemServico?.orcamento || permit.contratoOrcamento,
+      contratoOrcamento: contratoInput.trim() || permit.contratoOrcamento,
+      equipamento: equipamentosInput.trim() || permit.equipamento,
+      orcamento: orcamentoInput.trim() || (permit.dadosCompletos as any)?.ordemServico?.orcamento || permit.contratoOrcamento,
       servicoDescricao:
         (permit.dadosCompletos as any)?.dadosGerais?.servicosExecutados ||
         permit.classificacaoReparo ||
         'SERVIÇOS DE REPARO E MANUTENÇÃO',
+      tkeCnpj: tkeCnpj.trim(),
+      tkeEndereco: tkeEndereco.trim(),
+      tkeCidadeUf: tkeCidadeUf.trim(),
+      clienteNome: clienteNomeInput.trim() || nomeCliente.trim(),
+      clienteEndereco: clienteEndereco.trim(),
+      clienteCidadeUf: clienteCidadeUf.trim(),
+      filial: filial.trim(),
+      servicos: servicosList,
       nomeCliente: nomeCliente.trim(),
       cpfCliente: cpfCliente.trim(),
       funcaoCliente: funcaoCliente.trim(),
