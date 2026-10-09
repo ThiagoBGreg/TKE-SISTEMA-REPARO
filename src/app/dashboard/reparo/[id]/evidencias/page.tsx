@@ -35,7 +35,7 @@ export default async function EvidenciasPage({
         <div>
           <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
             <Link href="/dashboard/reparo" className="hover:underline">
-              Ordens de Serviço
+              Solicitação de Serviços
             </Link>
             <span>/</span>
             <span className="font-semibold text-slate-800">{order.codigo}</span>
@@ -55,7 +55,7 @@ export default async function EvidenciasPage({
           href={`/dashboard/reparo`}
           className="bg-white border border-slate-300 text-slate-700 text-xs font-semibold px-4 py-2 rounded-xl hover:bg-slate-50 transition self-start"
         >
-          ← Voltar para a OS
+          ← Voltar para Solicitações
         </Link>
       </div>
 

@@ -57,27 +57,15 @@ export default function ReparoPage() {
         <div className="flex items-center gap-3">
           <TkeLogo variant="badge" size="sm" />
           <div>
-            <h1 className="text-xl font-bold text-slate-900">Ordens de Serviço de Reparo</h1>
+            <h1 className="text-xl font-bold text-slate-900">SOLICITAÇÃO DE SERVIÇOS</h1>
             <p className="text-xs text-slate-500">
-              Controle de manutenções corretivas, preventivas e substituição de componentes com APR obrigatória.
+              Controle e acompanhamento das solicitações de serviços técnicos e manutenções.
             </p>
           </div>
         </div>
-
-        <AnimatedButton
-          href="/dashboard/reparo/pt"
-          variant="gradient"
-          size="md"
-          shimmer
-          glow
-          lift
-          icon={<span>✍️</span>}
-        >
-          Emitir Nova PT / APR
-        </AnimatedButton>
       </div>
 
-      {/* Tabela de Ordens */}
+      {/* Tabela de Solicitações */}
       <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
@@ -87,7 +75,7 @@ export default function ReparoPage() {
                 <th className="p-4">Serviço / Equipamento</th>
                 <th className="p-4">Prioridade</th>
                 <th className="p-4">Responsável</th>
-                <th className="p-4">Status / PT</th>
+                <th className="p-4">Status</th>
                 <th className="p-4 text-right">Ação</th>
               </tr>
             </thead>
@@ -117,35 +105,19 @@ export default function ReparoPage() {
                   </td>
                   <td className="p-4 text-slate-600 font-medium">{ordem.responsavel}</td>
                   <td className="p-4">
-                    <div className="font-semibold text-slate-800 font-mono text-[11px]">{ordem.status.replace('_', ' ')}</div>
-                    {ordem.ptCodigo ? (
-                      <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1 mt-0.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                        {ordem.ptCodigo}
-                      </span>
-                    ) : (
-                      <span className="text-[10px] text-amber-600 font-medium">
-                        Sem PT emitida
-                      </span>
-                    )}
+                    <span className="font-semibold text-slate-800 font-mono text-[11px] px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200">
+                      {ordem.status.replace(/_/g, ' ')}
+                    </span>
                   </td>
                   <td className="p-4 text-right">
                     <AnimatedButton
-                      href={
-                        ordem.status === 'EM_EXECUCAO' && ordem.ptCodigo
-                          ? `/dashboard/reparo/pt?editPtId=${ordem.ptCodigo}`
-                          : `/dashboard/reparo/pt?os=${ordem.codigo}`
-                      }
-                      variant={ordem.status === 'EM_EXECUCAO' && ordem.ptCodigo ? 'orange' : ordem.ptCodigo ? 'dark' : 'orange'}
+                      href={`/dashboard/reparo/${ordem.id}/evidencias`}
+                      variant="dark"
                       size="xs"
                       shimmer
                       lift
                     >
-                      {ordem.status === 'EM_EXECUCAO' && ordem.ptCodigo
-                        ? '✏️ Editar APR'
-                        : ordem.ptCodigo
-                        ? 'Ver / Abrir PT'
-                        : 'Emitir PT'}
+                      Ver Detalhes
                     </AnimatedButton>
                   </td>
                 </tr>

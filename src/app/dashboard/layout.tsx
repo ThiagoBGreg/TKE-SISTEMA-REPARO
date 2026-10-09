@@ -17,7 +17,7 @@ const NAV_ITEMS = [
   },
   {
     href: '/dashboard/reparo',
-    label: 'Ordens de Serviço',
+    label: 'SOLICITAÇÃO DE SERVIÇOS',
     icon: '📋',
     departments: ['REPARO', 'SERVICOS', 'OSH', 'DLOG', 'ADMINISTRATIVO'],
   },
