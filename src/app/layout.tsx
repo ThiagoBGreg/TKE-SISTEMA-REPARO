@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { GlobalThemeProvider } from '@/components/theme/GlobalThemeProvider';
 
 export const metadata: Metadata = {
   title: 'TKE • Sistema de Gestão e Monitoramento de Reparos',
@@ -17,8 +18,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR">
-      <body className="min-h-screen bg-slate-50 text-slate-900 antialiased selection:bg-orange-500 selection:text-white">
-        {children}
+      <body className="min-h-screen bg-sys text-sys antialiased selection:bg-orange-500 selection:text-white">
+        <GlobalThemeProvider>
+          {children}
+        </GlobalThemeProvider>
       </body>
     </html>
   );

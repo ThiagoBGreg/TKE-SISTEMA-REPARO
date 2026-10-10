@@ -1,0 +1,200 @@
+{
+  "version": 1,
+  "updatedAt": "2026-10-10T16:40:00.000Z",
+  "updatedBy": "Thiago Gregorio (DEV)",
+  "theme": "light",
+  "themeConfig": {
+    "paletteId": "white-modern",
+    "bgColor": "#ffffff",
+    "textColor": "#0f172a",
+    "cardBgColor": "#ffffff",
+    "borderColor": "#e2e8f0",
+    "accentColor": "#ff5e00",
+    "isDark": false
+  },
+  "photoWindows": [],
+  "topBar": {
+    "logoUrl": "/images/imagem-3.webp",
+    "logoAlt": "TKE Move Beyond Oficial",
+    "systemTag": "REPAROS",
+    "subTitle": "Move Beyond • Gestão de APR",
+    "utilityLinks": [
+      { "label": "Portal Corporativo", "href": "https://www.tkelevator.com" },
+      { "label": "Segurança OSH", "href": "/dashboard/osh" },
+      { "label": "Logística DLOG", "href": "/dashboard/dlog" },
+      { "label": "Brasil (PT-BR)", "href": "/" }
+    ],
+    "navButtons": [
+      {
+        "id": "nav-servicos",
+        "label": "Ordens de Serviço",
+        "href": "/dashboard/reparo",
+        "variant": "ghost",
+        "actionType": "link"
+      },
+      {
+        "id": "nav-emitir-pt",
+        "label": "Emitir PT / APR",
+        "href": "/dashboard/reparo/pt",
+        "variant": "dark",
+        "icon": "🛡️",
+        "actionType": "emitirPt"
+      },
+      {
+        "id": "nav-cadastrar-user",
+        "label": "Cadastrar Usuário",
+        "href": "#cadastro",
+        "variant": "outline",
+        "icon": "👤",
+        "actionType": "registerUser"
+      },
+      {
+        "id": "nav-prestador",
+        "label": "Portal Prestador",
+        "href": "/dashboard/subcontratado/historico",
+        "variant": "ghost",
+        "icon": "💼",
+        "actionType": "link"
+      },
+      {
+        "id": "nav-painel",
+        "label": "Acessar Painel",
+        "href": "/dashboard",
+        "variant": "gradient",
+        "icon": "→",
+        "actionType": "link"
+      }
+    ]
+  },
+  "hero": {
+    "badgeText": "TKE MOVE BEYOND • Padrão Global de Engenharia & Segurança",
+    "bracketTopText": "WELCOME TO TKE",
+    "bracketHeadline": "WE MOVE BEYOND TO ELEVATE URBAN LIVING",
+    "titleHighlight": "Serviços de Reparo & Emissão de PT",
+    "subtitle": "Fluxo digital completo e integrado: emissão de Permissão de Trabalho (PT/APR), assinaturas digitais com geolocalização em tempo real, controle rigoroso de riscos NR-10, NR-18 e NR-35.",
+    "bannerImageUrl": "/images/brand-keyvisual-1900px_image_w1900_h450.webp",
+    "bannerLabel": "Padrão Global de Engenharia & Segurança",
+    "bannerSub": "Controle Rigoroso de Riscos • NR-10, NR-18 e NR-35",
+    "ctaButtons": [
+      {
+        "id": "cta-solicitar-reparo",
+        "label": "Solicitar Reparo / Abrir Chamado",
+        "href": "#abrir-chamado",
+        "variant": "gradient",
+        "icon": "⚡",
+        "actionType": "quickRepair"
+      },
+      {
+        "id": "cta-emitir-pt",
+        "label": "Emitir PT / APR Digital",
+        "href": "/dashboard/reparo/pt",
+        "variant": "dark",
+        "icon": "✍️",
+        "actionType": "emitirPt"
+      },
+      {
+        "id": "cta-cadastrar-user",
+        "label": "Cadastrar Usuário TKE",
+        "href": "#cadastro",
+        "variant": "purple",
+        "icon": "👤",
+        "actionType": "registerUser"
+      },
+      {
+        "id": "cta-portal-prestador",
+        "label": "Portal do Prestador",
+        "href": "/dashboard/subcontratado/historico",
+        "variant": "outline",
+        "icon": "💼",
+        "actionType": "link"
+      }
+    ]
+  },
+  "subBar": {
+    "enabled": true,
+    "items": [
+      { "id": "sub-1", "label": "Ordens de Serviço", "href": "/dashboard/reparo" },
+      { "id": "sub-2", "label": "Emissão de PT/APR", "href": "/dashboard/reparo/pt" },
+      { "id": "sub-3", "label": "Acompanhamento Tempo Real", "href": "/dashboard/reparo/acompanhamento" },
+      { "id": "sub-4", "label": "Laudos & Segurança (OSH)", "href": "/dashboard/osh" },
+      { "id": "sub-5", "label": "Logística de Peças (DLOG)", "href": "/dashboard/dlog" },
+      { "id": "sub-6", "label": "Pagamentos Subcontratados", "href": "/dashboard/pagamentos" },
+      { "id": "sub-7", "label": "Gestão de Usuários", "href": "/dashboard/usuarios" }
+    ],
+    "ctaButton": {
+      "label": "Solicitar Reparo / Abrir Chamado",
+      "href": "#abrir-chamado",
+      "actionType": "quickRepair"
+    }
+  },
+  "statement": {
+    "enabled": true,
+    "headline": "We improve the quality of urban life around the world through innovation, high reliability and advanced engineering.",
+    "highlightText": "We improve the quality of urban life",
+    "text": "A TKE é líder global em transporte vertical e infraestrutura de alta tecnologia. Nosso compromisso inegociável é com a segurança total das pessoas, o cumprimento irrestrito das Normas Regulamentadoras (NR) e a precisão operacional na emissão de Permissões de Trabalho (PT/APR)."
+  },
+  "videoSection": {
+    "enabled": true,
+    "title": "TECNOLOGIA & SEGURANÇA EM MOVIMENTO",
+    "subtitle": "Conheça nossa infraestrutura e procedimento operacional padrão global.",
+    "videoUrl": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "posterUrl": "/images/modelo-referencia-1.png",
+    "bracketTitle": "MOVE BEYOND VIDEO"
+  },
+  "featuresGrid": {
+    "enabled": true,
+    "title": "Soluções Digitais de Engenharia & Reparo",
+    "subtitle": "Acesso rápido aos módulos operacionais do Sistema TKE",
+    "cards": [
+      {
+        "id": "feat-reparo",
+        "title": "Solicitação & Ordens de Reparo",
+        "description": "Abertura ágil de chamados técnicos, diagnóstico e acompanhamento de ordens de serviço em tempo real.",
+        "tag": "OPERAÇÃO REPARO",
+        "imageUrl": "/images/Template-Capa-Blogs.png",
+        "href": "/dashboard/reparo",
+        "badgeColor": "border-orange-500/30 text-orange-500 bg-orange-50"
+      },
+      {
+        "id": "feat-pt",
+        "title": "Emissão de PT / APR Digital",
+        "description": "Emissão com geolocalização por satélite, validação de checklist de segurança e assinaturas digitais na tela.",
+        "tag": "SEGURANÇA DO TRABALHO",
+        "imageUrl": "/images/modelo-referencia-1.png",
+        "href": "/dashboard/reparo/pt",
+        "badgeColor": "border-purple-500/30 text-purple-600 bg-purple-50"
+      },
+      {
+        "id": "feat-osh",
+        "title": "Controle Normativo OSH & NR",
+        "description": "Validação técnica imediata de trabalho em altura (NR-35), eletricidade (NR-10) e construção (NR-18).",
+        "tag": "OSH GLOBAL",
+        "imageUrl": "/images/modelo-referencia-2.png",
+        "href": "/dashboard/osh",
+        "badgeColor": "border-amber-500/30 text-amber-600 bg-amber-50"
+      },
+      {
+        "id": "feat-dlog",
+        "title": "Logística & Despacho DLOG",
+        "description": "Rastreamento de peças, rotas de motoristas e entrega expressa de componentes críticos.",
+        "tag": "DLOG LOGÍSTICA",
+        "imageUrl": "/images/imagem-2.png",
+        "href": "/dashboard/dlog",
+        "badgeColor": "border-emerald-500/30 text-emerald-600 bg-emerald-50"
+      }
+    ]
+  },
+  "customBlocks": [],
+  "footer": {
+    "logoUrl": "/images/imagem-3.webp",
+    "copyrightText": "© 2026 TK Elevator Brasil • Sistema de Gestão de Reparo & APR • Move Beyond",
+    "links": [
+      { "label": "Visão Geral", "href": "/dashboard" },
+      { "label": "Solicitação de Serviços", "href": "/dashboard/reparo" },
+      { "label": "Permissões (PT/APR)", "href": "/dashboard/reparo/pt" },
+      { "label": "Portal do Prestador", "href": "/dashboard/subcontratado/historico" },
+      { "label": "Gestão de Usuários (DEV)", "href": "/dashboard/usuarios" },
+      { "label": "Política de Privacidade", "href": "#" }
+    ]
+  }
+}

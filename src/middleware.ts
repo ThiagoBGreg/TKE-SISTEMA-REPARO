@@ -40,7 +40,11 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // 1. Permite acesso irrestrito a rotas públicas e arquivos estáticos
-  const isPublicPath = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
+  const isPublicPath =
+    pathname === '/' ||
+    pathname.startsWith('/images') ||
+    pathname.startsWith('/api/home-config') ||
+    PUBLIC_PATHS.some((path) => pathname.startsWith(path));
   if (isPublicPath || pathname.startsWith('/_next') || pathname.startsWith('/assets')) {
     return NextResponse.next();
   }

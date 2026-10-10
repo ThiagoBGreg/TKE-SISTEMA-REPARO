@@ -150,7 +150,7 @@ export default function DashboardLayout({
 
   return (
     <RBACProvider user={user}>
-      <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row w-full overflow-x-hidden">
+      <div className="min-h-screen bg-sys text-sys flex flex-col md:flex-row w-full overflow-x-hidden">
         {/* Backdrop escuro para celular quando o menu estiver aberto */}
         {isMobileMenuOpen && (
           <div
