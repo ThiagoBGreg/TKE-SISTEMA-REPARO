@@ -12,6 +12,9 @@ export const DEFAULT_HOME_CONFIG: HomeConfig = {
   topBar: {
     logoUrl: '/images/imagem-3.webp',
     logoAlt: 'TKE Move Beyond Oficial',
+    brandName: 'TK ELEVATOR GLOBAL',
+    brandSlogan: 'Padrão Move Beyond de Engenharia e Reparo',
+    systemTitle: 'SISTEMA REPARO',
     systemTag: 'REPAROS',
     subTitle: 'Move Beyond • Gestão de APR',
     utilityLinks: [

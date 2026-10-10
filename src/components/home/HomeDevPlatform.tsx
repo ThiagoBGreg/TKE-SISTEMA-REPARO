@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Image from 'next/image';
 import {
   HomeConfig,
@@ -19,6 +19,7 @@ import {
   applySystemTheme,
   ColorPalettePreset,
 } from '@/data/colorPalettes';
+import { MediaGalleryModal } from './MediaGalleryModal';
 
 const PRESET_IMAGES = [
   { id: 'img-3', label: 'Imagem 3: Logo Oficial TKE Move Beyond', url: '/images/imagem-3.webp' },
@@ -67,11 +68,75 @@ export function HomeDevPlatform({
   onOpenVideo,
 }: HomeDevPlatformProps) {
   const [activeTab, setActiveTab] = useState<
-    'cores' | 'janelas' | 'textos' | 'imagens' | 'videos' | 'botoes' | 'blocos' | 'acoes' | 'salvar'
+    'cores' | 'topo' | 'janelas' | 'textos' | 'imagens' | 'videos' | 'botoes' | 'blocos' | 'acoes' | 'salvar'
   >('cores');
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+
+  // Estados para Galeria & Upload Direto de Mídia
+  const uploadFileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadTargetCallback, setUploadTargetCallback] = useState<((url: string) => void) | null>(null);
+  const [galleryTarget, setGalleryTarget] = useState<{
+    isOpen: boolean;
+    mediaType: 'image' | 'video' | 'all';
+    title: string;
+    currentValue: string;
+    onSelect: (url: string) => void;
+  }>({
+    isOpen: false,
+    mediaType: 'image',
+    title: '',
+    currentValue: '',
+    onSelect: () => {},
+  });
+
+  const openMediaGallery = (opts: {
+    mediaType: 'image' | 'video' | 'all';
+    title: string;
+    currentValue?: string;
+    onSelect: (url: string) => void;
+  }) => {
+    setGalleryTarget({
+      isOpen: true,
+      mediaType: opts.mediaType,
+      title: opts.title,
+      currentValue: opts.currentValue || '',
+      onSelect: opts.onSelect,
+    });
+  };
+
+  const triggerDirectUpload = (acceptType: 'image' | 'video', onUploaded: (url: string) => void) => {
+    setUploadTargetCallback(() => onUploaded);
+    if (uploadFileInputRef.current) {
+      uploadFileInputRef.current.accept = acceptType === 'video' ? 'video/mp4,video/webm,video/ogg' : 'image/*';
+      uploadFileInputRef.current.click();
+    }
+  };
+
+  const handleDirectFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !uploadTargetCallback) return;
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/upload-media', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        uploadTargetCallback(data.url);
+      } else {
+        alert(data.error || 'Falha ao enviar arquivo');
+      }
+    } catch (err: any) {
+      alert(`Erro no upload: ${err.message}`);
+    } finally {
+      if (e.target) e.target.value = '';
+    }
+  };
 
   // Estados para Janelas de Fotos
   const [isWindowFormOpen, setIsWindowFormOpen] = useState(false);
@@ -294,6 +359,49 @@ export function HomeDevPlatform({
     });
   };
 
+  // TopBar: Links Utilitários da Barra Superior
+  const addUtilityLink = () => {
+    const current = config.topBar.utilityLinks || [];
+    updateTopBar({
+      utilityLinks: [...current, { label: 'Novo Link', href: '#' }],
+    });
+  };
+
+  const updateUtilityLink = (index: number, partial: { label?: string; href?: string }) => {
+    const current = [...(config.topBar.utilityLinks || [])];
+    current[index] = { ...current[index], ...partial };
+    updateTopBar({ utilityLinks: current });
+  };
+
+  const removeUtilityLink = (index: number) => {
+    const current = (config.topBar.utilityLinks || []).filter((_, i) => i !== index);
+    updateTopBar({ utilityLinks: current });
+  };
+
+  // TopBar: Botões de Ação do Cabeçalho (Navbar)
+  const addTopNavButton = () => {
+    const current = config.topBar.navButtons || [];
+    const newBtn: NavButtonConfig = {
+      id: `nav-${Date.now()}`,
+      label: 'Novo Link',
+      href: '/dashboard',
+      variant: 'ghost',
+      actionType: 'link',
+    };
+    updateTopBar({ navButtons: [...current, newBtn] });
+  };
+
+  const updateTopNavButton = (index: number, partial: Partial<NavButtonConfig>) => {
+    const current = [...(config.topBar.navButtons || [])];
+    current[index] = { ...current[index], ...partial };
+    updateTopBar({ navButtons: current });
+  };
+
+  const removeTopNavButton = (index: number) => {
+    const current = (config.topBar.navButtons || []).filter((_, i) => i !== index);
+    updateTopBar({ navButtons: current });
+  };
+
   const updateHero = (partial: Partial<HomeConfig['hero']>) => {
     onUpdateConfig({
       ...config,
@@ -472,6 +580,7 @@ export function HomeDevPlatform({
       <div className="flex items-center gap-1 px-4 py-2 border-b border-slate-800 bg-slate-900/50 overflow-x-auto text-xs scrollbar-none">
         {[
           { id: 'cores', label: '🎨 Paletas & Cores (Global)' },
+          { id: 'topo', label: '📌 Topo & Cabeçalho' },
           { id: 'janelas', label: '🪟 Janelas de Fotos' },
           { id: 'textos', label: '📝 Textos' },
           { id: 'imagens', label: '🖼️ Logos & Banners' },
@@ -779,6 +888,335 @@ export function HomeDevPlatform({
         )}
 
         {/* ============================================================== */}
+        {/* ABA: TOPO & CABEÇALHO (PARTE DE CIMA DO SITE) */}
+        {/* ============================================================== */}
+        {activeTab === 'topo' && (
+          <div className="space-y-6">
+            <div className="p-4 bg-gradient-to-r from-orange-950/40 via-purple-950/40 to-slate-900 border border-orange-500/30 rounded-2xl space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-extrabold text-orange-400 flex items-center gap-1.5 text-xs">
+                  <span>📌</span> Personalização Completa da Parte Superior
+                </span>
+                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-bold">
+                  TopBar & Navbar
+                </span>
+              </div>
+              <p className="text-slate-300 text-xs leading-relaxed">
+                Edite os textos institucionais, slogan, links utilitários da barra preta do topo, logotipo, títulos e todos os botões de navegação da barra superior.
+              </p>
+            </div>
+
+            {/* SEÇÃO 1: BARRA DE UTILIDADES SUPERIOR (TOP UTILITY BAR) */}
+            <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                <span className="font-black text-white text-xs flex items-center gap-2">
+                  <span>🏢</span> 1. Barra de Utilidades (Faixa Superior Fininha)
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">TK Elevator Global</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-300 text-[11px] block">Nome da Empresa / Marca:</label>
+                  <input
+                    type="text"
+                    value={config.topBar.brandName ?? 'TK ELEVATOR GLOBAL'}
+                    onChange={(e) => updateTopBar({ brandName: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs font-semibold"
+                    placeholder="TK ELEVATOR GLOBAL"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-300 text-[11px] block">Slogan / Texto de Destaque:</label>
+                  <input
+                    type="text"
+                    value={config.topBar.brandSlogan ?? 'Padrão Move Beyond de Engenharia e Reparo'}
+                    onChange={(e) => updateTopBar({ brandSlogan: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs"
+                    placeholder="Padrão Move Beyond de Engenharia e Reparo"
+                  />
+                </div>
+              </div>
+
+              {/* Gerenciador de Links Utilitários */}
+              <div className="space-y-2.5 pt-2 border-t border-slate-800/80">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-300 text-[11px]">
+                    Links Utilitários da Direita ({config.topBar.utilityLinks?.length || 0}):
+                  </span>
+                  <button
+                    type="button"
+                    onClick={addUtilityLink}
+                    className="px-2.5 py-1 rounded-lg bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 border border-orange-500/30 text-[11px] font-bold"
+                  >
+                    + Adicionar Link
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {config.topBar.utilityLinks?.map((uLink, idx) => (
+                    <div
+                      key={idx}
+                      className="p-2.5 bg-slate-950 border border-slate-800 rounded-xl flex items-center gap-2"
+                    >
+                      <input
+                        type="text"
+                        value={uLink.label}
+                        onChange={(e) => updateUtilityLink(idx, { label: e.target.value })}
+                        placeholder="Nome do link"
+                        className="w-1/3 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white text-xs"
+                      />
+                      <input
+                        type="text"
+                        value={uLink.href}
+                        onChange={(e) => updateUtilityLink(idx, { href: e.target.value })}
+                        placeholder="https://... ou /dashboard/..."
+                        className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white font-mono text-[11px]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeUtilityLink(idx)}
+                        className="p-1.5 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg"
+                        title="Remover Link"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* SEÇÃO 2: LOGOTIPO & IDENTIFICAÇÃO DO SISTEMA */}
+            <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                <span className="font-black text-white text-xs flex items-center gap-2">
+                  <span>🎨</span> 2. Logotipo & Identificação do Sistema
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">Navbar Esquerda</span>
+              </div>
+
+              {/* Logo do Header */}
+              <div className="space-y-2">
+                <label className="font-bold text-slate-300 text-[11px] block">Logotipo do Cabeçalho:</label>
+                <div className="flex items-center gap-3">
+                  <div className="relative w-24 h-12 bg-white rounded-xl p-1 shrink-0 border border-slate-700 shadow flex items-center justify-center">
+                    <Image
+                      src={config.topBar.logoUrl || '/images/imagem-3.webp'}
+                      alt="Logo Preview"
+                      fill
+                      unoptimized
+                      className="object-contain p-1"
+                    />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => triggerDirectUpload('image', (url) => updateTopBar({ logoUrl: url }))}
+                        className="px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs flex items-center gap-1.5 shadow"
+                      >
+                        <span>📱</span> Escolher do Celular / PC
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openMediaGallery({
+                            mediaType: 'image',
+                            title: 'Selecionar Logo Principal da Galeria',
+                            currentValue: config.topBar.logoUrl,
+                            onSelect: (url) => updateTopBar({ logoUrl: url }),
+                          })
+                        }
+                        className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center gap-1.5"
+                      >
+                        <span>🖼️</span> Buscar da Galeria
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={config.topBar.logoUrl}
+                      onChange={(e) => updateTopBar({ logoUrl: e.target.value })}
+                      placeholder="/images/imagem-3.webp"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-white font-mono text-[11px]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Título, Badge e Subtítulo */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-800/80">
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-300 text-[11px] block">Título do Sistema:</label>
+                  <input
+                    type="text"
+                    value={config.topBar.systemTitle ?? 'SISTEMA REPARO'}
+                    onChange={(e) => updateTopBar({ systemTitle: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs font-bold"
+                    placeholder="SISTEMA REPARO"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-300 text-[11px] block">Tag / Badge do Topo:</label>
+                  <input
+                    type="text"
+                    value={config.topBar.systemTag}
+                    onChange={(e) => updateTopBar({ systemTag: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-orange-400 font-mono text-xs font-bold"
+                    placeholder="REPAROS"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-300 text-[11px] block">Subtítulo / Descrição:</label>
+                  <input
+                    type="text"
+                    value={config.topBar.subTitle}
+                    onChange={(e) => updateTopBar({ subTitle: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs"
+                    placeholder="Move Beyond • Gestão de APR"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* SEÇÃO 3: BOTÕES DE NAVEGAÇÃO DO CABEÇALHO (NAVBAR) */}
+            <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                <div>
+                  <span className="font-black text-white text-xs flex items-center gap-2">
+                    <span>🔘</span> 3. Botões e Menus de Ação do Cabeçalho
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    Ordens de Serviço, Emitir PT, Cadastro de Usuário, Acessar Painel, etc.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={addTopNavButton}
+                  className="px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs"
+                >
+                  + Adicionar Botão ao Topo
+                </button>
+              </div>
+
+              {/* AVISO IMPORTANTE SOBRE CADASTRO DE USUÁRIO */}
+              <div className="p-3 bg-blue-950/30 border border-blue-500/30 rounded-xl text-xs text-blue-200 flex items-start gap-2.5">
+                <span className="text-base shrink-0">🔒</span>
+                <div>
+                  <strong className="text-white block">Regra de Segurança de Cadastro Ativada:</strong>
+                  <span>
+                    Conforme solicitado, a opção de <strong>Cadastrar Usuário</strong> fica visível no topo da página <strong>apenas quando o usuário estiver com login realizado</strong> no sistema. Visitantes anônimos não veem o botão de cadastro no cabeçalho.
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {config.topBar.navButtons?.map((btn, idx) => {
+                  const isRegisterBtn =
+                    btn.actionType === 'registerUser' ||
+                    btn.id === 'nav-cadastrar-user' ||
+                    btn.label.toLowerCase().includes('cadastr');
+
+                  return (
+                    <div
+                      key={btn.id}
+                      className={`p-3.5 bg-slate-950 border rounded-2xl space-y-2.5 transition ${
+                        isRegisterBtn ? 'border-purple-500/50 bg-purple-950/10' : 'border-slate-800'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white text-xs">
+                            Botão #{idx + 1}: {btn.label}
+                          </span>
+                          {isRegisterBtn && (
+                            <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-bold">
+                              🔒 Exige Login
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeTopNavButton(idx)}
+                          className="text-rose-400 hover:text-rose-300 font-bold text-xs"
+                        >
+                          Remover
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-slate-400 font-bold">Texto do Botão:</label>
+                          <input
+                            type="text"
+                            value={btn.label}
+                            onChange={(e) => updateTopNavButton(idx, { label: e.target.value })}
+                            className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-white text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-slate-400 font-bold">Link de Destino (href):</label>
+                          <input
+                            type="text"
+                            value={btn.href}
+                            onChange={(e) => updateTopNavButton(idx, { href: e.target.value })}
+                            className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-white font-mono text-[11px]"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-slate-400 font-bold">Ícone:</label>
+                          <input
+                            type="text"
+                            value={btn.icon || ''}
+                            onChange={(e) => updateTopNavButton(idx, { icon: e.target.value })}
+                            placeholder="Ex: 👤, 🛡️, ⚡"
+                            className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-white text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-slate-400 font-bold">Estilo Visual:</label>
+                          <select
+                            value={btn.variant}
+                            onChange={(e) => updateTopNavButton(idx, { variant: e.target.value as any })}
+                            className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-white text-xs"
+                          >
+                            <option value="gradient">Gradiente TKE</option>
+                            <option value="purple">Púrpura #791E88</option>
+                            <option value="dark">Dark Slate</option>
+                            <option value="outline">Borda Laranja</option>
+                            <option value="secondary">Secundário Cinza</option>
+                            <option value="ghost">Transparente (Ghost)</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-slate-400 font-bold">Tipo de Ação:</label>
+                          <select
+                            value={btn.actionType || 'link'}
+                            onChange={(e) => updateTopNavButton(idx, { actionType: e.target.value as any })}
+                            className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-white text-xs"
+                          >
+                            <option value="link">Abrir Link (Página)</option>
+                            <option value="emitirPt">Emitir PT / APR Digital</option>
+                            <option value="registerUser">Cadastrar Usuário (Requer Login)</option>
+                            <option value="quickRepair">Solicitar Reparo / Chamado</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================== */}
         {/* ABA 2: JANELAS DE FOTOS (TAMANHO & LOCAL NA PÁGINA) */}
         {/* ============================================================== */}
         {activeTab === 'janelas' && (
@@ -834,17 +1272,29 @@ export function HomeDevPlatform({
                     </div>
                   )}
 
-                  {/* Upload do Computador */}
+                  {/* Upload do Celular / Computador e Galeria */}
                   <div className="flex items-center gap-2 pt-1">
-                    <label className="flex-1 cursor-pointer px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-center font-bold text-xs text-orange-400 transition">
-                      📁 Escolher Foto do Computador (Upload)
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                      />
-                    </label>
+                    <button
+                      type="button"
+                      onClick={() => triggerDirectUpload('image', (url) => setWindowForm((prev) => ({ ...prev, imageUrl: url })))}
+                      className="flex-1 py-2 px-3 bg-orange-600 hover:bg-orange-500 rounded-xl text-center font-bold text-xs text-white transition flex items-center justify-center gap-1.5 shadow"
+                    >
+                      <span>📱</span> Carregar do Celular / PC
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openMediaGallery({
+                          mediaType: 'image',
+                          title: 'Selecionar Foto da Janela da Galeria',
+                          currentValue: windowForm.imageUrl,
+                          onSelect: (url) => setWindowForm((prev) => ({ ...prev, imageUrl: url })),
+                        })
+                      }
+                      className="flex-1 py-2 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-center font-bold text-xs text-slate-200 transition flex items-center justify-center gap-1.5"
+                    >
+                      <span>🖼️</span> Buscar da Galeria
+                    </button>
                   </div>
 
                   {/* URL Manual */}
@@ -1264,37 +1714,89 @@ export function HomeDevPlatform({
             <div className="space-y-3">
               <label className="font-bold text-white block">Logo Principal (Canto Superior Esquerdo)</label>
               <div className="flex items-center gap-3">
-                <div className="relative w-20 h-10 bg-white rounded-lg p-1 shrink-0 border border-slate-700">
+                <div className="relative w-24 h-12 bg-white rounded-xl p-1 shrink-0 border border-slate-700 shadow flex items-center justify-center">
                   <Image
                     src={config.topBar.logoUrl || '/images/imagem-3.webp'}
                     alt="Logo"
                     fill
+                    unoptimized
                     className="object-contain p-1"
                   />
                 </div>
-                <input
-                  type="text"
-                  value={config.topBar.logoUrl}
-                  onChange={(e) => updateTopBar({ logoUrl: e.target.value })}
-                  className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono text-xs"
-                />
+                <div className="flex-1 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => triggerDirectUpload('image', (url) => updateTopBar({ logoUrl: url }))}
+                      className="px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs flex items-center gap-1.5 shadow"
+                    >
+                      <span>📱</span> Carregar do Celular / PC
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openMediaGallery({
+                          mediaType: 'image',
+                          title: 'Selecionar Logo Principal da Galeria',
+                          currentValue: config.topBar.logoUrl,
+                          onSelect: (url) => updateTopBar({ logoUrl: url }),
+                        })
+                      }
+                      className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center gap-1.5"
+                    >
+                      <span>🖼️</span> Buscar da Galeria
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={config.topBar.logoUrl}
+                    onChange={(e) => updateTopBar({ logoUrl: e.target.value })}
+                    placeholder="/images/imagem-3.webp"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-white font-mono text-xs"
+                  />
+                </div>
               </div>
             </div>
 
             <div className="space-y-3">
               <label className="font-bold text-white block">Banner Keyvisual (Centro do Hero)</label>
-              <div className="relative aspect-[21/9] w-full rounded-2xl overflow-hidden border border-slate-800">
+              <div className="relative aspect-[21/9] w-full rounded-2xl overflow-hidden border border-slate-800 bg-slate-950">
                 <Image
                   src={config.hero.bannerImageUrl || '/images/brand-keyvisual-1900px_image_w1900_h450.webp'}
                   alt="Banner"
                   fill
+                  unoptimized
                   className="object-cover"
                 />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => triggerDirectUpload('image', (url) => updateHero({ bannerImageUrl: url }))}
+                  className="px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs flex items-center gap-1.5 shadow"
+                >
+                  <span>📱</span> Carregar Imagem do Celular / PC
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    openMediaGallery({
+                      mediaType: 'image',
+                      title: 'Selecionar Banner Keyvisual da Galeria',
+                      currentValue: config.hero.bannerImageUrl,
+                      onSelect: (url) => updateHero({ bannerImageUrl: url }),
+                    })
+                  }
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center gap-1.5"
+                >
+                  <span>🖼️</span> Buscar da Galeria
+                </button>
               </div>
               <input
                 type="text"
                 value={config.hero.bannerImageUrl}
                 onChange={(e) => updateHero({ bannerImageUrl: e.target.value })}
+                placeholder="/images/brand-keyvisual-1900px_image_w1900_h450.webp"
                 className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono text-xs"
               />
             </div>
@@ -1349,23 +1851,86 @@ export function HomeDevPlatform({
             </div>
 
             <div className="space-y-3">
-              <label className="font-bold text-white block">URL do Vídeo (YouTube embed ou MP4)</label>
+              <label className="font-bold text-white block">URL do Vídeo (YouTube, MP4 ou WebM)</label>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => triggerDirectUpload('video', (url) => updateVideoSection({ videoUrl: url }))}
+                  className="px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs flex items-center gap-1.5 shadow"
+                >
+                  <span>📹</span> Carregar Vídeo do Celular / PC
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    openMediaGallery({
+                      mediaType: 'video',
+                      title: 'Selecionar Vídeo da Galeria',
+                      currentValue: config.videoSection?.videoUrl,
+                      onSelect: (url) => updateVideoSection({ videoUrl: url }),
+                    })
+                  }
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center gap-1.5"
+                >
+                  <span>🎬</span> Buscar Vídeo da Galeria
+                </button>
+              </div>
               <input
                 type="text"
                 value={config.videoSection?.videoUrl || ''}
                 onChange={(e) => updateVideoSection({ videoUrl: e.target.value })}
+                placeholder="https://www.youtube.com/watch?v=... ou /uploads/vid_....mp4"
                 className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono"
               />
             </div>
 
             <div className="space-y-3">
               <label className="font-bold text-white block">Capa do Vídeo (Poster Image)</label>
-              <input
-                type="text"
-                value={config.videoSection?.posterUrl || ''}
-                onChange={(e) => updateVideoSection({ posterUrl: e.target.value })}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono"
-              />
+              <div className="flex items-center gap-3">
+                {config.videoSection?.posterUrl && (
+                  <div className="relative aspect-video w-24 rounded-lg overflow-hidden border border-slate-700 shrink-0 bg-slate-950">
+                    <Image
+                      src={config.videoSection.posterUrl}
+                      alt="Poster Preview"
+                      fill
+                      unoptimized
+                      className="object-cover"
+                    />
+                  </div>
+                )}
+                <div className="flex-1 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => triggerDirectUpload('image', (url) => updateVideoSection({ posterUrl: url }))}
+                      className="px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs flex items-center gap-1.5 shadow"
+                    >
+                      <span>📱</span> Carregar Capa do Celular / PC
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openMediaGallery({
+                          mediaType: 'image',
+                          title: 'Selecionar Capa do Vídeo da Galeria',
+                          currentValue: config.videoSection?.posterUrl,
+                          onSelect: (url) => updateVideoSection({ posterUrl: url }),
+                        })
+                      }
+                      className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center gap-1.5"
+                    >
+                      <span>🖼️</span> Buscar da Galeria
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={config.videoSection?.posterUrl || ''}
+                    onChange={(e) => updateVideoSection({ posterUrl: e.target.value })}
+                    placeholder="/images/modelo-referencia-1.png"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono"
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="space-y-3">
@@ -1703,6 +2268,27 @@ export function HomeDevPlatform({
           </button>
         </div>
       </div>
+
+      {/* Modal Visual de Galeria & Upload */}
+      <MediaGalleryModal
+        isOpen={galleryTarget.isOpen}
+        onClose={() => setGalleryTarget((prev) => ({ ...prev, isOpen: false }))}
+        onSelect={(url) => {
+          galleryTarget.onSelect(url);
+          setGalleryTarget((prev) => ({ ...prev, isOpen: false }));
+        }}
+        mediaType={galleryTarget.mediaType}
+        title={galleryTarget.title}
+        currentValue={galleryTarget.currentValue}
+      />
+
+      {/* Input Oculto de Arquivo para Upload Direto */}
+      <input
+        ref={uploadFileInputRef}
+        type="file"
+        onChange={handleDirectFileSelected}
+        className="hidden"
+      />
     </div>
   );
 }

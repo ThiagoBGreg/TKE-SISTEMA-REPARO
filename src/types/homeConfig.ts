@@ -122,6 +122,9 @@ export interface HomeConfig {
   topBar: {
     logoUrl: string;
     logoAlt: string;
+    brandName?: string;
+    brandSlogan?: string;
+    systemTitle?: string;
     systemTag: string;
     subTitle: string;
     utilityLinks: Array<{ label: string; href: string }>;

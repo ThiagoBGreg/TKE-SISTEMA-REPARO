@@ -43,7 +43,9 @@ export function middleware(request: NextRequest) {
   const isPublicPath =
     pathname === '/' ||
     pathname.startsWith('/images') ||
+    pathname.startsWith('/uploads') ||
     pathname.startsWith('/api/home-config') ||
+    pathname.startsWith('/api/upload-media') ||
     PUBLIC_PATHS.some((path) => pathname.startsWith(path));
   if (isPublicPath || pathname.startsWith('/_next') || pathname.startsWith('/assets')) {
     return NextResponse.next();

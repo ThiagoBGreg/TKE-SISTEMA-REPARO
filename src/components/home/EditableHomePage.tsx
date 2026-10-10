@@ -235,11 +235,11 @@ export function EditableHomePage() {
       >
         <div className="flex items-center gap-4">
           <span className={`font-semibold tracking-wider ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-            TK ELEVATOR GLOBAL
+            {config.topBar.brandName || 'TK ELEVATOR GLOBAL'}
           </span>
           <span className={`hidden sm:inline ${isDark ? 'text-slate-600' : 'text-slate-300'}`}>•</span>
           <span className="hidden sm:inline text-orange-600 dark:text-orange-400 font-semibold">
-            Padrão Move Beyond de Engenharia e Reparo
+            {config.topBar.brandSlogan || 'Padrão Move Beyond de Engenharia e Reparo'}
           </span>
         </div>
         <div className="flex items-center gap-3">
@@ -302,7 +302,7 @@ export function EditableHomePage() {
                   isDark ? 'text-white' : 'text-slate-900'
                 }`}
               >
-                SISTEMA REPARO{' '}
+                {config.topBar.systemTitle || 'SISTEMA REPARO'}{' '}
                 <span className="text-[10px] font-mono text-orange-500 font-bold px-1.5 py-0.2 rounded bg-orange-500/10 border border-orange-500/30">
                   {config.topBar.systemTag || 'TKE'}
                 </span>
@@ -321,6 +321,16 @@ export function EditableHomePage() {
         {/* Links e Botões de Navegação do Topo */}
         <div className="flex items-center gap-2 sm:gap-3">
           {config.topBar.navButtons?.map((btn) => {
+            // REGRA: "opção de cadastro deve ficar somente ao fazer o login no sistema"
+            const isRegisterAction =
+              btn.actionType === 'registerUser' ||
+              btn.id === 'nav-cadastrar-user' ||
+              btn.label.toLowerCase().includes('cadastr');
+
+            if (isRegisterAction && !user) {
+              return null;
+            }
+
             if (btn.actionType === 'quickRepair') {
               return <QuickRepairRequestDialog key={btn.id} />;
             }
