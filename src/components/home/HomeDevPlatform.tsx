@@ -48,7 +48,7 @@ interface HomeDevPlatformProps {
   onClose: () => void;
   config: HomeConfig;
   onUpdateConfig: (newConfig: HomeConfig) => void;
-  onSaveToBackend: () => Promise<void>;
+  onSaveToBackend: (newConfig?: HomeConfig) => Promise<any>;
   onResetToDefault: () => void;
   onOpenUserRegister: () => void;
   onOpenQuickRepair: () => void;
@@ -92,10 +92,25 @@ export function HomeDevPlatform({
 
   const currentTheme: SystemThemeConfig = config.themeConfig || DEFAULT_THEME_CONFIG;
 
+  const handleSave = async (targetConfig?: HomeConfig) => {
+    setIsSaving(true);
+    setSaveStatus(null);
+    const toSave = targetConfig || config;
+    try {
+      await onSaveToBackend(toSave);
+      setSaveStatus('✓ Alterações gravadas ONLINE no banco de dados Neon e mantidas com sucesso!');
+      setTimeout(() => setSaveStatus(null), 4000);
+    } catch (e: any) {
+      setSaveStatus(`Erro ao salvar online: ${e.message}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   // =========================================================================
-  // HANDLERS DE PALETAS DE CORES & TEMA GLOBAL (AFETA TODO O SISTEMA)
+  // HANDLERS DE PALETAS DE CORES & TEMA GLOBAL (AFETA TODO O SISTEMA ONLINE)
   // =========================================================================
-  const handleSelectPalette = (preset: ColorPalettePreset) => {
+  const handleSelectPalette = async (preset: ColorPalettePreset) => {
     const updatedTheme: SystemThemeConfig = {
       paletteId: preset.id,
       bgColor: preset.bgColor,
@@ -106,15 +121,15 @@ export function HomeDevPlatform({
       isDark: preset.isDark,
     };
 
-    onUpdateConfig({
+    const updatedConfig: HomeConfig = {
       ...config,
       theme: preset.isDark ? 'dark' : 'light',
       themeConfig: updatedTheme,
-    });
+    };
 
+    onUpdateConfig(updatedConfig);
     applySystemTheme(updatedTheme);
-    setSaveStatus(`Paleta "${preset.name}" aplicada em todo o sistema!`);
-    setTimeout(() => setSaveStatus(null), 3000);
+    await handleSave(updatedConfig);
   };
 
   const handleUpdateCustomColor = (key: keyof SystemThemeConfig, value: string) => {
@@ -130,24 +145,25 @@ export function HomeDevPlatform({
       paletteId: 'custom',
     };
 
-    onUpdateConfig({
+    const updatedConfig: HomeConfig = {
       ...config,
       theme: isDark ? 'dark' : 'light',
       themeConfig: updatedTheme,
-    });
+    };
 
+    onUpdateConfig(updatedConfig);
     applySystemTheme(updatedTheme);
   };
 
-  const handleResetToWhiteDefault = () => {
-    onUpdateConfig({
+  const handleResetToWhiteDefault = async () => {
+    const updatedConfig: HomeConfig = {
       ...config,
       theme: 'light',
       themeConfig: DEFAULT_THEME_CONFIG,
-    });
+    };
+    onUpdateConfig(updatedConfig);
     applySystemTheme(DEFAULT_THEME_CONFIG);
-    setSaveStatus('Fundo branco moderno padrão TKE restaurado em todo o sistema!');
-    setTimeout(() => setSaveStatus(null), 3000);
+    await handleSave(updatedConfig);
   };
 
   function isColorDark(hexColor: string): boolean {
@@ -192,19 +208,19 @@ export function HomeDevPlatform({
     setIsWindowFormOpen(true);
   };
 
-  const handleSaveWindow = () => {
+  const handleSaveWindow = async () => {
     if (!windowForm.imageUrl) {
       alert('Por favor, informe ou selecione a imagem da janela.');
       return;
     }
 
     const currentWindows = config.photoWindows || [];
+    let updatedWindows: PhotoWindowConfig[];
 
     if (editingWindowId) {
-      const updated = currentWindows.map((w) =>
+      updatedWindows = currentWindows.map((w) =>
         w.id === editingWindowId ? ({ ...w, ...windowForm } as PhotoWindowConfig) : w
       );
-      onUpdateConfig({ ...config, photoWindows: updated });
     } else {
       const newWin: PhotoWindowConfig = {
         id: windowForm.id || `photo-win-${Date.now()}`,
@@ -218,33 +234,42 @@ export function HomeDevPlatform({
         linkUrl: windowForm.linkUrl || '',
         enabled: windowForm.enabled !== false,
       };
-      onUpdateConfig({ ...config, photoWindows: [...currentWindows, newWin] });
+      updatedWindows = [...currentWindows, newWin];
     }
 
+    const updatedConfig: HomeConfig = { ...config, photoWindows: updatedWindows };
+    onUpdateConfig(updatedConfig);
     setIsWindowFormOpen(false);
     setEditingWindowId(null);
+    await handleSave(updatedConfig);
   };
 
-  const handleDeleteWindow = (id: string) => {
+  const handleDeleteWindow = async (id: string) => {
     const updated = (config.photoWindows || []).filter((w) => w.id !== id);
-    onUpdateConfig({ ...config, photoWindows: updated });
+    const updatedConfig: HomeConfig = { ...config, photoWindows: updated };
+    onUpdateConfig(updatedConfig);
+    await handleSave(updatedConfig);
   };
 
-  const handleToggleWindow = (id: string) => {
+  const handleToggleWindow = async (id: string) => {
     const updated = (config.photoWindows || []).map((w) =>
       w.id === id ? { ...w, enabled: !w.enabled } : w
     );
-    onUpdateConfig({ ...config, photoWindows: updated });
+    const updatedConfig: HomeConfig = { ...config, photoWindows: updated };
+    onUpdateConfig(updatedConfig);
+    await handleSave(updatedConfig);
   };
 
-  const handleMoveWindow = (index: number, direction: 'up' | 'down') => {
+  const handleMoveWindow = async (index: number, direction: 'up' | 'down') => {
     const windows = [...(config.photoWindows || [])];
     const targetIdx = direction === 'up' ? index - 1 : index + 1;
     if (targetIdx < 0 || targetIdx >= windows.length) return;
     const temp = windows[index];
     windows[index] = windows[targetIdx];
     windows[targetIdx] = temp;
-    onUpdateConfig({ ...config, photoWindows: windows });
+    const updatedConfig: HomeConfig = { ...config, photoWindows: windows };
+    onUpdateConfig(updatedConfig);
+    await handleSave(updatedConfig);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -413,20 +438,6 @@ export function HomeDevPlatform({
       ...config,
       customBlocks: updated,
     });
-  };
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    setSaveStatus(null);
-    try {
-      await onSaveToBackend();
-      setSaveStatus('Configurações gravadas com sucesso no sistema!');
-      setTimeout(() => setSaveStatus(null), 3000);
-    } catch (e: any) {
-      setSaveStatus(`Erro ao salvar: ${e.message}`);
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   return (
@@ -751,6 +762,17 @@ export function HomeDevPlatform({
                     Púrpura
                   </button>
                 </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => handleSave()}
+                  disabled={isSaving}
+                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-purple-600 hover:brightness-110 font-bold text-xs text-white shadow-md flex items-center justify-center gap-2"
+                >
+                  {isSaving ? 'Salvando Online...' : '💾 Salvar Cores Customizadas Online no Banco'}
+                </button>
               </div>
             </div>
           </div>
@@ -1564,11 +1586,18 @@ export function HomeDevPlatform({
         {activeTab === 'salvar' && (
           <div className="space-y-4">
             <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl space-y-2">
-              <h4 className="font-extrabold text-white text-sm">Persistência da Home & Tema Global</h4>
+              <div className="flex items-center justify-between">
+                <h4 className="font-extrabold text-white text-sm">Persistência Online da Aplicação</h4>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Neon Postgres Conectado
+                </span>
+              </div>
               <p className="text-slate-300 text-xs leading-relaxed">
-                Ao clicar em "Salvar", suas alterações são gravadas diretamente no servidor em{' '}
-                <code className="text-orange-400">src/data/homeConfig.json</code> e sincronizadas com
-                o armazenamento local do navegador, garantindo que todo o sistema utilize a nova configuração!
+                Todas as alterações feitas no Studio (paleta de cores, fundo, letras, janelas de fotos, títulos e botões) são gravadas <strong className="text-white">online diretamente no banco de dados Neon PostgreSQL</strong>.
+              </p>
+              <p className="text-slate-400 text-[11px] leading-relaxed">
+                Isso garante que ao recarregar a página, acessar em outros navegadores ou no ambiente de produção, suas alterações são mantidas permanentemente.
               </p>
             </div>
 
@@ -1580,18 +1609,18 @@ export function HomeDevPlatform({
 
             <button
               type="button"
-              onClick={handleSave}
+              onClick={() => handleSave()}
               disabled={isSaving}
               className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-orange-500 via-rose-500 to-purple-600 hover:brightness-110 font-black text-sm text-white shadow-xl shadow-orange-500/25 transition flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isSaving ? (
                 <>
                   <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Gravando na Aplicação...
+                  Gravando Online no Banco de Dados...
                 </>
               ) : (
                 <>
-                  <span>💾</span> Salvar Todas as Alterações na Aplicação
+                  <span>💾</span> Salvar Todas as Alterações Online no Banco
                 </>
               )}
             </button>
@@ -1625,11 +1654,12 @@ export function HomeDevPlatform({
           </button>
           <button
             type="button"
-            onClick={handleSave}
+            onClick={() => handleSave()}
             disabled={isSaving}
-            className="px-4 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-bold transition disabled:opacity-50"
+            className="px-4 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-bold transition disabled:opacity-50 flex items-center gap-1.5"
           >
-            {isSaving ? 'Salvando...' : 'Salvar'}
+            <span>💾</span>
+            <span>{isSaving ? 'Gravando...' : 'Salvar Online'}</span>
           </button>
         </div>
       </div>

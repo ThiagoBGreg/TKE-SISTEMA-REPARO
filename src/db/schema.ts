@@ -529,6 +529,20 @@ export const aprConfigs = pgTable('apr_configs', {
     .$onUpdate(() => new Date()),
 });
 
+/**
+ * Tabela de Configuração e Customização da Home Page e Tema Global do Sistema
+ * Permite persistência 100% online na nuvem Neon Postgres
+ */
+export const homeConfigs = pgTable('home_configs', {
+  id: varchar('id', { length: 50 }).primaryKey().default('default_home_config'),
+  config: jsonb('config').$type<any>().notNull(),
+  updatedBy: varchar('updated_by', { length: 255 }).default('Thiago Gregorio (DEV)'),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
+});
+
 /* ==========================================================================
    5. INFERÊNCIA DE TIPOS TYPESCRIPT
    ========================================================================== */
@@ -560,6 +574,10 @@ export type NewServiceOrderHistory = InferInsertModel<typeof serviceOrderHistory
 // APR Config
 export type AprConfig = InferSelectModel<typeof aprConfigs>;
 export type NewAprConfig = InferInsertModel<typeof aprConfigs>;
+
+// Home Config
+export type HomeConfigRecord = InferSelectModel<typeof homeConfigs>;
+export type NewHomeConfigRecord = InferInsertModel<typeof homeConfigs>;
 
 // Enums
 export type Department = (typeof departmentEnum.enumValues)[number];

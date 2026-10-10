@@ -37,29 +37,10 @@ export function EditableHomePage() {
   const [devAuthError, setDevAuthError] = useState<string | null>(null);
   const [isDevUnlocked, setIsDevUnlocked] = useState(false);
 
-  // 1. Carrega configuração da API ou do LocalStorage e aplica tema global
+  // 1. Carrega configuração da API online (Neon DB) ou do LocalStorage e aplica tema global
   useEffect(() => {
     async function loadConfig() {
-      try {
-        const res = await fetch('/api/home-config');
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.config) {
-            setConfig(data.config);
-            if (data.config.themeConfig) {
-              applySystemTheme(data.config.themeConfig);
-            } else {
-              applySystemTheme(DEFAULT_THEME_CONFIG);
-            }
-            setIsLoadingConfig(false);
-            return;
-          }
-        }
-      } catch (err) {
-        console.warn('[EditableHomePage] Falha ao carregar config da API, usando fallback:', err);
-      }
-
-      // Fallback para localStorage
+      // 1.1 Lê do localStorage para renderização instantânea
       try {
         const local = localStorage.getItem(STORAGE_KEY);
         if (local) {
@@ -67,15 +48,29 @@ export function EditableHomePage() {
           setConfig(parsed);
           if (parsed.themeConfig) {
             applySystemTheme(parsed.themeConfig);
-          } else {
-            applySystemTheme(DEFAULT_THEME_CONFIG);
           }
-        } else {
-          applySystemTheme(DEFAULT_THEME_CONFIG);
         }
       } catch (err) {
         console.warn('[EditableHomePage] Falha no localStorage:', err);
-        applySystemTheme(DEFAULT_THEME_CONFIG);
+      }
+
+      // 1.2 Busca a versão oficial mais recente ONLINE do banco de dados Neon
+      try {
+        const res = await fetch('/api/home-config', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.config) {
+            setConfig(data.config);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data.config));
+            if (data.config.themeConfig) {
+              applySystemTheme(data.config.themeConfig);
+            }
+            setIsLoadingConfig(false);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('[EditableHomePage] Falha ao carregar config da API online:', err);
       } finally {
         setIsLoadingConfig(false);
       }
@@ -104,20 +99,28 @@ export function EditableHomePage() {
     }
   }, []);
 
-  // Salva no backend
-  const handleSaveToBackend = async () => {
+  // Salva no backend online e sincroniza com o banco Neon
+  const handleSaveToBackend = async (configToSave?: HomeConfig) => {
+    const targetConfig = configToSave || config;
     try {
       const res = await fetch('/api/home-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config),
+        body: JSON.stringify(targetConfig),
       });
       if (!res.ok) {
-        throw new Error('Erro ao salvar no servidor');
+        throw new Error('Erro ao salvar no servidor online');
       }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+      const data = await res.json();
+      const saved = data.config || targetConfig;
+      setConfig(saved);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+      if (saved.themeConfig) {
+        applySystemTheme(saved.themeConfig);
+      }
+      return saved;
     } catch (err) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(targetConfig));
       throw err;
     }
   };
