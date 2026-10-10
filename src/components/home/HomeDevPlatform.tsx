@@ -1148,9 +1148,19 @@ export function HomeDevPlatform({
         {/* ============================================================== */}
         {activeTab === 'textos' && (
           <div className="space-y-5">
-            <div className="p-3 bg-purple-950/20 border border-purple-500/30 rounded-xl text-purple-300">
-              <span className="font-bold">Baseado em Modelo Referência 1:</span> Edite os títulos e
-              frases de impacto corporativo com suporte a colchetes TKE.
+            <div className="p-3.5 bg-slate-900/90 border border-slate-800 rounded-2xl flex items-start gap-3">
+              <span className="text-xl shrink-0">✍️</span>
+              <div className="text-xs text-slate-300 space-y-0.5">
+                <div className="font-semibold text-white flex items-center gap-2">
+                  <span>Dica de Configuração: Tipografia & Textos</span>
+                  <span className="px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 text-[10px] uppercase font-mono">
+                    Guia
+                  </span>
+                </div>
+                <p className="text-slate-400 leading-relaxed">
+                  Personalize títulos de destaque corporativo, badges e o manifesto institucional TKE com suporte a colchetes.
+                </p>
+              </div>
             </div>
 
             <div className="space-y-3">
@@ -1236,9 +1246,19 @@ export function HomeDevPlatform({
         {/* ============================================================== */}
         {activeTab === 'imagens' && (
           <div className="space-y-5">
-            <div className="p-3 bg-orange-950/20 border border-orange-500/30 rounded-xl text-orange-300">
-              <span className="font-bold">Biblioteca Oficial TKE:</span> Alterne com 1 clique para as
-              imagens reais da pasta "Imagens logos" ou use links diretos.
+            <div className="p-3.5 bg-slate-900/90 border border-slate-800 rounded-2xl flex items-start gap-3">
+              <span className="text-xl shrink-0">🖼️</span>
+              <div className="text-xs text-slate-300 space-y-0.5">
+                <div className="font-semibold text-white flex items-center gap-2">
+                  <span>Dica de Configuração: Logos & Banners</span>
+                  <span className="px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/20 text-[10px] uppercase font-mono">
+                    Guia
+                  </span>
+                </div>
+                <p className="text-slate-400 leading-relaxed">
+                  Alterne com 1 clique para imagens reais da biblioteca oficial TKE ou cole URLs personalizadas.
+                </p>
+              </div>
             </div>
 
             <div className="space-y-3">
@@ -1303,9 +1323,19 @@ export function HomeDevPlatform({
         {/* ============================================================== */}
         {activeTab === 'videos' && (
           <div className="space-y-5">
-            <div className="p-3 bg-rose-950/20 border border-rose-500/30 rounded-xl text-rose-300">
-              <span className="font-bold">Player com Colchetes Angulares TKE:</span> Configure o vídeo
-              institucional do YouTube ou MP4 com capa e títulos em caixa alta.
+            <div className="p-3.5 bg-slate-900/90 border border-slate-800 rounded-2xl flex items-start gap-3">
+              <span className="text-xl shrink-0">🎬</span>
+              <div className="text-xs text-slate-300 space-y-0.5">
+                <div className="font-semibold text-white flex items-center gap-2">
+                  <span>Dica de Configuração: Player Institucional</span>
+                  <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] uppercase font-mono">
+                    Guia
+                  </span>
+                </div>
+                <p className="text-slate-400 leading-relaxed">
+                  Configure o vídeo institucional (YouTube ou MP4 direto) e sua capa. Caso não queira exibir o vídeo na página inicial, basta desmarcar o interruptor abaixo.
+                </p>
+              </div>
             </div>
 
             <div className="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-slate-800">
@@ -1523,9 +1553,19 @@ export function HomeDevPlatform({
         {/* ============================================================== */}
         {activeTab === 'acoes' && (
           <div className="space-y-4">
-            <div className="p-3 bg-emerald-950/20 border border-emerald-500/30 rounded-xl text-emerald-300">
-              <span className="font-bold">Ações Instantâneas Integradas:</span> Execute as ações do
-              sistema diretamente da plataforma de desenvolvimento.
+            <div className="p-3.5 bg-slate-900/90 border border-slate-800 rounded-2xl flex items-start gap-3">
+              <span className="text-xl shrink-0">⚡</span>
+              <div className="text-xs text-slate-300 space-y-0.5">
+                <div className="font-semibold text-white flex items-center gap-2">
+                  <span>Dica de Configuração: Ações Rápidas</span>
+                  <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] uppercase font-mono">
+                    Guia
+                  </span>
+                </div>
+                <p className="text-slate-400 leading-relaxed">
+                  Execute comandos e fluxos rápidos do sistema diretamente pelo ambiente de desenvolvimento.
+                </p>
+              </div>
             </div>
 
             <button
