@@ -45,25 +45,40 @@ export function EditableHomePage() {
         const local = localStorage.getItem(STORAGE_KEY);
         if (local) {
           const parsed = JSON.parse(local) as HomeConfig;
-          setConfig(parsed);
-          if (parsed.themeConfig) {
-            applySystemTheme(parsed.themeConfig);
+          if (parsed && typeof parsed === 'object' && parsed.topBar) {
+            const merged = {
+              ...DEFAULT_HOME_CONFIG,
+              ...parsed,
+              topBar: { ...DEFAULT_HOME_CONFIG.topBar, ...(parsed.topBar || {}) },
+            };
+            setConfig(merged);
+            if (merged.themeConfig) {
+              applySystemTheme(merged.themeConfig);
+            }
           }
         }
       } catch (err) {
         console.warn('[EditableHomePage] Falha no localStorage:', err);
       }
 
-      // 1.2 Busca a versão oficial mais recente ONLINE do banco de dados Neon
+      // 1.2 Busca a versão oficial mais recente ONLINE do banco de dados
       try {
         const res = await fetch('/api/home-config', { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
-          if (data?.config) {
-            setConfig(data.config);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(data.config));
-            if (data.config.themeConfig) {
-              applySystemTheme(data.config.themeConfig);
+          if (data?.config && typeof data.config === 'object') {
+            const merged: HomeConfig = {
+              ...DEFAULT_HOME_CONFIG,
+              ...data.config,
+              topBar: {
+                ...DEFAULT_HOME_CONFIG.topBar,
+                ...(data.config.topBar || {}),
+              },
+            };
+            setConfig(merged);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+            if (merged.themeConfig) {
+              applySystemTheme(merged.themeConfig);
             }
             setIsLoadingConfig(false);
             return;
@@ -235,11 +250,11 @@ export function EditableHomePage() {
       >
         <div className="flex items-center gap-4">
           <span className={`font-semibold tracking-wider ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-            {config.topBar.brandName || 'TK ELEVATOR GLOBAL'}
+            {config?.topBar?.brandName || 'TK ELEVATOR GLOBAL'}
           </span>
           <span className={`hidden sm:inline ${isDark ? 'text-slate-600' : 'text-slate-300'}`}>•</span>
           <span className="hidden sm:inline text-orange-600 dark:text-orange-400 font-semibold">
-            {config.topBar.brandSlogan || 'Padrão Move Beyond de Engenharia e Reparo'}
+            {config?.topBar?.brandSlogan || 'Padrão Move Beyond de Engenharia e Reparo'}
           </span>
         </div>
         <div className="flex items-center gap-3">
@@ -286,8 +301,8 @@ export function EditableHomePage() {
             {/* Imagem 3 Oficial da Pasta "Imagens logos": TKE Move Beyond */}
             <div className="relative inline-flex items-center justify-center bg-white px-2.5 py-1 rounded-xl shadow-md border border-slate-200 transition-all duration-300 group-hover:scale-105">
               <Image
-                src={config.topBar.logoUrl || '/images/imagem-3.webp'}
-                alt={config.topBar.logoAlt || 'TKE Move Beyond Oficial'}
+                src={config?.topBar?.logoUrl || '/images/imagem-3.webp'}
+                alt={config?.topBar?.logoAlt || 'TKE Move Beyond Oficial'}
                 width={130}
                 height={54}
                 className="h-8 sm:h-9 w-auto object-contain"
@@ -302,9 +317,9 @@ export function EditableHomePage() {
                   isDark ? 'text-white' : 'text-slate-900'
                 }`}
               >
-                {config.topBar.systemTitle || 'SISTEMA REPARO'}{' '}
+                {config?.topBar?.systemTitle || 'SISTEMA REPARO'}{' '}
                 <span className="text-[10px] font-mono text-orange-500 font-bold px-1.5 py-0.2 rounded bg-orange-500/10 border border-orange-500/30">
-                  {config.topBar.systemTag || 'TKE'}
+                  {config?.topBar?.systemTag || 'TKE'}
                 </span>
               </span>
               <span
@@ -312,7 +327,7 @@ export function EditableHomePage() {
                   isDark ? 'text-slate-400' : 'text-slate-500'
                 }`}
               >
-                {config.topBar.subTitle || 'Move Beyond • Gestão de APR'}
+                {config?.topBar?.subTitle || 'Move Beyond • Gestão de APR'}
               </span>
             </div>
           </Link>

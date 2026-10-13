@@ -52,7 +52,19 @@ async function main() {
   `;
   console.log('✅ Configuração padrão de APR semeada com sucesso!');
 
-  // Inicializa home_configs padrão se não existir
+  // Inicializa home_configs com a configuração completa oficial
+  const fs = await import('fs');
+  const path = await import('path');
+  const configPath = path.join(process.cwd(), 'src', 'data', 'homeConfig.json');
+  let homeConfigData = {};
+  if (fs.existsSync(configPath)) {
+    try {
+      homeConfigData = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    } catch {
+      homeConfigData = {};
+    }
+  }
+
   await sql`
     INSERT INTO home_configs (
       id,
@@ -61,12 +73,15 @@ async function main() {
     )
     VALUES (
       'default_home_config',
-      '{}'::jsonb,
+      ${sql.json(homeConfigData)},
       'Thiago Gregorio (DEV)'
     )
-    ON CONFLICT (id) DO NOTHING;
+    ON CONFLICT (id) DO UPDATE SET
+      config = ${sql.json(homeConfigData)},
+      updated_by = 'Thiago Gregorio (DEV)',
+      updated_at = NOW();
   `;
-  console.log('✅ Configuração padrão da Home semeada com sucesso!');
+  console.log('✅ Configuração padrão da Home atualizada com sucesso!');
 
   process.exit(0);
 }

@@ -23,17 +23,25 @@ export async function GET() {
         .where(eq(homeConfigs.id, RECORD_ID))
         .limit(1);
 
-      if (record && record.config) {
+      if (record && record.config && typeof record.config === 'object') {
+        const dbConfig = record.config as any;
+        const mergedConfig = {
+          ...DEFAULT_HOME_CONFIG,
+          ...dbConfig,
+          topBar: { ...DEFAULT_HOME_CONFIG.topBar, ...(dbConfig.topBar || {}) },
+          themeConfig: dbConfig.themeConfig || DEFAULT_HOME_CONFIG.themeConfig,
+        };
+
         return NextResponse.json({
           success: true,
-          source: 'neon_database',
+          source: 'database',
           updatedAt: record.updatedAt,
           updatedBy: record.updatedBy,
-          config: record.config as HomeConfig,
+          config: mergedConfig,
         });
       }
     } catch (dbErr) {
-      console.warn('[API home-config GET] Falha ao consultar Neon DB, usando fallback local:', dbErr);
+      console.warn('[API home-config GET] Falha ao consultar banco, usando fallback local:', dbErr);
     }
 
     // 2. Fallback: Arquivo local se existir
