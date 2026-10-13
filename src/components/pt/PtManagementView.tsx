@@ -1838,8 +1838,8 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
                       onClick={() => cartaFileInputRef.current?.click()}
                       className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-lg font-semibold text-xs transition shadow-2xs hover:scale-[1.01] active:scale-[0.99]"
                     >
-                      <span>📁</span>
-                      <span>Escolher da Galeria</span>
+                      <span>🖼️</span>
+                      <span>Buscar na Galeria</span>
                     </button>
                   </div>
                 ) : (
@@ -2494,8 +2494,8 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
                       onClick={() => uploadCartaFileInputRef.current?.click()}
                       className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-semibold px-4 py-2.5 rounded-xl transition"
                     >
-                      <span>📁</span>
-                      <span>Escolher Arquivo / Foto</span>
+                      <span>🖼️</span>
+                      <span>Buscar na Galeria / Arquivo</span>
                     </button>
                   </div>
                 </div>

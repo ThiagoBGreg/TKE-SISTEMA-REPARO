@@ -36,6 +36,7 @@ export function MediaGalleryModal({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [customUrl, setCustomUrl] = useState(currentValue);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   // Carrega itens da API de galeria
   const loadGalleryItems = async () => {
@@ -304,13 +305,32 @@ export function MediaGalleryModal({
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-rose-600 text-white font-bold text-xs inline-flex items-center gap-2 shadow-lg shadow-orange-500/25"
-                >
-                  <span>📁</span>
-                  <span>Abrir Seletor de Arquivos</span>
-                </button>
+                <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                  {mediaType !== 'video' && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        cameraInputRef.current?.click();
+                      }}
+                      className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 text-white font-bold text-xs inline-flex items-center gap-2 shadow-lg shadow-orange-500/25 active:scale-95 transition"
+                    >
+                      <span>📷</span>
+                      <span>Tirar Foto (Câmera)</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fileInputRef.current?.click();
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 font-bold text-xs inline-flex items-center gap-2 shadow-xs active:scale-95 transition"
+                  >
+                    <span>🖼️</span>
+                    <span>Buscar na Galeria / Arquivos</span>
+                  </button>
+                </div>
               </div>
 
               {isUploading && (
@@ -395,7 +415,15 @@ export function MediaGalleryModal({
           )}
         </div>
 
-        {/* Input Oculto de Arquivo */}
+        {/* Inputs Ocultos de Câmera e Galeria */}
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleFileChange}
+          className="hidden"
+        />
         <input
           ref={fileInputRef}
           type="file"

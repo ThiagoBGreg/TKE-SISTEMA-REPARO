@@ -90,7 +90,8 @@ export function PtFotosServicoClient({
   fotosIniciais,
 }: PtFotosServicoClientProps) {
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const [fotos, setFotos] = useState<FotoServicoItem[]>(fotosIniciais);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -121,8 +122,11 @@ export function PtFotosServicoClient({
       reader.readAsDataURL(file);
     });
 
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = '';
+    }
+    if (galleryInputRef.current) {
+      galleryInputRef.current.value = '';
     }
   };
 
@@ -364,32 +368,66 @@ export function PtFotosServicoClient({
           </div>
 
           <form onSubmit={handleUpload} className="space-y-5">
-            {/* DROPZONE / BOTÃO DE SELEÇÃO */}
-            <div className="border-2 border-dashed border-slate-300 hover:border-orange-500 rounded-2xl p-6 sm:p-8 text-center bg-slate-50 hover:bg-orange-50/30 transition cursor-pointer relative group">
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept="image/*"
-                capture="environment"
-                onChange={handleFilesChange}
-                disabled={isPending}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-                title="Clique ou arraste fotos aqui"
-              />
-              <div className="flex flex-col items-center justify-center space-y-2 pointer-events-none">
-                <div className="w-12 h-12 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-2xl group-hover:scale-110 transition">
-                  📷
+            {/* Inputs Ocultos: Câmera e Galeria */}
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleFilesChange}
+              disabled={isPending}
+              className="hidden"
+            />
+            <input
+              ref={galleryInputRef}
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={handleFilesChange}
+              disabled={isPending}
+              className="hidden"
+            />
+
+            {/* SELEÇÃO COM BOTÕES DEDICADOS: CÂMERA E GALERIA */}
+            <div className="border-2 border-dashed border-slate-300 rounded-2xl p-5 sm:p-7 text-center bg-gradient-to-b from-slate-50 to-orange-50/20 space-y-4">
+              <div className="flex flex-col items-center justify-center space-y-1">
+                <div className="w-12 h-12 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-2xl shadow-2xs">
+                  📸
                 </div>
-                <div>
-                  <p className="text-sm font-bold text-slate-800">
-                    Toque para tirar foto ou selecionar fotos da galeria
-                  </p>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Aceita fotos JPEG, PNG e HEIC • Suporte a múltiplos arquivos simultâneos
-                  </p>
-                </div>
+                <h4 className="text-sm font-black text-slate-800">
+                  Como deseja carregar as fotos?
+                </h4>
+                <p className="text-xs text-slate-500 max-w-sm">
+                  Tire fotos em tempo real com a câmera do celular ou busque fotos já tiradas na sua galeria.
+                </p>
               </div>
+
+              {/* BOTÕES MOBILE-FIRST PROEMINENTES */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg mx-auto">
+                <button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  disabled={isPending}
+                  className="flex items-center justify-center gap-2.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 active:scale-[0.98] text-white font-bold text-sm py-3.5 px-4 rounded-xl shadow-md shadow-orange-500/20 transition cursor-pointer disabled:opacity-50"
+                >
+                  <span className="text-xl">📷</span>
+                  <span>Tirar Foto (Câmera)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => galleryInputRef.current?.click()}
+                  disabled={isPending}
+                  className="flex items-center justify-center gap-2.5 bg-white hover:bg-slate-100 active:scale-[0.98] text-slate-800 font-bold text-sm py-3.5 px-4 rounded-xl border-2 border-slate-300 hover:border-orange-500 shadow-2xs transition cursor-pointer disabled:opacity-50"
+                >
+                  <span className="text-xl">🖼️</span>
+                  <span>Buscar na Galeria</span>
+                </button>
+              </div>
+
+              <p className="text-[11px] text-slate-400 font-medium">
+                Aceita múltiplos arquivos simultâneos • JPG, PNG, WEBP e HEIC
+              </p>
             </div>
 
             {/* PREVIEWS DAS FOTOS SELECIONADAS */}

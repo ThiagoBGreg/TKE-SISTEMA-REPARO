@@ -245,14 +245,14 @@ export function AttachmentUploader({
             onClick={() => cameraFotosInputRef.current?.click()}
             className="btn-tke-orange py-3 px-4 text-xs font-bold"
           >
-            📷 Abrir Câmera de Campo
+            📷 Tirar Foto (Câmera)
           </button>
           <button
             type="button"
             onClick={() => fotosInputRef.current?.click()}
             className="flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs py-3 px-4 rounded-xl transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0"
           >
-            🖼️ Selecionar da Galeria
+            🖼️ Buscar na Galeria
           </button>
         </div>
 
@@ -388,14 +388,14 @@ export function AttachmentUploader({
             onClick={() => cartaCameraInputRef.current?.click()}
             className="btn-tke-gradient py-3 px-4 text-xs font-bold"
           >
-            📷 Escanear Carta com a Câmera
+            📷 Tirar Foto da Carta (Câmera)
           </button>
           <button
             type="button"
             onClick={() => cartaFileInputRef.current?.click()}
             className="flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs py-3 px-4 rounded-xl transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0"
           >
-            📄 Selecionar Arquivo / PDF
+            🖼️ Buscar na Galeria / Arquivo PDF
           </button>
         </div>
 

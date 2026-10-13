@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createQuickRepairRequestAction } from '@/actions/quickRepairActions';
@@ -23,6 +23,8 @@ export function QuickRepairRequestDialog() {
   const [prioridade, setPrioridade] = useState('URGENTE');
   const [descricao, setDescricao] = useState('');
   const [selectedPhoto, setSelectedPhoto] = useState<{ file: File; preview: string } | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   // Recupera usuário autenticado dos cookies
   useEffect(() => {
@@ -61,6 +63,7 @@ export function QuickRepairRequestDialog() {
       file,
       preview: URL.createObjectURL(file),
     });
+    e.target.value = '';
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -295,24 +298,82 @@ export function QuickRepairRequestDialog() {
 
                   {/* Foto Preliminar */}
                   <div className="space-y-2 pt-1">
-                    <label className="block text-slate-300 font-semibold">
+                    <label className="block text-slate-300 font-semibold text-xs">
                       Foto Preliminar do Componente (Opcional - Google Drive):
                     </label>
+
+                    {/* Inputs Ocultos de Câmera e Galeria */}
                     <input
+                      ref={cameraInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handlePhotoChange}
+                      className="hidden"
+                    />
+                    <input
+                      ref={galleryInputRef}
                       type="file"
                       accept="image/*"
                       onChange={handlePhotoChange}
-                      className="block w-full text-xs text-slate-400 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-orange-400 hover:file:bg-slate-700"
+                      className="hidden"
                     />
 
-                    {selectedPhoto && (
-                      <div className="relative w-24 h-24 rounded-2xl overflow-hidden border border-slate-700 mt-2 shadow-md">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={selectedPhoto.preview}
-                          alt="Foto preliminar"
-                          className="w-full h-full object-cover"
-                        />
+                    {!selectedPhoto ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => cameraInputRef.current?.click()}
+                          className="flex items-center justify-center gap-2 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white font-bold text-xs py-2.5 px-3 rounded-xl shadow-xs transition active:scale-[0.98]"
+                        >
+                          <span>📷</span>
+                          <span>Tirar Foto (Câmera)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => galleryInputRef.current?.click()}
+                          className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs py-2.5 px-3 rounded-xl transition active:scale-[0.98]"
+                        >
+                          <span>🖼️</span>
+                          <span>Buscar na Galeria</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between p-2.5 bg-slate-800/80 border border-slate-700 rounded-xl">
+                        <div className="flex items-center gap-3 truncate">
+                          <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-slate-600 shrink-0">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={selectedPhoto.preview}
+                              alt="Foto preliminar"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <div className="truncate">
+                            <span className="text-xs font-bold text-slate-200 block truncate">
+                              {selectedPhoto.file.name}
+                            </span>
+                            <span className="text-[10px] text-emerald-400 font-semibold block">
+                              ✓ Foto carregada
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => galleryInputRef.current?.click()}
+                            className="text-[11px] text-orange-400 hover:underline font-semibold"
+                          >
+                            Trocar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedPhoto(null)}
+                            className="text-[11px] text-rose-400 hover:underline font-semibold"
+                          >
+                            Remover
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
