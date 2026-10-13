@@ -68,8 +68,8 @@ export const DEFAULT_HOME_CONFIG: HomeConfig = {
 
   hero: {
     badgeText: 'TKE MOVE BEYOND • Padrão Global de Engenharia & Segurança',
-    bracketTopText: 'WELCOME TO TKE',
-    bracketHeadline: 'WE MOVE BEYOND TO ELEVATE URBAN LIVING',
+    bracketTopText: 'BEM-VINDO À TKE',
+    bracketHeadline: 'VAMOS ALÉM PARA ELEVAR A VIDA URBANA',
     titleHighlight: 'Serviços de Reparo & Emissão de PT',
     subtitle:
       'Fluxo digital completo e integrado: emissão de Permissão de Trabalho (PT/APR), assinaturas digitais com geolocalização em tempo real, controle rigoroso de riscos NR-10, NR-18 e NR-35.',
@@ -132,19 +132,19 @@ export const DEFAULT_HOME_CONFIG: HomeConfig = {
 
   statement: {
     enabled: true,
-    headline: 'We improve the quality of urban life around the world through our passion for moving people.',
-    highlightText: 'Pioneirismo em engenharia, segurança e tecnologia operacional.',
+    headline: 'Melhoramos a qualidade da vida urbana em todo o mundo através da inovação, alta confiabilidade e engenharia avançada.',
+    highlightText: 'Melhoramos a qualidade da vida urbana',
     text:
-      'A TK Elevator (TKE) combina segurança, confiabilidade e inovação em soluções de engenharia de precisão para garantir a mobilidade contínua e segura de milhares de pessoas todos os dias.',
+      'A TKE é líder global em transporte vertical e infraestrutura de alta tecnologia. Nosso compromisso inegociável é com a segurança total das pessoas, o cumprimento irrestrito das Normas Regulamentadoras (NR) e a precisão operacional na emissão de Permissões de Trabalho (PT/APR).',
   },
 
   videoSection: {
     enabled: true,
-    title: 'MOVE BEYOND',
-    subtitle: 'Watch our video now!',
-    bracketTitle: 'BEYOND AMBITION, THERE IS DESIGN',
-    videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', // ou vídeo corporativo TKE
-    posterUrl: '/images/modelo-referencia-1.png',
+    title: 'Nós Somos a TKE',
+    subtitle: 'Conheça nossa infraestrutura e procedimento operacional padrão global.',
+    bracketTitle: 'VÍDEO INSTITUCIONAL MOVE BEYOND',
+    videoUrl: 'https://www.youtube.com/watch?v=tiBBsYDGM1M',
+    posterUrl: '/images/imagem-3.webp',
   },
 
   featuresGrid: {

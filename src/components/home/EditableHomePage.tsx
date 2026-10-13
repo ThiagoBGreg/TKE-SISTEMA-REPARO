@@ -15,7 +15,7 @@ import { PhotoWindowRenderer } from './PhotoWindowRenderer';
 import { AuthUser } from '@/types/auth';
 import { isThiagoDev } from '@/lib/permissions';
 
-const STORAGE_KEY = 'tke_home_config_v1';
+const STORAGE_KEY = 'tke_home_config_v2';
 
 export function EditableHomePage() {
   const router = useRouter();
