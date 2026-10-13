@@ -30,6 +30,18 @@ export async function getAprConfigAction() {
     if (config) {
       const configCompleta = {
         ...config,
+        categoriasRisco:
+          config.categoriasRisco && config.categoriasRisco.length > 0
+            ? config.categoriasRisco
+            : DEFAULT_APR_CATEGORIES,
+        episDisponiveis:
+          config.episDisponiveis && config.episDisponiveis.length > 0
+            ? config.episDisponiveis
+            : DEFAULT_EPIS,
+        regrasDeOuro:
+          config.regrasDeOuro && config.regrasDeOuro.length > 0
+            ? config.regrasDeOuro
+            : DEFAULT_REGRAS_DE_OURO,
         itensPlanejamento: config.itensPlanejamento || DEFAULT_ITENS_PLANEJAMENTO,
       };
       return { success: true, config: configCompleta };

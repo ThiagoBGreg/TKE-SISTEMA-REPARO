@@ -507,7 +507,7 @@ export function PtFotosServicoClient({
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {fotos.map((foto, idx) => {
-                const fotoSrc = foto.driveViewUrl || (foto as any).rawBase64 || '';
+                const fotoSrc = (foto as any).rawBase64 || foto.driveViewUrl || '';
                 const dataFormatada = foto.enviadoEm
                   ? new Date(foto.enviadoEm).toLocaleString('pt-BR')
                   : 'Data não informada';
@@ -531,6 +531,14 @@ export function PtFotosServicoClient({
                         alt={foto.legenda || foto.fileName}
                         className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                         loading="lazy"
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          if ((foto as any).rawBase64 && target.src !== (foto as any).rawBase64) {
+                            target.src = (foto as any).rawBase64;
+                          } else if (!target.src.includes('/uploads/cartas/')) {
+                            target.src = `/uploads/cartas/${encodeURIComponent(foto.fileName)}`;
+                          }
+                        }}
                       />
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-bold gap-1.5">
                         <span>🔍</span>
@@ -650,9 +658,17 @@ export function PtFotosServicoClient({
             onClick={(e) => e.stopPropagation()}
           >
             <img
-              src={lightboxFoto.driveViewUrl || (lightboxFoto as any).rawBase64}
+              src={(lightboxFoto as any).rawBase64 || lightboxFoto.driveViewUrl}
               alt={lightboxFoto.legenda || lightboxFoto.fileName}
               className="max-h-full max-w-full object-contain rounded-lg shadow-2xl"
+              onError={(e) => {
+                const target = e.currentTarget;
+                if ((lightboxFoto as any).rawBase64 && target.src !== (lightboxFoto as any).rawBase64) {
+                  target.src = (lightboxFoto as any).rawBase64;
+                } else if (!target.src.includes('/uploads/cartas/')) {
+                  target.src = `/uploads/cartas/${encodeURIComponent(lightboxFoto.fileName)}`;
+                }
+              }}
             />
           </div>
         </div>

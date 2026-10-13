@@ -2158,11 +2158,21 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
 
             {/* Viewer Iframe / Imagem / Link */}
             <div className="flex-1 min-h-[420px] sm:min-h-[560px] bg-slate-900 relative flex flex-col items-center justify-center overflow-hidden">
-              {previewingCarta.carta.driveViewUrl.match(/\.(jpeg|jpg|png|webp)$/i) ? (
+              {((previewingCarta.carta as any).rawBase64 ||
+                previewingCarta.carta.driveViewUrl.startsWith('data:image') ||
+                previewingCarta.carta.driveViewUrl.match(/\.(jpeg|jpg|png|webp)$/i) ||
+                previewingCarta.carta.fileName?.match(/\.(jpeg|jpg|png|webp)$/i)) ? (
                 <img
-                  src={previewingCarta.carta.driveViewUrl}
+                  src={(previewingCarta.carta as any).rawBase64 || previewingCarta.carta.driveViewUrl}
                   alt={`Carta de Conclusão ${previewingCarta.permit.codigo}`}
                   className="max-h-[75vh] w-auto object-contain mx-auto p-2"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    const apiFallback = `/api/pt/${previewingCarta.permit.id}/carta-conclusao`;
+                    if (!target.src.includes('/api/pt/')) {
+                      target.src = apiFallback;
+                    }
+                  }}
                 />
               ) : (
                 <iframe

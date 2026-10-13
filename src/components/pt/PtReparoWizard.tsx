@@ -5,7 +5,12 @@ import { useRouter } from 'next/navigation';
 import { submitPtReparoAction, updatePtReparoFullAction } from '@/actions/ptReparoActions';
 import { getAprConfigAction } from '@/actions/aprConfigActions';
 import type { AprRiskCategoryConfig, AprEpiConfig, AprItensPlanejamentoConfig } from '@/db/schema';
-import { DEFAULT_ITENS_PLANEJAMENTO } from '@/lib/constants/aprConstants';
+import {
+  DEFAULT_ITENS_PLANEJAMENTO,
+  DEFAULT_APR_CATEGORIES,
+  DEFAULT_EPIS,
+  DEFAULT_REGRAS_DE_OURO,
+} from '@/lib/constants/aprConstants';
 import { SignaturePad } from '@/components/pt/SignaturePad';
 import { ptReparoSchema, type DigitalSignature, type PtReparoFormData } from '@/lib/validations/ptReparoSchema';
 
@@ -141,13 +146,13 @@ export function PtReparoWizard({
   const [visitaSignatureModalIdx, setVisitaSignatureModalIdx] = useState<number | null>(null);
 
   // Configurações Dinâmicas da APR carregadas do banco de dados (Gerenciadas pelo Administrador)
-  const [aprCategorias, setAprCategorias] = useState<AprRiskCategoryConfig[]>([]);
-  const [aprEpis, setAprEpis] = useState<AprEpiConfig[]>([]);
+  const [aprCategorias, setAprCategorias] = useState<AprRiskCategoryConfig[]>(DEFAULT_APR_CATEGORIES);
+  const [aprEpis, setAprEpis] = useState<AprEpiConfig[]>(DEFAULT_EPIS);
   const [aprPlanejamento, setAprPlanejamento] = useState<AprItensPlanejamentoConfig>(DEFAULT_ITENS_PLANEJAMENTO);
   const [aprTitulo, setAprTitulo] = useState('APR Corporativa - TKE Reparos');
   const [aprRevisao, setAprRevisao] = useState('REV-2026.1');
-  const [aprInstrucoes, setAprInstrucoes] = useState('');
-  const [aprRegras, setAprRegras] = useState<string[]>([]);
+  const [aprInstrucoes, setAprInstrucoes] = useState('Instruções preliminares de segurança para reparo de elevadores.');
+  const [aprRegras, setAprRegras] = useState<string[]>(DEFAULT_REGRAS_DE_OURO);
   const [aprRespostasExtras, setAprRespostasExtras] = useState<Record<string, 'SIM' | 'NAO' | 'NAO_APLICAVEL'>>({});
   const [categoriasRiscoAtivas, setCategoriasRiscoAtivas] = useState<Record<string, boolean>>({});
 
@@ -160,9 +165,13 @@ export function PtReparoWizard({
       if (res.success && res.config) {
         if (res.config.categoriasRisco && res.config.categoriasRisco.length > 0) {
           setAprCategorias(res.config.categoriasRisco);
+        } else {
+          setAprCategorias(DEFAULT_APR_CATEGORIES);
         }
         if (res.config.episDisponiveis && res.config.episDisponiveis.length > 0) {
           setAprEpis(res.config.episDisponiveis);
+        } else {
+          setAprEpis(DEFAULT_EPIS);
         }
         if (res.config.itensPlanejamento) {
           setAprPlanejamento(res.config.itensPlanejamento);
@@ -170,7 +179,11 @@ export function PtReparoWizard({
         if (res.config.titulo) setAprTitulo(res.config.titulo);
         if (res.config.revisao) setAprRevisao(res.config.revisao);
         if (res.config.instrucoesGerais) setAprInstrucoes(res.config.instrucoesGerais);
-        if (res.config.regrasDeOuro) setAprRegras(res.config.regrasDeOuro);
+        if (res.config.regrasDeOuro && res.config.regrasDeOuro.length > 0) {
+          setAprRegras(res.config.regrasDeOuro);
+        } else {
+          setAprRegras(DEFAULT_REGRAS_DE_OURO);
+        }
       }
     });
   }, []);

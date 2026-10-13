@@ -22,6 +22,7 @@ export interface FotoServicoItem {
   fileName: string;
   driveViewUrl: string;
   driveDownloadUrl?: string | null;
+  rawBase64?: string;
   legenda?: string;
   enviadoEm: string;
   enviadoPorNome?: string;
@@ -167,8 +168,14 @@ export async function uploadFotosServicoAction(formData: FormData) {
         });
 
         if (uploadRes && uploadRes.webViewLink) {
-          driveViewUrl = uploadRes.webViewLink;
-          driveDownloadUrl = uploadRes.webContentLink || uploadRes.webViewLink;
+          if (uploadRes.webViewLink.startsWith('http') && uploadRes.webViewLink.includes('drive.google.com')) {
+            driveViewUrl = uploadRes.webViewLink;
+            driveDownloadUrl = uploadRes.webContentLink || uploadRes.webViewLink;
+          } else {
+            // Em ambiente sem Google Drive (disco local/nuvem), utiliza dataUri para persistência permanente no banco
+            driveViewUrl = dataUri;
+            driveDownloadUrl = uploadRes.webViewLink || dataUri;
+          }
           attachmentId = uploadRes.fileId;
         }
       } catch (driveErr) {
@@ -206,6 +213,7 @@ export async function uploadFotosServicoAction(formData: FormData) {
         fileName: file.name,
         driveViewUrl: driveViewUrl,
         driveDownloadUrl: driveDownloadUrl,
+        rawBase64: dataUri,
         legenda: legendaGeral || `Evidência Fotográfica ${i + 1}`,
         enviadoEm: new Date().toISOString(),
         enviadoPorNome: user?.nome || 'Técnico de Reparo',
