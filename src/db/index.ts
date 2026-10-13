@@ -29,13 +29,14 @@ function createDatabaseInstance() {
   }
 
   // Driver universal PostgreSQL TCP (Railway, Supabase, Docker, Localhost)
-  const isLocalhost =
+  const isInternalOrLocal =
     rawConnectionString.includes('localhost') ||
-    rawConnectionString.includes('127.0.0.1');
+    rawConnectionString.includes('127.0.0.1') ||
+    rawConnectionString.includes('.railway.internal');
 
   const client = postgres(rawConnectionString, {
     prepare: false,
-    ssl: isLocalhost ? false : 'require',
+    ssl: isInternalOrLocal ? false : 'prefer',
     max: 10,
     idle_timeout: 20,
     connect_timeout: 15,
