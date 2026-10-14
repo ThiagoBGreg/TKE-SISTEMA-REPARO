@@ -12,6 +12,8 @@ import {
   PhotoWindowAspectRatio,
   SystemThemeConfig,
   ActionType,
+  FeatureCardConfig,
+  LoginPageConfig,
 } from '@/types/homeConfig';
 import {
   COLOR_PALETTE_PRESETS,
@@ -19,6 +21,7 @@ import {
   applySystemTheme,
   ColorPalettePreset,
 } from '@/data/colorPalettes';
+import { DEFAULT_LOGIN_PAGE_CONFIG } from '@/data/defaultHomeConfig';
 import { MediaGalleryModal } from './MediaGalleryModal';
 
 const PRESET_IMAGES = [
@@ -44,6 +47,21 @@ const MENU_DESTINOS: Array<{ label: string; href: string; actionType?: ActionTyp
   { label: '⚡ Ação Rápida: Cadastrar Novo Usuário', href: '#cadastro', actionType: 'registerUser' },
 ];
 
+export type DevStudioTab =
+  | 'cores'
+  | 'topo'
+  | 'subbar'
+  | 'cards'
+  | 'login'
+  | 'textos'
+  | 'imagens'
+  | 'videos'
+  | 'botoes'
+  | 'janelas'
+  | 'blocos'
+  | 'acoes'
+  | 'salvar';
+
 interface HomeDevPlatformProps {
   isOpen: boolean;
   onClose: () => void;
@@ -51,9 +69,10 @@ interface HomeDevPlatformProps {
   onUpdateConfig: (newConfig: HomeConfig) => void;
   onSaveToBackend: (newConfig?: HomeConfig) => Promise<any>;
   onResetToDefault: () => void;
-  onOpenUserRegister: () => void;
-  onOpenQuickRepair: () => void;
-  onOpenVideo: () => void;
+  onOpenUserRegister?: () => void;
+  onOpenQuickRepair?: () => void;
+  onOpenVideo?: () => void;
+  initialTab?: DevStudioTab;
 }
 
 export function HomeDevPlatform({
@@ -66,10 +85,15 @@ export function HomeDevPlatform({
   onOpenUserRegister,
   onOpenQuickRepair,
   onOpenVideo,
+  initialTab,
 }: HomeDevPlatformProps) {
-  const [activeTab, setActiveTab] = useState<
-    'cores' | 'topo' | 'janelas' | 'textos' | 'imagens' | 'videos' | 'botoes' | 'blocos' | 'acoes' | 'salvar'
-  >('cores');
+  const [activeTab, setActiveTab] = useState<DevStudioTab>(initialTab || 'cores');
+
+  React.useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
@@ -416,6 +440,76 @@ export function HomeDevPlatform({
     });
   };
 
+  const updateSubBar = (partial: Partial<HomeConfig['subBar']>) => {
+    onUpdateConfig({
+      ...config,
+      subBar: { ...config.subBar, ...partial },
+    });
+  };
+
+  const addSubBarItem = () => {
+    const current = config.subBar?.items || [];
+    const newItem = {
+      id: `sub-${Date.now()}`,
+      label: 'Novo Link de Módulo',
+      href: '/dashboard',
+    };
+    updateSubBar({ items: [...current, newItem] });
+  };
+
+  const updateSubBarItem = (index: number, partial: { label?: string; href?: string }) => {
+    const current = [...(config.subBar?.items || [])];
+    current[index] = { ...current[index], ...partial };
+    updateSubBar({ items: current });
+  };
+
+  const removeSubBarItem = (index: number) => {
+    const current = (config.subBar?.items || []).filter((_, i) => i !== index);
+    updateSubBar({ items: current });
+  };
+
+  const updateFeaturesGrid = (partial: Partial<HomeConfig['featuresGrid']>) => {
+    onUpdateConfig({
+      ...config,
+      featuresGrid: { ...config.featuresGrid, ...partial },
+    });
+  };
+
+  const updateFeatureCard = (index: number, partial: Partial<FeatureCardConfig>) => {
+    const current = [...(config.featuresGrid?.cards || [])];
+    current[index] = { ...current[index], ...partial };
+    updateFeaturesGrid({ cards: current });
+  };
+
+  const addFeatureCard = () => {
+    const current = config.featuresGrid?.cards || [];
+    const newCard: FeatureCardConfig = {
+      id: `feat-${Date.now()}`,
+      tag: 'NOVO MÓDULO',
+      title: 'Título do Módulo TKE',
+      description: 'Abertura ágil de chamados técnicos, diagnóstico e acompanhamento de ordens de serviço em tempo real.',
+      href: '/dashboard',
+      imageUrl: '/images/Template-Capa-Blogs.png',
+      badgeColor: 'border-orange-500/30 text-orange-500 bg-orange-50',
+    };
+    updateFeaturesGrid({ cards: [...current, newCard] });
+  };
+
+  const removeFeatureCard = (index: number) => {
+    const current = (config.featuresGrid?.cards || []).filter((_, i) => i !== index);
+    updateFeaturesGrid({ cards: current });
+  };
+
+  const updateLoginPage = (partial: Partial<LoginPageConfig>) => {
+    onUpdateConfig({
+      ...config,
+      loginPage: {
+        ...(config.loginPage || DEFAULT_LOGIN_PAGE_CONFIG),
+        ...partial,
+      },
+    });
+  };
+
   const updateVideoSection = (partial: Partial<HomeConfig['videoSection']>) => {
     onUpdateConfig({
       ...config,
@@ -581,11 +675,14 @@ export function HomeDevPlatform({
         {[
           { id: 'cores', label: '🎨 Paletas & Cores (Global)' },
           { id: 'topo', label: '📌 Topo & Cabeçalho' },
-          { id: 'janelas', label: '🪟 Janelas de Fotos' },
-          { id: 'textos', label: '📝 Textos' },
+          { id: 'subbar', label: '📋 Sub-Barra & Links' },
+          { id: 'cards', label: '💼 Cards de Soluções' },
+          { id: 'login', label: '🔐 Tela de Login' },
+          { id: 'textos', label: '📝 Textos & Manifesto' },
           { id: 'imagens', label: '🖼️ Logos & Banners' },
           { id: 'videos', label: '🎥 Vídeos' },
-          { id: 'botoes', label: '🔘 Botões' },
+          { id: 'botoes', label: '🔘 Botões do Hero' },
+          { id: 'janelas', label: '🪟 Janelas de Fotos' },
           { id: 'blocos', label: '➕ Blocos' },
           { id: 'acoes', label: '⚡ Ações' },
           { id: 'salvar', label: '💾 Salvar' },
@@ -1217,8 +1314,646 @@ export function HomeDevPlatform({
         )}
 
         {/* ============================================================== */}
-        {/* ABA 2: JANELAS DE FOTOS (TAMANHO & LOCAL NA PÁGINA) */}
+        {/* ABA: SUB-BARRA & LINKS RÁPIDOS DA HOME */}
         {/* ============================================================== */}
+        {activeTab === 'subbar' && (
+          <div className="space-y-6">
+            <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-extrabold text-orange-400 flex items-center gap-1.5 text-xs">
+                  <span>📋</span> Barra Horizontal de Módulos (Sub-Barra)
+                </span>
+                <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-300 font-bold">
+                  <span>Exibir na Home:</span>
+                  <input
+                    type="checkbox"
+                    checked={config.subBar?.enabled !== false}
+                    onChange={(e) => updateSubBar({ enabled: e.target.checked })}
+                    className="rounded text-orange-500 w-4 h-4 cursor-pointer"
+                  />
+                </label>
+              </div>
+              <p className="text-slate-300 text-xs leading-relaxed">
+                Configure os atalhos operacionais rápidos (Ordens de Serviço, Emissão de PT/APR, Acompanhamento, OSH, DLOG, etc.) e o botão em destaque da sub-barra.
+              </p>
+            </div>
+
+            {/* Botão em Destaque da Sub-Barra */}
+            <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-3">
+              <span className="font-bold text-white text-xs block">
+                Botão de Ação Rápida da Sub-Barra:
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] text-slate-400 font-bold">Texto do Botão:</label>
+                  <input
+                    type="text"
+                    value={config.subBar?.ctaButton?.label || ''}
+                    onChange={(e) =>
+                      updateSubBar({
+                        ctaButton: {
+                          ...(config.subBar?.ctaButton || { href: '#abrir-chamado', actionType: 'quickRepair' }),
+                          label: e.target.value,
+                        },
+                      })
+                    }
+                    placeholder="Solicitar Reparo / Abrir Chamado"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs font-bold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] text-slate-400 font-bold">Tipo de Ação:</label>
+                  <select
+                    value={config.subBar?.ctaButton?.actionType || 'quickRepair'}
+                    onChange={(e) =>
+                      updateSubBar({
+                        ctaButton: {
+                          ...(config.subBar?.ctaButton || { label: 'Solicitar Reparo', href: '#abrir-chamado' }),
+                          actionType: e.target.value as any,
+                        },
+                      })
+                    }
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs"
+                  >
+                    <option value="quickRepair">⚡ Abrir Chamado Rápido</option>
+                    <option value="emitirPt">🛡️ Emitir PT / APR Digital</option>
+                    <option value="registerUser">👤 Cadastrar Novo Usuário</option>
+                    <option value="link">🔗 Link Personalizado</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Links da Sub-Barra */}
+            <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                <div>
+                  <span className="font-black text-white text-xs block">
+                    Links de Navegação dos Módulos ({config.subBar?.items?.length || 0})
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    Links clicáveis da barra horizontal
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={addSubBarItem}
+                  className="px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs"
+                >
+                  + Adicionar Link
+                </button>
+              </div>
+
+              <div className="space-y-2.5">
+                {config.subBar?.items?.map((item, idx) => (
+                  <div
+                    key={item.id || idx}
+                    className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2"
+                  >
+                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={item.label}
+                        onChange={(e) => updateSubBarItem(idx, { label: e.target.value })}
+                        placeholder="Nome do Módulo"
+                        className="bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white text-xs font-semibold"
+                      />
+                      <input
+                        type="text"
+                        value={item.href}
+                        onChange={(e) => updateSubBarItem(idx, { href: e.target.value })}
+                        placeholder="/dashboard/reparo"
+                        className="bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-300 font-mono text-[11px]"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1.5 justify-end">
+                      <select
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            const selected = MENU_DESTINOS.find((m) => m.href === e.target.value);
+                            updateSubBarItem(idx, {
+                              href: e.target.value,
+                              label: selected ? selected.label.replace(/^⚡\s*Ação\s*Rápida:\s*/i, '') : item.label,
+                            });
+                          }
+                        }}
+                        defaultValue=""
+                        className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-slate-400 text-[10px]"
+                      >
+                        <option value="">Atalhos ▾</option>
+                        {MENU_DESTINOS.map((d, dIdx) => (
+                          <option key={dIdx} value={d.href}>
+                            {d.label}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => removeSubBarItem(idx)}
+                        className="p-1.5 text-rose-400 hover:text-rose-300 font-bold text-xs"
+                        title="Excluir Link"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================== */}
+        {/* ABA: CARDS DE SOLUÇÕES & ESPECIALIDADES */}
+        {/* ============================================================== */}
+        {activeTab === 'cards' && (
+          <div className="space-y-6">
+            <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-extrabold text-orange-400 flex items-center gap-1.5 text-xs">
+                  <span>💼</span> Cards de Soluções Digitais & Especialidades
+                </span>
+                <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-300 font-bold">
+                  <span>Exibir Seção:</span>
+                  <input
+                    type="checkbox"
+                    checked={config.featuresGrid?.enabled !== false}
+                    onChange={(e) => updateFeaturesGrid({ enabled: e.target.checked })}
+                    className="rounded text-orange-500 w-4 h-4 cursor-pointer"
+                  />
+                </label>
+              </div>
+              <p className="text-slate-300 text-xs leading-relaxed">
+                Edite os 4 cards principais de Soluções de Engenharia & Reparo (Operação Reparo, Segurança do Trabalho, OSH e DLOG Logística).
+              </p>
+            </div>
+
+            {/* Título e Subtítulo da Seção */}
+            <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] text-slate-400 font-bold">Título da Seção de Cards:</label>
+                  <input
+                    type="text"
+                    value={config.featuresGrid?.title || ''}
+                    onChange={(e) => updateFeaturesGrid({ title: e.target.value })}
+                    placeholder="Soluções Digitais de Engenharia & Reparo"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs font-bold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] text-slate-400 font-bold">Subtítulo da Seção:</label>
+                  <input
+                    type="text"
+                    value={config.featuresGrid?.subtitle || ''}
+                    onChange={(e) => updateFeaturesGrid({ subtitle: e.target.value })}
+                    placeholder="Acesso rápido aos módulos operacionais do Sistema TKE"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Lista dos Cards */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="font-extrabold text-white text-xs">
+                  Cards Cadastrados ({config.featuresGrid?.cards?.length || 0})
+                </span>
+                <button
+                  type="button"
+                  onClick={addFeatureCard}
+                  className="px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs"
+                >
+                  + Adicionar Card de Solução
+                </button>
+              </div>
+
+              {config.featuresGrid?.cards?.map((card, idx) => (
+                <div
+                  key={card.id || idx}
+                  className="p-4 bg-slate-950 border border-slate-800 rounded-2xl space-y-3 group hover:border-orange-500/40 transition"
+                >
+                  <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                    <span className="font-extrabold text-white text-xs flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-orange-500/20 text-orange-400 flex items-center justify-center text-[10px] font-bold">
+                        {idx + 1}
+                      </span>
+                      <span>{card.title || 'Novo Card'}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeFeatureCard(idx)}
+                      className="text-rose-400 hover:text-rose-300 font-bold text-xs"
+                    >
+                      Remover Card
+                    </button>
+                  </div>
+
+                  {/* Imagem do Card com upload e galeria */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] text-slate-400 font-bold block">Imagem de Capa do Card:</label>
+                    <div className="flex items-center gap-3">
+                      <div className="relative w-20 h-14 bg-slate-900 rounded-xl overflow-hidden shrink-0 border border-slate-800">
+                        <Image
+                          src={card.imageUrl || '/images/Template-Capa-Blogs.png'}
+                          alt={card.title}
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => triggerDirectUpload('image', (url) => updateFeatureCard(idx, { imageUrl: url }))}
+                            className="px-2.5 py-1 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-bold text-[11px] flex items-center gap-1"
+                          >
+                            <span>📱</span> Celular / PC
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openMediaGallery({
+                                mediaType: 'image',
+                                title: `Imagem do Card: ${card.title}`,
+                                currentValue: card.imageUrl,
+                                onSelect: (url) => updateFeatureCard(idx, { imageUrl: url }),
+                              })
+                            }
+                            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-[11px] flex items-center gap-1"
+                          >
+                            <span>🖼️</span> Galeria
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          value={card.imageUrl}
+                          onChange={(e) => updateFeatureCard(idx, { imageUrl: e.target.value })}
+                          placeholder="/images/..."
+                          className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-slate-300 font-mono text-[10px]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-slate-400 font-bold">Tag Superior:</label>
+                      <input
+                        type="text"
+                        value={card.tag}
+                        onChange={(e) => updateFeatureCard(idx, { tag: e.target.value })}
+                        placeholder="Ex: OPERAÇÃO REPARO"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-orange-400 text-xs font-bold font-mono"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-slate-400 font-bold">Título do Módulo:</label>
+                      <input
+                        type="text"
+                        value={card.title}
+                        onChange={(e) => updateFeatureCard(idx, { title: e.target.value })}
+                        placeholder="Ex: Solicitação & Ordens de Reparo"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-white text-xs font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-slate-400 font-bold">Descrição do Card:</label>
+                    <textarea
+                      rows={2}
+                      value={card.description}
+                      onChange={(e) => updateFeatureCard(idx, { description: e.target.value })}
+                      placeholder="Descrição dos serviços executados e funcionalidades do módulo..."
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-white text-xs resize-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-slate-400 font-bold">Link de Destino (href):</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={card.href}
+                        onChange={(e) => updateFeatureCard(idx, { href: e.target.value })}
+                        placeholder="/dashboard/reparo"
+                        className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-white font-mono text-xs"
+                      />
+                      <select
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            updateFeatureCard(idx, { href: e.target.value });
+                          }
+                        }}
+                        defaultValue=""
+                        className="bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-slate-400 text-xs"
+                      >
+                        <option value="">Destinos ▾</option>
+                        {MENU_DESTINOS.map((d, dIdx) => (
+                          <option key={dIdx} value={d.href}>
+                            {d.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================== */}
+        {/* ABA: TELA DE LOGIN & CADASTRO (CUSTOMIZAÇÃO COMPLETA) */}
+        {/* ============================================================== */}
+        {activeTab === 'login' && (
+          <div className="space-y-6">
+            <div className="p-4 bg-gradient-to-r from-purple-950/40 via-slate-900 to-orange-950/40 border border-purple-500/30 rounded-2xl space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-extrabold text-purple-400 flex items-center gap-1.5 text-xs">
+                  <span>🔐</span> Customização da Tela de Login & Solicitação de Cadastro
+                </span>
+                <a
+                  href="/login"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] px-2.5 py-1 rounded-lg bg-purple-600/30 hover:bg-purple-600 text-purple-200 border border-purple-500/40 font-bold transition flex items-center gap-1"
+                >
+                  <span>👁️</span> Testar / Ver Tela de Login ↗
+                </a>
+              </div>
+              <p className="text-slate-300 text-xs leading-relaxed">
+                Personalize todos os textos, logotipos, imagens de fundo lateral e mensagens corporativas exibidas aos usuários na tela oficial de Login e Cadastro.
+              </p>
+            </div>
+
+            {/* SEÇÃO 1: PAINEL LATERAL INSTITUCIONAL */}
+            <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-4">
+              <span className="font-black text-white text-xs flex items-center gap-2 border-b border-slate-800 pb-2">
+                <span>🎨</span> 1. Painel Lateral Institucional (Identidade Visual TKE)
+              </span>
+
+              {/* Logotipo da Tela de Login */}
+              <div className="space-y-2">
+                <label className="font-bold text-slate-300 text-[11px] block">
+                  Logotipo Oficial da Tela de Login:
+                </label>
+                <div className="flex items-center gap-3">
+                  <div className="relative w-28 h-14 bg-white rounded-xl p-1.5 shrink-0 border border-slate-700 shadow flex items-center justify-center">
+                    <Image
+                      src={config.loginPage?.sideLogoUrl || '/images/tke-logo-claim-510x336px_image_w450_h338.webp'}
+                      alt="Logo Login"
+                      fill
+                      className="object-contain p-1"
+                    />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => triggerDirectUpload('image', (url) => updateLoginPage({ sideLogoUrl: url }))}
+                        className="px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs flex items-center gap-1.5 shadow"
+                      >
+                        <span>📱</span> Escolher do Celular / PC
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openMediaGallery({
+                            mediaType: 'image',
+                            title: 'Selecionar Logo da Tela de Login',
+                            currentValue: config.loginPage?.sideLogoUrl,
+                            onSelect: (url) => updateLoginPage({ sideLogoUrl: url }),
+                          })
+                        }
+                        className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center gap-1.5"
+                      >
+                        <span>🖼️</span> Galeria
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={config.loginPage?.sideLogoUrl || ''}
+                      onChange={(e) => updateLoginPage({ sideLogoUrl: e.target.value })}
+                      placeholder="/images/tke-logo-claim-510x336px_image_w450_h338.webp"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-white font-mono text-[11px]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Imagem de Fundo Lateral (Template-Capa-Blogs) */}
+              <div className="space-y-2 pt-2 border-t border-slate-800/80">
+                <label className="font-bold text-slate-300 text-[11px] block">
+                  Imagem de Fundo Lateral (Efeito Gradiente):
+                </label>
+                <div className="flex items-center gap-3">
+                  <div className="relative w-28 h-14 bg-slate-950 rounded-xl overflow-hidden shrink-0 border border-slate-700 shadow">
+                    <Image
+                      src={config.loginPage?.sideBannerImageUrl || '/images/Template-Capa-Blogs.png'}
+                      alt="Capa Login"
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => triggerDirectUpload('image', (url) => updateLoginPage({ sideBannerImageUrl: url }))}
+                        className="px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs flex items-center gap-1.5 shadow"
+                      >
+                        <span>📱</span> Escolher do Celular / PC
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openMediaGallery({
+                            mediaType: 'image',
+                            title: 'Selecionar Imagem de Fundo Lateral do Login',
+                            currentValue: config.loginPage?.sideBannerImageUrl,
+                            onSelect: (url) => updateLoginPage({ sideBannerImageUrl: url }),
+                          })
+                        }
+                        className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center gap-1.5"
+                      >
+                        <span>🖼️</span> Galeria
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={config.loginPage?.sideBannerImageUrl || ''}
+                      onChange={(e) => updateLoginPage({ sideBannerImageUrl: e.target.value })}
+                      placeholder="/images/Template-Capa-Blogs.png"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-white font-mono text-[11px]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Textos do Painel Lateral */}
+              <div className="space-y-3 pt-2 border-t border-slate-800/80">
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-300 text-[11px] block">Badge / Tag Superior Lateral:</label>
+                  <input
+                    type="text"
+                    value={config.loginPage?.badgeText || ''}
+                    onChange={(e) => updateLoginPage({ badgeText: e.target.value })}
+                    placeholder="Portal Operacional Integrado"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-orange-400 font-mono text-xs font-bold"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-300 text-[11px] block">Título Principal Lateral:</label>
+                  <input
+                    type="text"
+                    value={config.loginPage?.title || ''}
+                    onChange={(e) => updateLoginPage({ title: e.target.value })}
+                    placeholder="Gestão & Monitoramento de Reparos"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs font-bold"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-300 text-[11px] block">Parágrafo Descritivo Lateral:</label>
+                  <textarea
+                    rows={3}
+                    value={config.loginPage?.description || ''}
+                    onChange={(e) => updateLoginPage({ description: e.target.value })}
+                    placeholder="Plataforma corporativa da TKE para emissão de Permissão de Trabalho (PT/APR)..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* Caixa de Autorização Corporativa */}
+              <div className="space-y-3 pt-2 border-t border-slate-800/80">
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-300 text-[11px] block">Título do Card de Aviso:</label>
+                  <input
+                    type="text"
+                    value={config.loginPage?.noticeTitle || ''}
+                    onChange={(e) => updateLoginPage({ noticeTitle: e.target.value })}
+                    placeholder="🛡️ Autorização Corporativa"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-orange-400 text-xs font-bold"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-300 text-[11px] block">Texto do Card de Aviso:</label>
+                  <textarea
+                    rows={2}
+                    value={config.loginPage?.noticeText || ''}
+                    onChange={(e) => updateLoginPage({ noticeText: e.target.value })}
+                    placeholder="Cadastros de técnicos e parceiros subcontratados passam por liberação prévia da Coordenação TKE."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs resize-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* SEÇÃO 2: FORMULÁRIO DE LOGIN E CADASTRO */}
+            <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-4">
+              <span className="font-black text-white text-xs flex items-center gap-2 border-b border-slate-800 pb-2">
+                <span>📝</span> 2. Textos do Formulário de Acesso & Cadastro
+              </span>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-300 text-[11px] block">Rótulo da Aba de Login:</label>
+                  <input
+                    type="text"
+                    value={config.loginPage?.loginTabLabel || ''}
+                    onChange={(e) => updateLoginPage({ loginTabLabel: e.target.value })}
+                    placeholder="Acessar Conta"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs font-bold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-300 text-[11px] block">Rótulo da Aba de Cadastro:</label>
+                  <input
+                    type="text"
+                    value={config.loginPage?.registerTabLabel || ''}
+                    onChange={(e) => updateLoginPage({ registerTabLabel: e.target.value })}
+                    placeholder="Criar Nova Conta"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-300 text-[11px] block">Título do Form de Login:</label>
+                  <input
+                    type="text"
+                    value={config.loginPage?.loginHeading || ''}
+                    onChange={(e) => updateLoginPage({ loginHeading: e.target.value })}
+                    placeholder="Bem-vindo ao Sistema"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs font-bold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-300 text-[11px] block">Badge do Form de Login:</label>
+                  <input
+                    type="text"
+                    value={config.loginPage?.loginBadge || ''}
+                    onChange={(e) => updateLoginPage({ loginBadge: e.target.value })}
+                    placeholder="TKE SECURE"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-orange-400 font-mono text-xs font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-bold text-slate-300 text-[11px] block">Subtítulo do Form de Login:</label>
+                <input
+                  type="text"
+                  value={config.loginPage?.loginSubheading || ''}
+                  onChange={(e) => updateLoginPage({ loginSubheading: e.target.value })}
+                  placeholder="Informe suas credenciais corporativas para entrar."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-800/80">
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-300 text-[11px] block">Título do Form de Cadastro:</label>
+                  <input
+                    type="text"
+                    value={config.loginPage?.registerHeading || ''}
+                    onChange={(e) => updateLoginPage({ registerHeading: e.target.value })}
+                    placeholder="Solicitar Cadastro"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs font-bold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-300 text-[11px] block">Subtítulo do Form de Cadastro:</label>
+                  <input
+                    type="text"
+                    value={config.loginPage?.registerSubheading || ''}
+                    onChange={(e) => updateLoginPage({ registerSubheading: e.target.value })}
+                    placeholder="Preencha seus dados. Após o envio, o Administrador autorizará seu acesso."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-bold text-slate-300 text-[11px] block">Nota de Sigilo e Segurança:</label>
+                <textarea
+                  rows={2}
+                  value={config.loginPage?.securityNote || ''}
+                  onChange={(e) => updateLoginPage({ securityNote: e.target.value })}
+                  placeholder="🔒 Seus dados serão mantidos em sigilo e o acesso só será ativado após conferência administrativa."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs resize-none"
+                />
+              </div>
+            </div>
+          </div>
+        )}
         {activeTab === 'janelas' && (
           <div className="space-y-6">
             <div className="p-4 bg-gradient-to-r from-purple-950/40 via-slate-900 to-orange-950/40 border border-orange-500/30 rounded-2xl flex items-center justify-between gap-4">

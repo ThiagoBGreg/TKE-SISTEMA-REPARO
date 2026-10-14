@@ -168,7 +168,7 @@ export default function DashboardLayout({
           <div className="space-y-6">
             {/* Logo Oficial TKE e Botão Fechar no Mobile */}
             <div className="flex items-center justify-between px-2 py-2">
-              <Link href="/dashboard" className="flex items-center gap-3 group">
+              <Link href="/dashboard/reparo/pt" className="flex items-center gap-3 group">
                 <div className="relative p-0.5 rounded-xl bg-gradient-to-tr from-tke-purple via-tke-magenta to-tke-orange shadow-lg shadow-orange-500/20 group-hover:scale-105 transition-transform">
                   <div className="w-9 h-9 rounded-[10px] bg-slate-950 flex items-center justify-center p-1">
                     <img
@@ -302,7 +302,7 @@ export default function DashboardLayout({
 
             <div className="flex items-center gap-2 sm:gap-3">
               <Link
-                href="/"
+                href="/dashboard/reparo/pt"
                 className="hidden md:inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-800 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 transition"
               >
                 <span>🏠</span> Início
@@ -312,7 +312,7 @@ export default function DashboardLayout({
                 href="/dashboard/reparo/pt"
                 className="btn-tke-gradient px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-bold shadow-md shadow-orange-500/20 hover:shadow-orange-500/35"
               >
-                <span>✍️</span> + Nova PT
+                <span>✍️</span> + Nova PT / APR
               </Link>
 
               {/* Card de Usuário Logado no Canto Superior Direito */}

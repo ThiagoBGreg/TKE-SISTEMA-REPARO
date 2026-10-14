@@ -1,69 +1,37 @@
 {
-  "version": 11,
-  "updatedAt": "2026-10-13T03:00:00.000Z",
+  "version": 40,
+  "updatedAt": "2026-10-14T00:43:38.159Z",
   "updatedBy": "Thiago Gregorio (DEV)",
-  "theme": "dark",
+  "theme": "light",
   "themeConfig": {
-    "paletteId": "tke-deep-space",
-    "bgColor": "#090d16",
-    "textColor": "#ffffff",
-    "cardBgColor": "#0f172a",
-    "borderColor": "#1e293b",
+    "isDark": false,
+    "bgColor": "#ffffff",
+    "paletteId": "white-modern",
+    "textColor": "#0f172a",
     "accentColor": "#ff5e00",
-    "isDark": true
+    "borderColor": "#e2e8f0",
+    "cardBgColor": "#ffffff"
   },
   "photoWindows": [],
   "topBar": {
-    "logoUrl": "/images/tke-symbol.png",
+    "logoUrl": "/images/imagem-1.png",
     "logoAlt": "TKE Move Beyond Oficial",
     "brandName": "TK ELEVATOR GLOBAL",
-    "brandSlogan": "Padrão Move Beyond de Engenharia e Reparo",
+    "brandSlogan": "REPARO SÃO PAULO",
     "systemTitle": "REPARO SP",
-    "systemTag": "TKELEVATOR",
-    "subTitle": "Move Beyond • Gestão de APR",
+    "systemTag": "",
+    "subTitle": "TKELEVATOR Move Beyond",
     "utilityLinks": [
       {
         "href": "https://www.tkelevator.com",
         "label": "Portal Corporativo"
       },
       {
-        "href": "/dashboard/osh",
-        "label": "Segurança OSH"
-      },
-      {
-        "href": "/dashboard/dlog",
-        "label": "Logística DLOG"
-      },
-      {
-        "href": "/",
+        "href": "https://www.tkelevator.com",
         "label": "Brasil (PT-BR)"
       }
     ],
     "navButtons": [
-      {
-        "id": "nav-servicos",
-        "href": "/dashboard/reparo",
-        "label": "Ordens de Serviço",
-        "variant": "ghost",
-        "actionType": "link",
-        "icon": ""
-      },
-      {
-        "id": "nav-emitir-pt",
-        "href": "/dashboard/reparo/pt",
-        "icon": "🛡️",
-        "label": "Emitir PT / APR",
-        "variant": "dark",
-        "actionType": "emitirPt"
-      },
-      {
-        "id": "nav-prestador",
-        "href": "/dashboard/subcontratado/historico",
-        "icon": "💼",
-        "label": "Portal Prestador",
-        "variant": "ghost",
-        "actionType": "link"
-      },
       {
         "id": "nav-painel",
         "href": "/dashboard",
@@ -71,46 +39,29 @@
         "label": "Acessar Painel",
         "variant": "gradient",
         "actionType": "link"
+      },
+      {
+        "id": "nav-1791932750462",
+        "href": "/dashboard",
+        "label": "Emitir PT / APR",
+        "variant": "ghost",
+        "actionType": "emitirPt"
       }
     ]
   },
   "hero": {
-    "subtitle": "Fluxo digital completo e integrado: emissão de Permissão de Trabalho (PT/APR), assinaturas digitais com geolocalização em tempo real, controle rigoroso de riscos NR-10, NR-18 e NR-35.",
+    "subtitle": "",
     "badgeText": "TKE MOVE BEYOND • Padrão Global de Engenharia & Segurança",
     "bannerSub": "Controle Rigoroso de Riscos • NR-10, NR-18 e NR-35",
-    "ctaButtons": [
-      {
-        "id": "cta-solicitar-reparo",
-        "href": "#abrir-chamado",
-        "icon": "⚡",
-        "label": "Solicitar Reparo / Abrir Chamado",
-        "variant": "gradient",
-        "actionType": "quickRepair"
-      },
-      {
-        "id": "cta-emitir-pt",
-        "href": "/dashboard/reparo/pt",
-        "icon": "🛡️",
-        "label": "Emitir PT / APR Digital",
-        "variant": "dark",
-        "actionType": "emitirPt"
-      },
-      {
-        "id": "cta-portal-prestador",
-        "href": "/dashboard/subcontratado/historico",
-        "icon": "💼",
-        "label": "Portal do Prestador",
-        "variant": "outline",
-        "actionType": "link"
-      }
-    ],
+    "ctaButtons": [],
     "bannerLabel": "Padrão Global de Engenharia & Segurança",
     "bannerImageUrl": "/images/brand-keyvisual-1900px_image_w1900_h450.webp",
     "bracketTopText": "BEM-VINDO À TKE",
     "titleHighlight": "Serviços de Reparo & Emissão de PT",
-    "bracketHeadline": "VAMOS ALÉM PARA ELEVAR A VIDA URBANA"
+    "bracketHeadline": ""
   },
   "subBar": {
+    "enabled": false,
     "items": [
       {
         "id": "sub-1",
@@ -141,18 +92,12 @@
         "id": "sub-6",
         "href": "/dashboard/pagamentos",
         "label": "Pagamentos Subcontratados"
-      },
-      {
-        "id": "sub-7",
-        "href": "/dashboard/usuarios",
-        "label": "Gestão de Usuários"
       }
     ],
-    "enabled": true,
     "ctaButton": {
       "href": "#abrir-chamado",
-      "label": "Solicitar Reparo / Abrir Chamado",
-      "actionType": "quickRepair"
+      "label": " aaaaaaaaaaaaa[",
+      "actionType": "emitirPt"
     }
   },
   "statement": {
@@ -170,6 +115,9 @@
     "bracketTitle": "VÍDEO INSTITUCIONAL MOVE BEYOND"
   },
   "featuresGrid": {
+    "enabled": true,
+    "title": "Soluções Digitais de Engenharia & Reparo",
+    "subtitle": "Acesso rápido aos módulos operacionais do Sistema TKE",
     "cards": [
       {
         "id": "feat-reparo",
@@ -203,14 +151,29 @@
         "tag": "DLOG LOGÍSTICA",
         "href": "/dashboard/dlog",
         "title": "Logística & Despacho DLOG",
-        "imageUrl": "/images/imagem-2.png",
+        "imageUrl": "/images/tke-logo-claim-510x336px_image_w450_h338.webp",
         "badgeColor": "border-emerald-500/30 text-emerald-600 bg-emerald-50",
         "description": "Rastreamento de peças, rotas de motoristas e entrega expressa de componentes críticos."
       }
-    ],
-    "title": "Soluções Digitais de Engenharia & Reparo",
-    "enabled": true,
-    "subtitle": "Acesso rápido aos módulos operacionais do Sistema TKE"
+    ]
+  },
+  "loginPage": {
+    "sideBannerImageUrl": "/images/imagem-1.png",
+    "sideLogoUrl": "/uploads/img_1791938587165_o0g071.png",
+    "badgeText": "Portal Operacional Integrado",
+    "title": "Gestão & Monitoramento de Reparos",
+    "description": "Plataforma corporativa da TKE para emissão de Permissão de Trabalho (PT/APR), assinaturas digitais, evidências técnicas e conformidade operacional.",
+    "noticeTitle": "🛡️ Autorização Corporativa",
+    "noticeText": "Cadastros de técnicos e parceiros subcontratados passam por liberação prévia da Coordenação TKE.",
+    "sideFooterImageUrl": "/images/brand-keyvisual-1900px_image_w1900_h450.webp",
+    "loginTabLabel": "Acessar Conta",
+    "registerTabLabel": "Criar Nova Conta",
+    "loginHeading": "Bem-vindo ao Sistema",
+    "loginBadge": "TKE SECURE",
+    "loginSubheading": "Informe suas credenciais corporativas para entrar.",
+    "registerHeading": "Solicitar Cadastro",
+    "registerSubheading": "Preencha seus dados. Após o envio, o Administrador autorizará seu acesso.",
+    "securityNote": "🔒 Seus dados serão mantidos em sigilo e o acesso só será ativado após conferência administrativa."
   },
   "customBlocks": [],
   "footer": {

@@ -526,7 +526,33 @@ export function EditableHomePage() {
               ))}
             </div>
             {config.subBar.ctaButton && (
-              <QuickRepairRequestDialog />
+              config.subBar.ctaButton.actionType === 'emitirPt' ? (
+                <Link
+                  href="/dashboard/reparo/pt"
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-orange-500 via-rose-500 to-purple-600 text-white font-extrabold text-xs shadow-md shadow-orange-500/20 hover:brightness-110 transition flex items-center gap-1.5"
+                >
+                  <span>🛡️</span>
+                  <span>{config.subBar.ctaButton.label || 'Emitir PT / APR Digital'}</span>
+                </Link>
+              ) : config.subBar.ctaButton.actionType === 'registerUser' ? (
+                <button
+                  type="button"
+                  onClick={() => setIsUserRegisterOpen(true)}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-extrabold text-xs shadow-md hover:brightness-110 transition flex items-center gap-1.5"
+                >
+                  <span>👤</span>
+                  <span>{config.subBar.ctaButton.label || 'Cadastrar Usuário'}</span>
+                </button>
+              ) : config.subBar.ctaButton.actionType === 'link' ? (
+                <Link
+                  href={config.subBar.ctaButton.href || '#'}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-orange-500 via-rose-500 to-purple-600 text-white font-extrabold text-xs shadow-md shadow-orange-500/20 hover:brightness-110 transition"
+                >
+                  {config.subBar.ctaButton.label}
+                </Link>
+              ) : (
+                <QuickRepairRequestDialog />
+              )
             )}
           </div>
         )}
@@ -891,7 +917,25 @@ export function EditableHomePage() {
         <div className="h-1.5 w-full bg-gradient-to-r from-purple-700 via-rose-600 to-orange-500" />
       </footer>
 
-      {/* ==================================================================== */}
+      {/* Botão Flutuante de Acesso Rápido ao MODO DEV */}
+      <div className="fixed bottom-5 right-5 z-40 animate-in fade-in duration-300">
+        <button
+          type="button"
+          onClick={handleOpenDevClick}
+          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-full font-black text-xs shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 border cursor-pointer ${
+            isDark
+              ? 'bg-slate-900/90 hover:bg-slate-800 text-orange-400 border-orange-500/40 shadow-orange-500/20 backdrop-blur-md'
+              : 'bg-white hover:bg-slate-50 text-orange-600 border-orange-500/50 shadow-slate-300/60'
+          }`}
+          title="Abrir Studio DEV de Edição da Home e Login"
+        >
+          <span className="text-sm">🛠️</span>
+          <span>MODO DEV</span>
+          {isDevUnlocked && (
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+          )}
+        </button>
+      </div>
       {/* 10. MODAL DE DESBLOQUEIO DE ACESSO DEV (Para Thiago Gregorio) */}
       {/* ==================================================================== */}
       {isDevAuthModalOpen && (

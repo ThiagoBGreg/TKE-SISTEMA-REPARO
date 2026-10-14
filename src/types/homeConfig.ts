@@ -176,11 +176,32 @@ export interface HomeConfig {
     cards: FeatureCardConfig[];
   };
 
+  loginPage?: LoginPageConfig;
+
   customBlocks: CustomHomeBlock[];
   footer: {
     logoUrl: string;
     copyrightText: string;
     links: Array<{ label: string; href: string }>;
   };
+}
+
+export interface LoginPageConfig {
+  sideBannerImageUrl?: string;
+  sideLogoUrl?: string;
+  badgeText?: string;
+  title?: string;
+  description?: string;
+  noticeTitle?: string;
+  noticeText?: string;
+  sideFooterImageUrl?: string;
+  loginTabLabel?: string;
+  registerTabLabel?: string;
+  loginHeading?: string;
+  loginBadge?: string;
+  loginSubheading?: string;
+  registerHeading?: string;
+  registerSubheading?: string;
+  securityNote?: string;
 }
 

@@ -1002,7 +1002,7 @@ export function PtReparoWizard({
         setPendingIssues(refreshedIssues);
         setShowPendingModal(true);
       }
-      setFormError(result.error || (editingPermitId ? 'Erro ao salvar alterações da APR.' : 'Erro ao submeter a Permissão de Trabalho.'));
+      setFormError(result.error || (editingPermitId ? 'Erro ao salvar alterações da PT / APR.' : 'Erro ao submeter a PT / APR.'));
       return;
     }
 
@@ -1029,14 +1029,14 @@ export function PtReparoWizard({
             <div>
               <div className="flex items-center gap-2">
                 <span className="bg-amber-500 text-white font-extrabold text-[10px] tracking-wider uppercase px-2 py-0.5 rounded-full">
-                  APR EM ANDAMENTO
+                  PT / APR EM ANDAMENTO
                 </span>
                 <span className="font-bold text-sm sm:text-base text-slate-900">
                   Modo de Edição Operacional: {editingCodigo || `ID ${editingPermitId.slice(0, 8)}...`}
                 </span>
               </div>
               <p className="text-xs text-amber-900 mt-1">
-                Você está editando a APR enquanto o serviço está em execução. Pode alterar etapas, incluir novos membros ou registros e salvar as alterações.
+                Você está editando a PT / APR enquanto o serviço está em execução. Pode alterar etapas, incluir novos membros ou registros e salvar as alterações.
               </p>
             </div>
           </div>
@@ -1079,16 +1079,16 @@ export function PtReparoWizard({
               {editingPermitId ? 'Edição Operacional' : 'TKE • Segurança em Reparos'}
             </span>
             <span className="text-[11px] font-medium text-slate-500 hidden sm:inline">
-              {editingPermitId ? `PT: ${editingCodigo || 'Em andamento'}` : '💾 Auto-save ativo'}
+              {editingPermitId ? `PT / APR: ${editingCodigo || 'Em andamento'}` : '💾 Auto-save ativo'}
             </span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 mt-1">
-            {editingPermitId ? `Editar APR: ${editingCodigo || ''}` : 'APR / Permissão de Trabalho (PT)'}
+            {editingPermitId ? `Editar PT / APR: ${editingCodigo || ''}` : 'PT / APR (Permissão de Trabalho & APR)'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-500">
             {editingPermitId
-              ? 'Edite as informações e registros complementares da APR em execução.'
-              : 'Versão 04 • Análise Preliminar de Risco e Autorização de Trabalho'}
+              ? 'Edite as informações e registros complementares da PT / APR em execução.'
+              : 'Versão 04 • Permissão de Trabalho (PT) e Análise Preliminar de Risco (APR)'}
           </p>
         </div>
 
@@ -2553,10 +2553,10 @@ export function PtReparoWizard({
               >
                 {isSubmitting ? (
                   <>
-                    <span className="animate-spin text-sm">⏳</span> {editingPermitId ? 'Salvando Alterações na APR...' : 'Emitindo PT no Neon...'}
+                    <span className="animate-spin text-sm">⏳</span> {editingPermitId ? 'Salvando Alterações na PT / APR...' : 'Emitindo PT / APR...'}
                   </>
                 ) : (
-                  editingPermitId ? '💾 Salvar Alterações na APR em Andamento' : '🔒 Emitir Permissão de Trabalho (PT)'
+                  editingPermitId ? '💾 Salvar Alterações na PT / APR em Andamento' : '🔒 Emitir PT / APR'
                 )}
               </button>
             )}

@@ -32,6 +32,21 @@ export async function submitPtReparoAction(
 
     const validatedData = validation.data;
 
+    // 1.1 Validação Obrigatória de Geolocalização na Assinatura (Gestor Audit)
+    const geoInicio = validatedData.inicioServico?.emitenteAssinatura?.geolocalizacao;
+    if (
+      !geoInicio ||
+      typeof geoInicio.latitude !== 'number' ||
+      typeof geoInicio.longitude !== 'number' ||
+      (geoInicio.latitude === 0 && geoInicio.longitude === 0)
+    ) {
+      return {
+        success: false,
+        error:
+          'A assinatura digital só está liberada com a geolocalização permitida no navegador móvel do técnico. Por favor, autorize a localização no navegador para assinar.',
+      };
+    }
+
     // Obtém o usuário criador e valida existência no banco de dados
     const sessionUser = await getSessionUser();
     let creatorId = userId || sessionUser?.id;
@@ -314,13 +329,33 @@ async function getSessionUser(): Promise<AuthUser | null> {
 export async function getPtReparosAction() {
   try {
     const user = await getSessionUser();
+    let dbUser: any = null;
+    if (user?.id) {
+      try {
+        const [found] = await db.select().from(users).where(eq(users.id, user.id)).limit(1);
+        dbUser = found || null;
+      } catch (err) {
+        console.warn('[getPtReparosAction] Erro ao buscar dbUser:', err);
+      }
+    }
+
     const { isSuperAdmin } = await import('@/lib/permissions');
-    const isAdmin = isSuperAdmin(user);
-    const isSubcontratado = !isAdmin && user?.cargo === 'SUBCONTRATADO';
+    const isAdmin = isSuperAdmin(user) || Boolean(dbUser?.isAdmin);
+
+    const userCargo = String(dbUser?.cargo || user?.cargo || '').toUpperCase();
+    const isDev = userCargo === 'DEV' || user?.email === 'thiago.gregorio@tke.com' || user?.email === 'thiago.gregorio@tkelevator.com';
+    const isGestor = userCargo === 'GESTOR';
+    const isGerente = userCargo === 'GERENTE';
+    const isCoordenador = userCargo === 'COORDENADOR';
+    const temPermissaoLiberada = Boolean(dbUser?.podeVisualizarTodasPtApr || user?.podeVisualizarTodasPtApr);
+
+    // Regra do Usuário: Exceções que podem visualizar todas as PT/APRs: DEV, GESTOR, GERENTE, COORDENADOR, ou Administrador, ou quem tiver liberação no cadastro
+    const podeVerTodas = isDev || isGestor || isGerente || isCoordenador || isAdmin || temPermissaoLiberada;
+    const isSubcontratado = !podeVerTodas && userCargo === 'SUBCONTRATADO';
 
     let permits;
-    if (isSubcontratado && user?.id) {
-      // Subcontratados somente podem visualizar as próprias APRs preenchidas ou atribuídas
+    if (podeVerTodas) {
+      // Gestão e Colaboradores com liberação visualizam todas
       permits = await db
         .select({
           id: workPermits.id,
@@ -336,36 +371,68 @@ export async function getPtReparosAction() {
           criadoPorId: workPermits.criadoPorId,
           dadosCompletos: workPermits.dadosCompletos,
           createdAt: workPermits.createdAt,
+        })
+        .from(workPermits)
+        .orderBy(desc(workPermits.createdAt));
+    } else {
+      // Demais colaboradores: SOMENTE têm acesso a visualizar as SUAS próprias PT / APR
+      const candidatePermits = await db
+        .select({
+          id: workPermits.id,
+          codigo: workPermits.codigo,
+          status: workPermits.status,
+          contratoOrcamento: workPermits.contratoOrcamento,
+          equipamento: workPermits.equipamento,
+          tipoMaoDeObra: workPermits.tipoMaoDeObra,
+          tipoEquipamento: workPermits.tipoEquipamento,
+          classificacaoReparo: workPermits.classificacaoReparo,
+          trabalhoEmAltura: workPermits.trabalhoEmAltura,
+          serviceOrderId: workPermits.serviceOrderId,
+          criadoPorId: workPermits.criadoPorId,
+          dadosCompletos: workPermits.dadosCompletos,
+          createdAt: workPermits.createdAt,
+          soResponsavelTecnicoId: serviceOrders.responsavelTecnicoId,
+          soSubcontratadoId: serviceOrders.subcontratadoId,
+          soCriadoPorId: serviceOrders.criadoPorId,
         })
         .from(workPermits)
         .leftJoin(serviceOrders, eq(workPermits.serviceOrderId, serviceOrders.id))
-        .where(
-          or(
-            eq(workPermits.criadoPorId, user.id),
-            eq(serviceOrders.subcontratadoId, user.id)
-          )
-        )
         .orderBy(desc(workPermits.createdAt));
-    } else {
-      // Gestores, Supervisores, OSH e Administradores visualizam todas
-      permits = await db
-        .select({
-          id: workPermits.id,
-          codigo: workPermits.codigo,
-          status: workPermits.status,
-          contratoOrcamento: workPermits.contratoOrcamento,
-          equipamento: workPermits.equipamento,
-          tipoMaoDeObra: workPermits.tipoMaoDeObra,
-          tipoEquipamento: workPermits.tipoEquipamento,
-          classificacaoReparo: workPermits.classificacaoReparo,
-          trabalhoEmAltura: workPermits.trabalhoEmAltura,
-          serviceOrderId: workPermits.serviceOrderId,
-          criadoPorId: workPermits.criadoPorId,
-          dadosCompletos: workPermits.dadosCompletos,
-          createdAt: workPermits.createdAt,
-        })
-        .from(workPermits)
-        .orderBy(desc(workPermits.createdAt));
+
+      const userId = user?.id;
+      const userNomeNorm = (user?.nome || dbUser?.nome || '').trim().toLowerCase();
+
+      permits = candidatePermits.filter((p) => {
+        // 1. Vinculação direta por ID
+        if (userId) {
+          if (p.criadoPorId === userId) return true;
+          if (p.soResponsavelTecnicoId === userId) return true;
+          if (p.soSubcontratadoId === userId) return true;
+          if (p.soCriadoPorId === userId) return true;
+        }
+
+        // 2. Vinculação por Nome ou Assinatura nos dados estruturados da PT / APR
+        const dc = p.dadosCompletos as any;
+        if (dc && userNomeNorm) {
+          const tecNome = String(dc.dadosGerais?.tecnicoNome || '').trim().toLowerCase();
+          if (tecNome && (tecNome === userNomeNorm || tecNome.includes(userNomeNorm) || userNomeNorm.includes(tecNome))) return true;
+
+          const assInicioNome = String(dc.inicioServico?.emitenteAssinatura?.nome || '').trim().toLowerCase();
+          if (assInicioNome && (assInicioNome === userNomeNorm || assInicioNome.includes(userNomeNorm) || userNomeNorm.includes(assInicioNome))) return true;
+
+          const assTerminoNome = String(dc.terminoServico?.emitenteAssinatura?.nome || '').trim().toLowerCase();
+          if (assTerminoNome && (assTerminoNome === userNomeNorm || assTerminoNome.includes(userNomeNorm) || userNomeNorm.includes(assTerminoNome))) return true;
+
+          if (Array.isArray(dc.equipeTecnica)) {
+            const inEquipe = dc.equipeTecnica.some((m: any) => {
+              const mNome = String(m?.nome || '').trim().toLowerCase();
+              return mNome && (mNome === userNomeNorm || mNome.includes(userNomeNorm) || userNomeNorm.includes(mNome));
+            });
+            if (inEquipe) return true;
+          }
+        }
+        return false;
+      });
     }
 
     // Busca cartas de conclusão anexadas às Ordens de Serviço vinculadas
@@ -446,27 +513,54 @@ export async function getPtReparosAction() {
       };
     });
 
-    return { success: true, permits: permitsWithCartasEFotos, isAdmin, isSubcontratado, currentUser: user };
+    return {
+      success: true,
+      permits: permitsWithCartasEFotos,
+      isAdmin: podeVerTodas,
+      isSubcontratado,
+      podeVerTodas,
+      currentUser: user,
+    };
   } catch (error) {
     console.error('[getPtReparosAction] Erro ao buscar PTs:', error);
-    return { success: false, permits: [], isAdmin: false, isSubcontratado: false };
+    return { success: false, permits: [], isAdmin: false, isSubcontratado: false, podeVerTodas: false };
   }
 }
 
 /**
- * Busca dados completos de uma PT pelo ID (com validação estrita para subcontratados)
+ * Busca dados completos de uma PT pelo ID (com validação estrita de visualização)
  */
 export async function getPtReparoByIdAction(id: string) {
   try {
     const user = await getSessionUser();
+    let dbUser: any = null;
+    if (user?.id) {
+      try {
+        const [found] = await db.select().from(users).where(eq(users.id, user.id)).limit(1);
+        dbUser = found || null;
+      } catch (err) {
+        console.warn('[getPtReparoByIdAction] Erro ao buscar dbUser:', err);
+      }
+    }
+
     const { isSuperAdmin } = await import('@/lib/permissions');
-    const isAdmin = isSuperAdmin(user);
-    const isSubcontratado = !isAdmin && user?.cargo === 'SUBCONTRATADO';
+    const isAdmin = isSuperAdmin(user) || Boolean(dbUser?.isAdmin);
+
+    const userCargo = String(dbUser?.cargo || user?.cargo || '').toUpperCase();
+    const isDev = userCargo === 'DEV' || user?.email === 'thiago.gregorio@tke.com' || user?.email === 'thiago.gregorio@tkelevator.com';
+    const isGestor = userCargo === 'GESTOR';
+    const isGerente = userCargo === 'GERENTE';
+    const isCoordenador = userCargo === 'COORDENADOR';
+    const temPermissaoLiberada = Boolean(dbUser?.podeVisualizarTodasPtApr || user?.podeVisualizarTodasPtApr);
+
+    const podeVerTodas = isDev || isGestor || isGerente || isCoordenador || isAdmin || temPermissaoLiberada;
 
     const [result] = await db
       .select({
         permit: workPermits,
         subcontratadoId: serviceOrders.subcontratadoId,
+        responsavelTecnicoId: serviceOrders.responsavelTecnicoId,
+        soCriadoPorId: serviceOrders.criadoPorId,
       })
       .from(workPermits)
       .leftJoin(serviceOrders, eq(workPermits.serviceOrderId, serviceOrders.id))
@@ -477,21 +571,29 @@ export async function getPtReparoByIdAction(id: string) {
       return { success: false, error: 'Permissão de Trabalho não encontrada.' };
     }
 
-    // Restrição: Subcontratados somente podem visualizar as próprias APRs
-    if (isSubcontratado && user?.id) {
+    // Restrição: Colaboradores sem visão total somente podem visualizar as próprias PTs/APRs
+    if (!podeVerTodas && user?.id) {
       const isOwner =
         result.permit.criadoPorId === user.id ||
-        result.subcontratadoId === user.id;
+        result.subcontratadoId === user.id ||
+        result.responsavelTecnicoId === user.id ||
+        result.soCriadoPorId === user.id;
 
-      if (!isOwner) {
+      const userNomeNorm = (user?.nome || dbUser?.nome || '').trim().toLowerCase();
+      const dc = result.permit.dadosCompletos as any;
+      const tecNome = String(dc?.dadosGerais?.tecnicoNome || '').trim().toLowerCase();
+      const assNome = String(dc?.inicioServico?.emitenteAssinatura?.nome || '').trim().toLowerCase();
+      const isNamedInPt = userNomeNorm && (tecNome.includes(userNomeNorm) || assNome.includes(userNomeNorm) || userNomeNorm.includes(tecNome));
+
+      if (!isOwner && !isNamedInPt) {
         return {
           success: false,
-          error: 'Acesso negado: Subcontratados somente podem visualizar as próprias APRs preenchidas.',
+          error: 'Acesso negado: Você somente tem permissão para visualizar as suas próprias PT / APR.',
         };
       }
     }
 
-    return { success: true, permit: result.permit, isAdmin, isSubcontratado };
+    return { success: true, permit: result.permit, isAdmin: podeVerTodas, isSubcontratado: !podeVerTodas && userCargo === 'SUBCONTRATADO' };
   } catch (error) {
     console.error('[getPtReparoByIdAction] Erro:', error);
     return { success: false, error: 'Erro ao buscar Permissão de Trabalho.' };
@@ -710,6 +812,21 @@ export async function concluirTerminoPtReparoAction(payload: ConcluirTerminoPayl
     }
     if (!payload.emitenteAssinaturaBase64?.trim()) {
       return { success: false, error: 'Assinatura digital do término é obrigatória.' };
+    }
+
+    // Validação Obrigatória de Geolocalização no Término (Gestor Audit)
+    const geoTermino = payload.geolocalizacao;
+    if (
+      !geoTermino ||
+      typeof geoTermino.latitude !== 'number' ||
+      typeof geoTermino.longitude !== 'number' ||
+      (geoTermino.latitude === 0 && geoTermino.longitude === 0)
+    ) {
+      return {
+        success: false,
+        error:
+          'A assinatura digital de término só está liberada com a geolocalização permitida no navegador móvel do técnico. Por favor, autorize a localização no navegador para assinar.',
+      };
     }
 
     const [permit] = await db

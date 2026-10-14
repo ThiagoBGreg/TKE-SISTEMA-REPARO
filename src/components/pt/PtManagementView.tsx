@@ -578,6 +578,11 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
       return;
     }
 
+    if (!terminoAssinatura.geolocalizacao?.latitude || !terminoAssinatura.geolocalizacao?.longitude) {
+      setTerminoErro('A assinatura digital de término só está liberada com a geolocalização permitida no navegador móvel do técnico.');
+      return;
+    }
+
     setIsProcessing(true);
     setTerminoErro(null);
 
@@ -782,7 +787,7 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
             }`}
           >
             <span>📋</span>
-            <span>{isSubcontratado ? `Suas APRs Salvas (${permits.length})` : `Permissões Salvas (${permits.length})`}</span>
+            <span>{isSubcontratado ? `Suas PT / APR Salvas (${permits.length})` : `Permissões (PT / APR) Salvas (${permits.length})`}</span>
           </button>
           <button
             type="button"
@@ -860,9 +865,9 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
               <button
                 type="button"
                 onClick={() => setActiveTab('CREATE')}
-                className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2.5 rounded-lg shadow-xs transition flex items-center gap-1.5 whitespace-nowrap ml-auto"
+                className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2.5 rounded-lg shadow-xs transition flex items-center gap-1.5 whitespace-nowrap ml-auto cursor-pointer"
               >
-                <span>+</span> Emitir PT
+                <span>+</span> Emitir PT / APR
               </button>
             </div>
           </div>
@@ -872,17 +877,17 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
             <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center space-y-3">
               <div className="text-4xl">📄</div>
               <h3 className="text-base font-bold text-slate-800">
-                {isSubcontratado ? 'Nenhuma APR Emitida por Você' : 'Nenhuma Permissão de Trabalho Encontrada'}
+                {isSubcontratado ? 'Nenhuma PT / APR Emitida por Você' : 'Nenhuma PT / APR Encontrada'}
               </h3>
               <p className="text-xs text-slate-500 max-w-md mx-auto">
                 {isSubcontratado
-                  ? 'Você ainda não preencheu nenhuma Permissão de Trabalho / APR ou não há registros com os filtros informados. Clique no botão abaixo para emitir sua APR.'
+                  ? 'Você ainda não preencheu nenhuma PT / APR ou não há registros com os filtros informados. Clique no botão abaixo para emitir sua PT / APR.'
                   : 'Não há registros de PT / APR que correspondam aos filtros selecionados. Clique no botão abaixo para emitir uma nova permissão com campos em branco.'}
               </p>
               <button
                 type="button"
                 onClick={() => setActiveTab('CREATE')}
-                className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
+                className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition cursor-pointer"
               >
                 Emitir Nova PT / APR
               </button>
@@ -893,7 +898,7 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
                 <table className="w-full text-left text-xs min-w-[1100px]">
                   <thead className="bg-slate-50 text-slate-600 uppercase font-semibold border-b border-slate-200">
                     <tr>
-                      <th className="py-3.5 px-4">Código / PT</th>
+                      <th className="py-3.5 px-4">Código / PT / APR</th>
                       <th className="py-3.5 px-4">Data Emissão</th>
                       <th className="py-3.5 px-4">Contrato / Orçamento</th>
                       <th className="py-3.5 px-4">Equipamento</th>
@@ -1098,7 +1103,7 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-1.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white font-black text-xs px-3 py-1.5 rounded-lg shadow-xs hover:shadow-md transition active:scale-95"
-                                title="Gerar e Baixar Relatório Unificado de Conclusão (APR + Carta de Conclusão + Fotos do Serviço em PDF)"
+                                title="Gerar e Baixar Relatório Unificado de Conclusão (PT / APR + Carta de Conclusão + Fotos do Serviço em PDF)"
                               >
                                 <span>📑</span>
                                 <span>Relatório Completo</span>
@@ -1108,9 +1113,9 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-[10px] text-slate-500 hover:text-slate-800 underline font-medium hover:font-semibold"
-                                title="Baixar apenas a folha da Permissão de Trabalho / APR"
+                                title="Baixar apenas a folha da Permissão de Trabalho (PT / APR)"
                               >
-                                Baixar apenas APR
+                                Baixar apenas PT / APR
                               </a>
                             </div>
                           </td>
@@ -1130,16 +1135,16 @@ async function compressImageForUpload(file: File, maxDim = 1600, quality = 0.82)
                               </button>
                             )}
 
-                            {/* BOTÃO PARA EDITAR APR EM ANDAMENTO */}
+                            {/* BOTÃO PARA EDITAR PT / APR EM ANDAMENTO */}
                             {!isConcluido && (
                               <button
                                 type="button"
                                 onClick={() => handleStartEditPt(permit)}
                                 className="bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold px-2.5 py-1.5 rounded-lg transition text-xs border border-amber-300 shadow-2xs inline-flex items-center gap-1 cursor-pointer"
-                                title="Editar APR em Andamento (Fazer alterações nas etapas, checklists, membros ou registros)"
+                                title="Editar PT / APR em Andamento (Fazer alterações nas etapas, checklists, membros ou registros)"
                               >
                                 <span>✏️</span>
-                                <span>Editar APR</span>
+                                <span>Editar PT / APR</span>
                               </button>
                             )}
 

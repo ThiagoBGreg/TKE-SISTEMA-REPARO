@@ -19,7 +19,7 @@ const ADMIN_ID = '00000000-0000-0000-0000-000000000001';
 const registerSchema = z.object({
   nome: z.string().min(3, 'Nome e sobrenome são obrigatórios'),
   email: z.string().email('E-mail corporativo inválido'),
-  senha: z.string().min(6, 'A senha deve conter no mínimo 6 caracteres'),
+  senha: z.string().min(4, 'A senha deve conter no mínimo 4 caracteres'),
   departamento: z.enum(['REPARO', 'SERVICOS', 'OSH', 'DLOG', 'ADMINISTRATIVO']),
   cargo: z.string().min(1, 'Cargo é obrigatório'),
   telefone: z.string().optional(),
@@ -105,6 +105,7 @@ export async function loginUserAction(formData: FormData): Promise<AuthActionRes
         cargo: 'DEV',
         status: 'ATIVO',
         isAdmin: true,
+        podeVisualizarTodasPtApr: true,
       };
 
       const cookieStore = await cookies();
@@ -117,10 +118,13 @@ export async function loginUserAction(formData: FormData): Promise<AuthActionRes
         sameSite: 'lax',
       });
 
-      return { success: true, user: adminUser, redirect: '/dashboard' };
+      return { success: true, user: adminUser, redirect: '/dashboard/reparo/pt' };
     }
 
-    // 2. Busca o usuário no banco Neon Postgres pelo Nome e Sobrenome OU E-mail
+    // 2. Busca o usuário no banco Neon/Railway Postgres pelo Nome e Sobrenome, E-mail OU CPF/Documento
+    const digitsOnly = identificador.replace(/\D/g, '');
+    const isCpfOrDocFormat = digitsOnly.length >= 7;
+
     const [user] = await db
       .select()
       .from(users)
@@ -128,7 +132,11 @@ export async function loginUserAction(formData: FormData): Promise<AuthActionRes
         or(
           ilike(users.nome, identificador),
           ilike(users.email, identificador),
-          sql`LOWER(TRIM(${users.nome})) = LOWER(TRIM(${identificador}))`
+          sql`LOWER(TRIM(${users.nome})) = LOWER(TRIM(${identificador}))`,
+          eq(users.documento, identificador),
+          isCpfOrDocFormat
+            ? sql`REGEXP_REPLACE(COALESCE(${users.documento}, ''), '[^0-9]', '', 'g') = ${digitsOnly}`
+            : sql`false`
         )
       )
       .limit(1);
@@ -137,7 +145,7 @@ export async function loginUserAction(formData: FormData): Promise<AuthActionRes
       return {
         success: false,
         error:
-          'Usuário não encontrado. Verifique se digitou o Nome e Sobrenome corretamente ou solicite seu cadastro.',
+          'Usuário não encontrado. Verifique se digitou o Nome Completo, E-mail ou CPF corretamente ou solicite seu cadastro.',
       };
     }
 
@@ -176,6 +184,7 @@ export async function loginUserAction(formData: FormData): Promise<AuthActionRes
       cargo: user.cargo,
       status: user.status,
       isAdmin: isUserAdmin,
+      podeVisualizarTodasPtApr: !!user.podeVisualizarTodasPtApr,
       allowedMenus: user.allowedMenus || undefined,
     };
 
@@ -189,7 +198,7 @@ export async function loginUserAction(formData: FormData): Promise<AuthActionRes
       sameSite: 'lax',
     });
 
-    return { success: true, user: authUser, redirect: '/dashboard' };
+    return { success: true, user: authUser, redirect: '/dashboard/reparo/pt' };
   } catch (error) {
     console.error('[loginUserAction] Erro:', error);
     return { success: false, error: 'Erro interno ao realizar login. Tente novamente.' };
@@ -367,7 +376,9 @@ export async function getAllUsersAction() {
         cargo: users.cargo,
         status: users.status,
         isAdmin: users.isAdmin,
+        podeVisualizarTodasPtApr: users.podeVisualizarTodasPtApr,
         allowedMenus: users.allowedMenus,
+        senha: users.senhaHash,
         createdAt: users.createdAt,
       })
       .from(users)
@@ -391,6 +402,7 @@ export interface UpdateUserData {
   cargo: string;
   status: 'ATIVO' | 'PENDENTE' | 'BLOQUEADO';
   novaSenha?: string;
+  podeVisualizarTodasPtApr?: boolean;
   allowedMenus?: string[] | null;
 }
 
@@ -411,11 +423,15 @@ export async function updateUserByAdminAction(data: UpdateUserData) {
       updatedAt: new Date(),
     };
 
+    if (data.podeVisualizarTodasPtApr !== undefined) {
+      updatePayload.podeVisualizarTodasPtApr = data.podeVisualizarTodasPtApr;
+    }
+
     if (data.allowedMenus !== undefined) {
       updatePayload.allowedMenus = data.allowedMenus;
     }
 
-    if (data.novaSenha && data.novaSenha.trim().length >= 6) {
+    if (data.novaSenha && data.novaSenha.trim().length >= 4) {
       updatePayload.senhaHash = data.novaSenha.trim();
     }
 
@@ -442,6 +458,7 @@ export async function createUserByAdminAction(data: {
   documento?: string;
   empresa?: string;
   status?: 'ATIVO' | 'PENDENTE' | 'BLOQUEADO';
+  podeVisualizarTodasPtApr?: boolean;
   allowedMenus?: string[] | null;
 }) {
   try {
@@ -472,6 +489,7 @@ export async function createUserByAdminAction(data: {
         documento: data.documento?.trim() || null,
         empresa: data.empresa?.trim() || null,
         status: data.status || 'ATIVO',
+        podeVisualizarTodasPtApr: data.podeVisualizarTodasPtApr ?? false,
         allowedMenus: data.allowedMenus || null,
       })
       .returning();

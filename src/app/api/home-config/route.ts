@@ -29,6 +29,9 @@ export async function GET() {
           ...DEFAULT_HOME_CONFIG,
           ...dbConfig,
           topBar: { ...DEFAULT_HOME_CONFIG.topBar, ...(dbConfig.topBar || {}) },
+          subBar: { ...DEFAULT_HOME_CONFIG.subBar, ...(dbConfig.subBar || {}) },
+          featuresGrid: { ...DEFAULT_HOME_CONFIG.featuresGrid, ...(dbConfig.featuresGrid || {}) },
+          loginPage: { ...DEFAULT_HOME_CONFIG.loginPage, ...(dbConfig.loginPage || {}) },
           themeConfig: dbConfig.themeConfig || DEFAULT_HOME_CONFIG.themeConfig,
         };
 

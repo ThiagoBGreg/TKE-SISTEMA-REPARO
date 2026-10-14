@@ -35,7 +35,9 @@ interface UserItem {
   cargo: string;
   status: 'ATIVO' | 'PENDENTE' | 'BLOQUEADO' | string;
   isAdmin?: boolean | null;
+  podeVisualizarTodasPtApr?: boolean | null;
   allowedMenus?: string[] | null;
+  senha?: string | null;
   createdAt: Date | string;
 }
 
@@ -49,6 +51,20 @@ export default function UsuariosPage() {
   const [allUsers, setAllUsers] = useState<UserItem[]>([]);
   const [activeTab, setActiveTab] = useState<'todos' | 'pendentes'>('todos');
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Estados de exibição de senha para o DEV
+  const [showAllPasswords, setShowAllPasswords] = useState(false);
+  const [revealedPasswordIds, setRevealedPasswordIds] = useState<Record<string, boolean>>({});
+  const [showEditPassword, setShowEditPassword] = useState(false);
+  const [showNewUserPassword, setShowNewUserPassword] = useState(false);
+  const [copiedPasswordId, setCopiedPasswordId] = useState<string | null>(null);
+
+  const handleCopyPassword = (userId: string, pwd?: string | null) => {
+    if (!pwd) return;
+    navigator.clipboard.writeText(pwd);
+    setCopiedPasswordId(userId);
+    setTimeout(() => setCopiedPasswordId(null), 2500);
+  };
 
   // Filtros e busca
   const [searchQuery, setSearchQuery] = useState('');
@@ -67,6 +83,7 @@ export default function UsuariosPage() {
     cargo: string;
     status: 'ATIVO' | 'PENDENTE' | 'BLOQUEADO';
     novaSenha: string;
+    podeVisualizarTodasPtApr: boolean;
     allowedMenus: string[];
   }>({
     nome: '',
@@ -78,6 +95,7 @@ export default function UsuariosPage() {
     cargo: '',
     status: 'ATIVO',
     novaSenha: '',
+    podeVisualizarTodasPtApr: false,
     allowedMenus: APP_MENUS.map((m) => m.href),
   });
 
@@ -92,6 +110,7 @@ export default function UsuariosPage() {
     departamento: 'REPARO' as (typeof DEPARTAMENTOS)[number],
     cargo: 'Técnico de Manutenção',
     status: 'ATIVO' as 'ATIVO' | 'PENDENTE' | 'BLOQUEADO',
+    podeVisualizarTodasPtApr: false,
     allowedMenus: APP_MENUS.map((m) => m.href) as string[],
   });
 
@@ -193,6 +212,7 @@ export default function UsuariosPage() {
       cargo: userToEdit.cargo || '',
       status: (userToEdit.status as 'ATIVO' | 'PENDENTE' | 'BLOQUEADO') || 'ATIVO',
       novaSenha: '',
+      podeVisualizarTodasPtApr: !!userToEdit.podeVisualizarTodasPtApr,
       allowedMenus: userAllowedMenus,
     });
   };
@@ -214,6 +234,7 @@ export default function UsuariosPage() {
         cargo: editFormData.cargo,
         status: editFormData.status,
         novaSenha: editFormData.novaSenha ? editFormData.novaSenha : undefined,
+        podeVisualizarTodasPtApr: editFormData.podeVisualizarTodasPtApr,
         allowedMenus: editFormData.allowedMenus,
       };
 
@@ -242,6 +263,7 @@ export default function UsuariosPage() {
         documento: newUserFormData.documento || undefined,
         empresa: newUserFormData.empresa || undefined,
         status: newUserFormData.status,
+        podeVisualizarTodasPtApr: newUserFormData.podeVisualizarTodasPtApr,
         allowedMenus: newUserFormData.allowedMenus,
       });
 
@@ -258,6 +280,7 @@ export default function UsuariosPage() {
           departamento: 'REPARO',
           cargo: 'Técnico de Manutenção',
           status: 'ATIVO',
+          podeVisualizarTodasPtApr: false,
           allowedMenus: APP_MENUS.map((m) => m.href) as string[],
         });
         loadData();
@@ -324,7 +347,21 @@ export default function UsuariosPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowAllPasswords((prev) => !prev)}
+            className={`px-3.5 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border ${
+              showAllPasswords
+                ? 'bg-amber-500 text-white border-amber-600 shadow-md shadow-amber-500/25'
+                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 shadow-xs'
+            }`}
+            title={showAllPasswords ? 'Ocultar senhas na listagem' : 'Exibir senhas de todos os colaboradores'}
+          >
+            <span>{showAllPasswords ? '🙈' : '👁️'}</span>
+            <span>{showAllPasswords ? 'Ocultar Senhas' : 'Exibir Senhas (DEV)'}</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setIsNewUserModalOpen(true)}
@@ -560,6 +597,19 @@ export default function UsuariosPage() {
                         >
                           {colab.status}
                         </span>
+                        {['DEV', 'GESTOR', 'GERENTE', 'COORDENADOR'].includes(colab.cargo?.toUpperCase()) || colab.isAdmin ? (
+                          <span className="text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-md flex items-center gap-1" title="Cargo com acesso global a todas as PTs/APRs">
+                            👁️ Vê Todas PT / APR (Gestão)
+                          </span>
+                        ) : colab.podeVisualizarTodasPtApr ? (
+                          <span className="text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded-md flex items-center gap-1" title="Permissão especial concedida pelo Administrador">
+                            👁️ Vê Todas PT / APR (Liberado)
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-medium bg-slate-50 text-slate-500 border border-slate-200 px-2 py-0.5 rounded-md flex items-center gap-1" title="Visualiza somente as PTs/APRs de sua autoria ou atribuídas">
+                            🔒 Apenas Suas PT / APR
+                          </span>
+                        )}
                       </div>
 
                       <div className="text-xs text-slate-500 flex flex-wrap items-center gap-x-4 gap-y-1">
@@ -590,6 +640,52 @@ export default function UsuariosPage() {
                         {colab.documento && (
                           <span>
                             📄 <strong className="text-slate-600">Doc:</strong> {colab.documento}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Senha e Credencial de Login (Visualização do DEV) */}
+                      <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2">
+                        <span className="text-[11px] font-bold text-slate-500 flex items-center gap-1">
+                          🔑 <strong className="text-slate-700">Senha de Acesso:</strong>
+                        </span>
+                        <div className="inline-flex items-center gap-1.5 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200">
+                          <span className="font-mono text-xs font-bold text-slate-900 tracking-wider">
+                            {showAllPasswords || revealedPasswordIds[colab.id]
+                              ? colab.senha || '—'
+                              : '•••••'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setRevealedPasswordIds((prev) => ({
+                                ...prev,
+                                [colab.id]: !prev[colab.id],
+                              }))
+                            }
+                            className="text-xs hover:scale-110 transition cursor-pointer text-slate-500 hover:text-slate-900 px-0.5"
+                            title={
+                              revealedPasswordIds[colab.id] || showAllPasswords
+                                ? 'Ocultar senha'
+                                : 'Exibir senha'
+                            }
+                          >
+                            {revealedPasswordIds[colab.id] || showAllPasswords ? '🙈' : '👁️'}
+                          </button>
+                          {colab.senha && (
+                            <button
+                              type="button"
+                              onClick={() => handleCopyPassword(colab.id, colab.senha)}
+                              className="text-[11px] hover:scale-105 transition cursor-pointer text-slate-500 hover:text-orange-600 font-semibold border-l border-slate-200 pl-1.5"
+                              title="Copiar senha do colaborador"
+                            >
+                              {copiedPasswordId === colab.id ? '✅ Copiado!' : '📋 Copiar'}
+                            </button>
+                          )}
+                        </div>
+                        {colab.documento && (
+                          <span className="text-[10px] text-slate-400">
+                            (Padrão: 5 primeiros dígitos do CPF)
                           </span>
                         )}
                       </div>
@@ -808,21 +904,80 @@ export default function UsuariosPage() {
                   </p>
                 </div>
 
-                {/* Nova Senha (Opcional) */}
-                <div className="sm:col-span-2 pt-2 border-t border-slate-100">
-                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
-                    Redefinir Senha (Opcional)
-                  </label>
-                  <input
-                    type="password"
-                    placeholder="Deixe em branco para manter a senha atual"
-                    value={editFormData.novaSenha}
-                    onChange={(e) => setEditFormData({ ...editFormData, novaSenha: e.target.value })}
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Preencha apenas caso queira trocar a senha deste colaborador (mínimo 6 caracteres).
+                {/* Senha Atual e Nova Senha */}
+                <div className="sm:col-span-2 pt-2 border-t border-slate-100 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[11px] font-bold text-slate-700 uppercase">
+                      Redefinir Senha de Acesso (Opcional)
+                    </label>
+                    {editingUser?.senha && (
+                      <div className="inline-flex items-center gap-1.5 bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200 text-xs">
+                        <span className="text-[10px] text-slate-500 font-semibold">Senha Atual:</span>
+                        <span className="font-mono font-bold text-slate-900">
+                          {showEditPassword ? editingUser.senha : '•••••'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setShowEditPassword(!showEditPassword)}
+                          className="text-xs hover:scale-110 transition cursor-pointer text-slate-500 hover:text-slate-800"
+                          title={showEditPassword ? 'Ocultar senha' : 'Exibir senha'}
+                        >
+                          {showEditPassword ? '🙈' : '👁️'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showEditPassword ? 'text' : 'password'}
+                      placeholder="Deixe em branco para manter a senha atual ou digite a nova"
+                      value={editFormData.novaSenha}
+                      onChange={(e) => setEditFormData({ ...editFormData, novaSenha: e.target.value })}
+                      className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 pr-10 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowEditPassword(!showEditPassword)}
+                      className="absolute right-3 top-2 text-xs text-slate-400 hover:text-slate-700 transition cursor-pointer"
+                      title={showEditPassword ? 'Ocultar senha' : 'Exibir senha'}
+                    >
+                      {showEditPassword ? '🙈' : '👁️'}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-400">
+                    Padrão de senha recomendado: os 5 primeiros dígitos do CPF do colaborador.
                   </p>
+                </div>
+
+                {/* Opção de Liberação: Visualizar Todas as PTs / APRs */}
+                <div className="sm:col-span-2 p-3.5 rounded-2xl bg-gradient-to-r from-orange-50/70 via-amber-50/40 to-white border border-orange-200/90 shadow-2xs">
+                  <label className="flex items-start justify-between gap-3 cursor-pointer">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">🛡️</span>
+                        <span className="text-xs font-black text-slate-900 uppercase tracking-tight">
+                          Permissão de Visualização PT / APR
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-orange-500/15 text-orange-700 border border-orange-500/30">
+                          ACESSO OPERACIONAL
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 leading-relaxed font-normal">
+                        Por padrão, colaboradores comuns visualizam <strong>somente as suas próprias PT / APR</strong>. As exceções automáticas com visão total são: <strong>DEV, Gestor, Gerente e Coordenador</strong>.
+                      </p>
+                      <div className="pt-1 text-xs font-bold text-slate-800 flex items-center gap-2">
+                        <span>Liberar acesso para visualizar todas as PTs / APRs emitidas pela equipe</span>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={editFormData.podeVisualizarTodasPtApr}
+                      onChange={(e) =>
+                        setEditFormData({ ...editFormData, podeVisualizarTodasPtApr: e.target.checked })
+                      }
+                      className="w-5 h-5 accent-orange-600 rounded mt-1 cursor-pointer shrink-0"
+                    />
+                  </label>
                 </div>
 
                 {/* Seleção de Menus Permitidos */}
@@ -986,17 +1141,37 @@ export default function UsuariosPage() {
 
                 {/* Senha Inicial */}
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
-                    Senha Provisória *
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    placeholder="Mínimo 6 dígitos"
-                    value={newUserFormData.senha}
-                    onChange={(e) => setNewUserFormData({ ...newUserFormData, senha: e.target.value })}
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-bold text-slate-700 uppercase">
+                      Senha de Acesso *
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowNewUserPassword(!showNewUserPassword)}
+                      className="text-[10px] font-bold text-orange-600 hover:text-orange-700 flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>{showNewUserPassword ? '🙈' : '👁️'}</span>
+                      <span>{showNewUserPassword ? 'Ocultar' : 'Exibir'}</span>
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showNewUserPassword ? 'text' : 'password'}
+                      required
+                      placeholder="Ex: 5 primeiros dígitos do CPF"
+                      value={newUserFormData.senha}
+                      onChange={(e) => setNewUserFormData({ ...newUserFormData, senha: e.target.value })}
+                      className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 pr-9 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewUserPassword(!showNewUserPassword)}
+                      className="absolute right-2.5 top-2 text-xs text-slate-400 hover:text-slate-700 cursor-pointer"
+                      title={showNewUserPassword ? 'Ocultar senha' : 'Exibir senha'}
+                    >
+                      {showNewUserPassword ? '🙈' : '👁️'}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Telefone */}
@@ -1108,6 +1283,37 @@ export default function UsuariosPage() {
                   <p className="text-[10px] text-slate-400 mt-1">
                     Nome da empresa parceira ou razão social do prestador terceirizado/subcontratado.
                   </p>
+                </div>
+
+                {/* Opção de Liberação: Visualizar Todas as PTs / APRs */}
+                <div className="sm:col-span-2 p-3.5 rounded-2xl bg-gradient-to-r from-orange-50/70 via-amber-50/40 to-white border border-orange-200/90 shadow-2xs">
+                  <label className="flex items-start justify-between gap-3 cursor-pointer">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">🛡️</span>
+                        <span className="text-xs font-black text-slate-900 uppercase tracking-tight">
+                          Permissão de Visualização PT / APR
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-orange-500/15 text-orange-700 border border-orange-500/30">
+                          ACESSO OPERACIONAL
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 leading-relaxed font-normal">
+                        Por padrão, colaboradores comuns visualizam <strong>somente as suas próprias PT / APR</strong>. As exceções automáticas com visão total são: <strong>DEV, Gestor, Gerente e Coordenador</strong>.
+                      </p>
+                      <div className="pt-1 text-xs font-bold text-slate-800 flex items-center gap-2">
+                        <span>Liberar acesso para visualizar todas as PTs / APRs emitidas pela equipe</span>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={newUserFormData.podeVisualizarTodasPtApr}
+                      onChange={(e) =>
+                        setNewUserFormData({ ...newUserFormData, podeVisualizarTodasPtApr: e.target.checked })
+                      }
+                      className="w-5 h-5 accent-orange-600 rounded mt-1 cursor-pointer shrink-0"
+                    />
+                  </label>
                 </div>
 
                 {/* Seleção de Menus Permitidos */}

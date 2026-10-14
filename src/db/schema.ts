@@ -171,6 +171,7 @@ export const users = pgTable(
     cargo: userRoleEnum('cargo').notNull(),
     status: userStatusEnum('status').default('PENDENTE').notNull(),
     isAdmin: boolean('is_admin').default(false).notNull(),
+    podeVisualizarTodasPtApr: boolean('pode_visualizar_todas_pt_apr').default(false).notNull(), // Permissão para visualizar todas as PTs/APRs da equipe
     allowedMenus: jsonb('allowed_menus').$type<string[]>(), // Lista de rotas autorizadas para o menu do usuário
     aprovadoPorId: uuid('aprovado_por_id'),
     dataAprovacao: timestamp('data_aprovacao', { withTimezone: true }),

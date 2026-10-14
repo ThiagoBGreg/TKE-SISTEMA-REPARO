@@ -191,6 +191,28 @@ export const DEFAULT_HOME_CONFIG: HomeConfig = {
     ],
   },
 
+  loginPage: {
+    sideBannerImageUrl: '/images/Template-Capa-Blogs.png',
+    sideLogoUrl: '/images/tke-logo-claim-510x336px_image_w450_h338.webp',
+    badgeText: 'Portal Operacional Integrado',
+    title: 'Gestão & Monitoramento de Reparos',
+    description:
+      'Plataforma corporativa da TKE para emissão de Permissão de Trabalho (PT/APR), assinaturas digitais, evidências técnicas e conformidade operacional.',
+    noticeTitle: '🛡️ Autorização Corporativa',
+    noticeText:
+      'Cadastros de técnicos e parceiros subcontratados passam por liberação prévia da Coordenação TKE.',
+    sideFooterImageUrl: '/images/brand-keyvisual-1900px_image_w1900_h450.webp',
+    loginTabLabel: 'Acessar Conta',
+    registerTabLabel: 'Criar Nova Conta',
+    loginHeading: 'Bem-vindo ao Sistema',
+    loginBadge: 'TKE SECURE',
+    loginSubheading: 'Informe suas credenciais corporativas para entrar.',
+    registerHeading: 'Solicitar Cadastro',
+    registerSubheading: 'Preencha seus dados. Após o envio, o Administrador autorizará seu acesso.',
+    securityNote:
+      '🔒 Seus dados serão mantidos em sigilo e o acesso só será ativado após conferência administrativa.',
+  },
+
   customBlocks: [],
 
   footer: {
@@ -206,3 +228,5 @@ export const DEFAULT_HOME_CONFIG: HomeConfig = {
     ],
   },
 };
+
+export const DEFAULT_LOGIN_PAGE_CONFIG = DEFAULT_HOME_CONFIG.loginPage!;
