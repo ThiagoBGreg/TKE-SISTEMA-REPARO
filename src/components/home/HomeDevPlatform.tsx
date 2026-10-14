@@ -656,7 +656,7 @@ export function HomeDevPlatform({
             </h2>
             <span className="text-[11px] text-orange-400 font-semibold flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              Usuário DEV: Thiago Gregorio • Modo Customização Ativo
+              MODO DEV • Modo Customização Ativo
             </span>
           </div>
         </div>

@@ -27,7 +27,7 @@ export const APP_MENUS = [
 interface UserItem {
   id: string;
   nome: string;
-  email: string;
+  email?: string | null;
   telefone?: string | null;
   documento?: string | null;
   empresa?: string | null;
@@ -163,7 +163,7 @@ export default function UsuariosPage() {
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
         const matchesNome = u.nome.toLowerCase().includes(query);
-        const matchesEmail = u.email.toLowerCase().includes(query);
+        const matchesEmail = u.email ? u.email.toLowerCase().includes(query) : false;
         const matchesCargo = u.cargo?.toLowerCase().includes(query);
         const matchesDoc = u.documento?.toLowerCase().includes(query);
         const matchesTel = u.telefone?.toLowerCase().includes(query);
@@ -171,8 +171,13 @@ export default function UsuariosPage() {
         return matchesNome || matchesEmail || matchesCargo || matchesDoc || matchesTel || matchesEmpresa;
       }
 
+      // Filtro de segurança: remove @tke.elevadores.parceiro.tke.com
+      if (u.email && u.email.toLowerCase().includes('tke.elevadores.parceiro.tke.com')) {
+        return false;
+      }
+
       return true;
-    });
+    }).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
   }, [allUsers, activeTab, filterDepto, filterStatus, searchQuery]);
 
   // Ações de aprovação rápida
@@ -204,7 +209,7 @@ export default function UsuariosPage() {
 
     setEditFormData({
       nome: userToEdit.nome,
-      email: userToEdit.email,
+      email: userToEdit.email || '',
       telefone: userToEdit.telefone || '',
       documento: userToEdit.documento || '',
       empresa: userToEdit.empresa || '',
@@ -614,7 +619,12 @@ export default function UsuariosPage() {
 
                       <div className="text-xs text-slate-500 flex flex-wrap items-center gap-x-4 gap-y-1">
                         <span>
-                          ✉️ <strong className="text-slate-600">E-mail:</strong> {colab.email}
+                          ✉️ <strong className="text-slate-600">E-mail:</strong>{' '}
+                          {colab.email && colab.email.trim() ? (
+                            <span className="text-slate-700 font-medium">{colab.email}</span>
+                          ) : (
+                            <span className="text-amber-600/90 italic font-semibold">Em branco (preencher manual)</span>
+                          )}
                         </span>
                         <span>
                           👔 <strong className="text-slate-600">Cargo:</strong> {isUserDev ? 'DEV' : colab.cargo}
@@ -784,11 +794,11 @@ export default function UsuariosPage() {
                 {/* Email */}
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
-                    E-mail Corporativo *
+                    E-mail Corporativo (Opcional)
                   </label>
                   <input
                     type="email"
-                    required
+                    placeholder="Deixe em branco ou digite o e-mail"
                     value={editFormData.email}
                     onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
                     className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
@@ -1127,12 +1137,11 @@ export default function UsuariosPage() {
                 {/* Email */}
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
-                    E-mail Corporativo *
+                    E-mail Corporativo (Opcional)
                   </label>
                   <input
                     type="email"
-                    required
-                    placeholder="carlos.silva@tkelevadores.com"
+                    placeholder="Deixe em branco ou digite o e-mail"
                     value={newUserFormData.email}
                     onChange={(e) => setNewUserFormData({ ...newUserFormData, email: e.target.value })}
                     className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"

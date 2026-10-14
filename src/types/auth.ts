@@ -6,7 +6,7 @@ import { Department, UserRole, UserStatus } from '@/db/schema';
 export interface AuthUser {
   id: string;
   nome: string;
-  email: string;
+  email?: string | null;
   departamento: Department;
   cargo: UserRole;
   status: UserStatus;

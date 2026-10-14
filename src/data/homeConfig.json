@@ -1,6 +1,6 @@
 {
-  "version": 40,
-  "updatedAt": "2026-10-14T00:43:38.159Z",
+  "version": 41,
+  "updatedAt": "2026-10-14T11:12:51.480Z",
   "updatedBy": "Thiago Gregorio (DEV)",
   "theme": "light",
   "themeConfig": {
@@ -52,9 +52,16 @@
   "hero": {
     "subtitle": "",
     "badgeText": "TKE MOVE BEYOND • Padrão Global de Engenharia & Segurança",
-    "bannerSub": "Controle Rigoroso de Riscos • NR-10, NR-18 e NR-35",
-    "ctaButtons": [],
-    "bannerLabel": "Padrão Global de Engenharia & Segurança",
+    "ctaButtons": [
+      {
+        "id": "cta-emitir-pt-hero",
+        "label": "Emitir PT / APR",
+        "href": "/dashboard/reparo/pt",
+        "variant": "gradient",
+        "icon": "⚡",
+        "actionType": "emitirPt"
+      }
+    ],
     "bannerImageUrl": "/images/brand-keyvisual-1900px_image_w1900_h450.webp",
     "bracketTopText": "BEM-VINDO À TKE",
     "titleHighlight": "Serviços de Reparo & Emissão de PT",
@@ -120,15 +127,6 @@
     "subtitle": "Acesso rápido aos módulos operacionais do Sistema TKE",
     "cards": [
       {
-        "id": "feat-reparo",
-        "tag": "OPERAÇÃO REPARO",
-        "href": "/dashboard/reparo",
-        "title": "Solicitação & Ordens de Reparo",
-        "imageUrl": "/images/Template-Capa-Blogs.png",
-        "badgeColor": "border-orange-500/30 text-orange-500 bg-orange-50",
-        "description": "Abertura ágil de chamados técnicos, diagnóstico e acompanhamento de ordens de serviço em tempo real."
-      },
-      {
         "id": "feat-pt",
         "tag": "SEGURANÇA DO TRABALHO",
         "href": "/dashboard/reparo/pt",
@@ -145,15 +143,6 @@
         "imageUrl": "/images/modelo-referencia-2.png",
         "badgeColor": "border-amber-500/30 text-amber-600 bg-amber-50",
         "description": "Validação técnica imediata de trabalho em altura (NR-35), eletricidade (NR-10) e construção (NR-18)."
-      },
-      {
-        "id": "feat-dlog",
-        "tag": "DLOG LOGÍSTICA",
-        "href": "/dashboard/dlog",
-        "title": "Logística & Despacho DLOG",
-        "imageUrl": "/images/tke-logo-claim-510x336px_image_w450_h338.webp",
-        "badgeColor": "border-emerald-500/30 text-emerald-600 bg-emerald-50",
-        "description": "Rastreamento de peças, rotas de motoristas e entrega expressa de componentes críticos."
       }
     ]
   },

@@ -161,7 +161,7 @@ export const users = pgTable(
   {
     id: uuid('id').defaultRandom().primaryKey(),
     nome: varchar('nome', { length: 255 }).notNull(),
-    email: varchar('email', { length: 255 }).notNull(),
+    email: varchar('email', { length: 255 }),
     senhaHash: text('senha_hash'),
     telefone: varchar('telefone', { length: 30 }),
     documento: varchar('documento', { length: 30 }), // CPF ou CNPJ para extratos
@@ -182,7 +182,7 @@ export const users = pgTable(
       .$onUpdate(() => new Date()),
   },
   (table) => [
-    uniqueIndex('users_email_unique_idx').on(table.email),
+    uniqueIndex('users_email_unique_idx').on(table.email).where(sql`email IS NOT NULL AND email != ''`),
     index('users_dept_cargo_idx').on(table.departamento, table.cargo),
     index('users_status_idx').on(table.status),
     index('users_is_admin_idx').on(table.isAdmin),

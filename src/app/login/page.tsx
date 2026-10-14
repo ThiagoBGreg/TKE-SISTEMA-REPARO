@@ -152,17 +152,17 @@ function LoginFormContent() {
     });
   };
 
-  // Autenticação rápida do DEV Thiago Gregorio
+  // Autenticação rápida do Modo DEV
   const handleDevUnlockSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (devPasswordInput === 'ManuLinda' || devPasswordInput === 'thiago' || devPasswordInput === 'dev') {
+    if (devPasswordInput === 'Lucas') {
       setIsDevUnlocked(true);
       setIsDevAuthModalOpen(false);
       setIsDevPlatformOpen(true);
       setDevPasswordInput('');
       setDevAuthError(null);
     } else {
-      setDevAuthError('Senha incorreta para acesso de desenvolvedor.');
+      setDevAuthError('Senha incorreta para acesso ao Modo DEV.');
     }
   };
 
@@ -250,15 +250,15 @@ function LoginFormContent() {
           <span>Voltar ao Início</span>
         </Link>
 
-        {/* Botão de Acesso DEV Thiago Gregorio na Tela de Login */}
+        {/* Botão de Acesso MODO DEV na Tela de Login */}
         <button
           type="button"
           onClick={handleOpenDevClick}
           className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-orange-500/40 bg-slate-900/80 text-orange-400 hover:text-white hover:bg-orange-600 text-[11px] font-black tracking-wide shadow-md transition cursor-pointer"
-          title="Abrir Plataforma de Edição do DEV na Tela de Login"
+          title="Abrir Plataforma MODO DEV"
         >
           <span>🛠️</span>
-          <span>MODO DEV: THIAGO GREGORIO</span>
+          <span>MODO DEV</span>
           {isDevUnlocked && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />}
         </button>
       </div>
@@ -657,8 +657,8 @@ function LoginFormContent() {
                   DEV
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-sm text-white">Desbloqueio Modo DEV</h3>
-                  <span className="text-[11px] text-slate-400">Thiago Gregorio • Personalização de Telas</span>
+                  <h3 className="font-extrabold text-sm text-white">Desbloqueio MODO DEV</h3>
+                  <span className="text-[11px] text-slate-400">Personalização de Telas</span>
                 </div>
               </div>
               <button

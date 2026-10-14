@@ -78,12 +78,12 @@ export const DEFAULT_HOME_CONFIG: HomeConfig = {
     bannerSub: 'Controle Rigoroso de Riscos • NR-10, NR-18 e NR-35',
     ctaButtons: [
       {
-        id: 'cta-solicitar-reparo',
-        label: 'Solicitar Reparo / Abrir Chamado',
-        href: '#abrir-chamado',
+        id: 'cta-emitir-pt-hero',
+        label: 'Emitir PT / APR',
+        href: '/dashboard/reparo/pt',
         variant: 'gradient',
         icon: '⚡',
-        actionType: 'quickRepair',
+        actionType: 'emitirPt',
       },
       {
         id: 'cta-emitir-pt',

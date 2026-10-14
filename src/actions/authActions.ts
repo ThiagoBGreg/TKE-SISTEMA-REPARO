@@ -2,7 +2,7 @@
 
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
-import { eq, desc, ilike, or, sql } from 'drizzle-orm';
+import { eq, desc, asc, ilike, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/db';
 import { notifications, users } from '@/db/schema';
@@ -179,7 +179,7 @@ export async function loginUserAction(formData: FormData): Promise<AuthActionRes
     const authUser: AuthUser = {
       id: user.id,
       nome: user.nome,
-      email: user.email,
+      email: user.email || '',
       departamento: user.departamento,
       cargo: user.cargo,
       status: user.status,
@@ -305,7 +305,7 @@ export async function getPendingUsersAction() {
       })
       .from(users)
       .where(eq(users.status, 'PENDENTE'))
-      .orderBy(desc(users.createdAt));
+      .orderBy(asc(users.nome));
 
     return { success: true, users: pendingList };
   } catch (error) {
@@ -382,7 +382,7 @@ export async function getAllUsersAction() {
         createdAt: users.createdAt,
       })
       .from(users)
-      .orderBy(desc(users.createdAt));
+      .orderBy(asc(users.nome));
 
     return { success: true, users: allUsers };
   } catch (error) {
@@ -394,7 +394,7 @@ export async function getAllUsersAction() {
 export interface UpdateUserData {
   id: string;
   nome: string;
-  email: string;
+  email?: string | null;
   telefone?: string;
   documento?: string;
   empresa?: string;
@@ -411,9 +411,26 @@ export interface UpdateUserData {
  */
 export async function updateUserByAdminAction(data: UpdateUserData) {
   try {
+    const emailSanitized = data.email && data.email.trim() ? data.email.trim().toLowerCase() : null;
+
+    if (emailSanitized) {
+      const [existing] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.email, emailSanitized))
+        .limit(1);
+
+      if (existing && existing.id !== data.id) {
+        return {
+          success: false,
+          error: 'Este e-mail corporativo já está sendo utilizado por outro colaborador.',
+        };
+      }
+    }
+
     const updatePayload: Record<string, any> = {
       nome: data.nome.trim(),
-      email: data.email.trim().toLowerCase(),
+      email: emailSanitized,
       telefone: data.telefone?.trim() || null,
       documento: data.documento?.trim() || null,
       empresa: data.empresa?.trim() || null,
@@ -450,7 +467,7 @@ export async function updateUserByAdminAction(data: UpdateUserData) {
  */
 export async function createUserByAdminAction(data: {
   nome: string;
-  email: string;
+  email?: string | null;
   senha: string;
   departamento: 'REPARO' | 'SERVICOS' | 'OSH' | 'DLOG' | 'ADMINISTRATIVO';
   cargo: string;
@@ -462,19 +479,21 @@ export async function createUserByAdminAction(data: {
   allowedMenus?: string[] | null;
 }) {
   try {
-    const emailSanitized = data.email.trim().toLowerCase();
+    const emailSanitized = data.email && data.email.trim() ? data.email.trim().toLowerCase() : null;
 
-    const [existing] = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.email, emailSanitized))
-      .limit(1);
+    if (emailSanitized) {
+      const [existing] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.email, emailSanitized))
+        .limit(1);
 
-    if (existing) {
-      return {
-        success: false,
-        error: 'Já existe um colaborador cadastrado com este e-mail corporativo.',
-      };
+      if (existing) {
+        return {
+          success: false,
+          error: 'Já existe um colaborador cadastrado com este e-mail corporativo.',
+        };
+      }
     }
 
     const [novoUsuario] = await db

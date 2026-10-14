@@ -151,17 +151,17 @@ export function EditableHomePage() {
     });
   };
 
-  // Autenticação rápida do DEV Thiago Gregorio
+  // Autenticação rápida do Modo DEV
   const handleDevUnlockSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (devPasswordInput === 'ManuLinda' || devPasswordInput === 'thiago' || devPasswordInput === 'dev') {
+    if (devPasswordInput === 'Lucas') {
       setIsDevUnlocked(true);
       setIsDevAuthModalOpen(false);
       setIsDevPlatformOpen(true);
       setDevPasswordInput('');
       setDevAuthError(null);
     } else {
-      setDevAuthError('Senha incorreta para acesso de desenvolvedor.');
+      setDevAuthError('Senha incorreta para acesso ao Modo DEV.');
     }
   };
 
@@ -269,7 +269,7 @@ export function EditableHomePage() {
               {link.label}
             </Link>
           ))}
-          {/* Botão de Acesso DEV Thiago Gregorio */}
+          {/* Botão de Acesso MODO DEV */}
           <button
             onClick={handleOpenDevClick}
             className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-black tracking-wide transition-all ${
@@ -277,10 +277,10 @@ export function EditableHomePage() {
                 ? 'bg-gradient-to-r from-purple-950/70 to-orange-950/70 border-orange-500/40 text-orange-300 hover:text-white hover:border-orange-400'
                 : 'bg-white border-orange-500/50 text-orange-600 hover:bg-orange-500 hover:text-white shadow-xs'
             }`}
-            title="Abrir Plataforma de Desenvolvimento da Home para Thiago Gregorio"
+            title="Abrir Plataforma MODO DEV"
           >
             <span>🛠️</span>
-            <span>MODO DEV: THIAGO GREGORIO</span>
+            <span>MODO DEV</span>
             {isDevUnlocked && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />}
           </button>
         </div>
@@ -429,27 +429,34 @@ export function EditableHomePage() {
 
         {/* Botões de Ação Principais (CTA) */}
         <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 pt-2">
-          {/* Botão de Abertura de Chamado Rápido */}
-          <QuickRepairRequestDialog />
+          {config.hero.ctaButtons && config.hero.ctaButtons.length > 0 ? (
+            config.hero.ctaButtons.map((btn) => {
+              if (btn.actionType === 'quickRepair') {
+                return <QuickRepairRequestDialog key={btn.id} />;
+              }
 
-          {config.hero.ctaButtons?.map((btn) => {
-            if (btn.actionType === 'quickRepair') {
-              return null; // Já renderizado acima com o componente completo
-            }
-
-            return (
-              <button
-                key={btn.id}
-                onClick={(e) => handleButtonClick(btn, e)}
-                className={`inline-flex items-center gap-2 text-sm font-extrabold px-5 py-3 rounded-2xl transition hover:scale-102 active:scale-98 ${getButtonClass(
-                  btn.variant
-                )}`}
-              >
-                {btn.icon && <span>{btn.icon}</span>}
-                <span>{btn.label}</span>
-              </button>
-            );
-          })}
+              return (
+                <button
+                  key={btn.id}
+                  onClick={(e) => handleButtonClick(btn, e)}
+                  className={`inline-flex items-center gap-2 text-sm sm:text-base font-black px-6 py-3.5 rounded-2xl transition hover:scale-102 active:scale-98 ${getButtonClass(
+                    btn.variant
+                  )}`}
+                >
+                  {btn.icon && <span>{btn.icon}</span>}
+                  <span>{btn.label}</span>
+                </button>
+              );
+            })
+          ) : (
+            <Link
+              href="/dashboard/reparo/pt"
+              className="btn-tke-gradient px-6 py-3.5 text-sm sm:text-base font-black shadow-xl shadow-orange-500/30 hover:shadow-orange-500/50 inline-flex items-center gap-2"
+            >
+              <span className="text-base animate-pulse">⚡</span>
+              <span>Emitir PT / APR</span>
+            </Link>
+          )}
         </div>
 
         {/* JANELAS DE FOTOS NO HERO (Abaixo dos botões) */}
@@ -944,7 +951,7 @@ export function EditableHomePage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="p-1.5 rounded-lg bg-orange-500/10 text-orange-400 font-bold">🛠️</span>
-                <h3 className="font-black text-sm text-white">Acesso DEV: Thiago Gregorio</h3>
+                <h3 className="font-black text-sm text-white">MODO DEV</h3>
               </div>
               <button
                 onClick={() => setIsDevAuthModalOpen(false)}

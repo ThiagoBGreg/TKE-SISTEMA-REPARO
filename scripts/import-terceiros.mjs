@@ -200,7 +200,11 @@ async function importTerceiros() {
       matchedUser = existingByNome.get(item.nome.toLowerCase().trim());
     }
 
-    if (matchedUser) {
+      // Ignorar cadastros de TKE Elevadores / tke.elevadores.parceiro.tke.com
+      if (item.empresa?.toLowerCase().includes('tke elevadores') || matchedUser.email?.includes('tke.elevadores.parceiro.tke.com')) {
+        continue;
+      }
+
       // Atualizar dados cadastrais e senha (caso não seja admin mestre)
       if (matchedUser.cargo === 'DEV' || matchedUser.email === 'thiago.gregorio@tke.com') {
         continue;
@@ -221,6 +225,10 @@ async function importTerceiros() {
       console.log(`✏️ Atualizado: ${item.nome} | CPF: ${documentoFormatado} | Senha: ${senha}`);
     } else {
       // Gerar e-mail único
+      if (item.empresa?.toLowerCase().includes('tke elevadores')) {
+        continue;
+      }
+
       let emailFinal = '';
       const cleanRaw = item.rawEmail ? item.rawEmail.toLowerCase().trim() : '';
       if (cleanRaw && cleanRaw.includes('@') && emailOccurrences.get(cleanRaw) === 1 && !usedEmails.has(cleanRaw)) {
